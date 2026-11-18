@@ -14,19 +14,14 @@ fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
 }
 
 pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
-    let own = r.blocks
-        .iter()
-        .flat_map(|b| &b.ops)
-        .any(writes_ordinary_pointee);
-    if own { return true; }
-    // A wrapper inherits the same layout obligation as its buffer call.
+    // A caller inherits the layout obligation for writes in a descendant.
     let mut pending = vec![r.id];
     let mut seen = BTreeSet::new();
     while let Some(id) = pending.pop() {
         if !seen.insert(id) { continue; }
         let Some(r) = p.routines.iter().find(|r| r.id == id) else { continue; };
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            if super::super::runtime_contracts::library::may_write_buffer(op) { return true; }
+            if writes_ordinary_pointee(op) || super::super::runtime_contracts::library::may_write_buffer(op) { return true; }
             if let MirOp::Call { target: MirCallTarget::Routine(id), .. } = op { pending.push(*id); }
         }
     }
@@ -220,6 +215,7 @@ fn check(
 pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out: Vec<_> = crate::mir6502::analysis::known_callees::numeric_buffer_observations(p)
         .into_iter().map(|(_, address, size, _)| (address, size)).collect();
+    out.extend(crate::mir6502::analysis::known_callees::native_numeric_observations(p));
     let sargs = selected_helper(p, MirRuntimeHelper::SArgs).map(|helper| &helper.target);
     if sargs.is_some() {
         out.extend(SARGS_STATE.iter().map(|state| (u16::from(state.address()), 1)));

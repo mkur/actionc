@@ -338,3 +338,67 @@ fn nested_reviewed_write_rejects_an_overlapping_live_home_at_the_call() {
         }
     }
 }
+
+#[test]
+fn supplied_home_checks_each_lane_of_native_wrapper_destinations() {
+    let source = "PROC Draw(BYTE POINTER p BYTE n) p^=n RETURN
+        PROC Forward(BYTE POINTER p BYTE n) Draw(p,n) RETURN
+        CARD FUNC Hold(CARD keep) Forward($A2,BYTE(keep)) RETURN(keep+1)
+        PROC Main() RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model = crate::semantic::analyze(&ast).unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let input = crate::mir6502::lower_program(&nir).unwrap();
+    let selected = crate::mir6502::materialize_program(input.clone(), &Default::default()).unwrap();
+    for p in [&input, &selected] {
+        let hold = p.routines.iter().find(|r| r.name == "Hold").unwrap();
+        assert!(physical::has_pointee_writes(p, hold));
+        assert!(
+            physical::numeric_observations(p, None)
+                .unwrap()
+                .contains(&(0xa2, 1))
+        );
+    }
+    for start in [0xa1, 0xa2, 0xa8] {
+        let mut p = selected.clone();
+        let hold = p.routines.iter_mut().find(|r| r.name == "Hold").unwrap();
+        let MirStorageBase::Param(param) = hold.frame.params[0].base else {
+            panic!()
+        };
+        hold.frame.parameter_homes = Some(vec![MirParamBinding {
+            param,
+            home: MirParamHome::ZeroPage(MirFixedZpSlot(start)),
+        }]);
+        let id = hold.id;
+        let hold = p.routines.iter().find(|r| r.id == id).unwrap();
+        let mut calls = ResidenceCalls::at_origin(&p, MirCalleeEntryStage::ActualEntry, 0x3000);
+        let addresses = ObjectAddressControl::new(&p);
+        let errors = super::super::lifetimes::verify_with_address_control(
+            hold,
+            Some(&mut calls),
+            Some(&addresses),
+        );
+        let site = hold
+            .blocks
+            .iter()
+            .find_map(|b| {
+                b.ops
+                    .iter()
+                    .position(|op| matches!(op, MirOp::Call { .. }))
+                    .map(|op_index| crate::mir6502::analysis::sites::MirSite::Op {
+                        block: b.id,
+                        op_index,
+                    })
+            })
+            .unwrap();
+        if start == 0xa8 {
+            assert!(errors.is_empty(), "{errors:?}");
+        } else {
+            assert!(
+                errors.iter().any(|d| d.message.contains("clobbers live")
+                    && d.message.contains(&format!("{site:?}"))),
+                "{errors:?}"
+            );
+        }
+    }
+}

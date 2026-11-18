@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod bounded_memory;
 mod fixed_storage;
 mod native_writes;
-pub(in crate::mir6502) use native_writes::FormalWrite;
+pub(in crate::mir6502) use native_writes::{FormalWrite, native_numeric_observations};
 mod contracts;
 pub(in crate::mir6502) use contracts::MirCalleeContractChange;
 pub(in crate::mir6502) use fixed_storage::MirFixedStorage;
@@ -322,6 +322,10 @@ impl MirKnownCalleeSummaries {
     /// rewriting retains all invocation observations, including terminal paths.
     pub(in crate::mir6502) fn analyze_for_residence(program: &MirProgram) -> Self {
         Self::analyze_exit_facts(program, false, Some(program), false)
+    }
+
+    pub(in crate::mir6502) fn analyze_for_source_homes(program: &MirProgram) -> Self {
+        Self::analyze_exit_facts(program, false, Some(program), true)
     }
 
     fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>, native_pointer_writes: bool) -> Self {

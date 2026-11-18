@@ -980,3 +980,102 @@ PROC Main() Paint() RETURN
         assert!(stores_spill(&code(&out)), "{src}");
     }
 }
+
+#[test]
+fn native_writer_keeps_disjoint_home_when_a_sibling_address_is_passed() {
+    let source = "BYTE out=$680
+        PROC Draw(BYTE POINTER p BYTE n) p^=n RETURN
+        PROC Forward(BYTE POINTER p BYTE n) Draw(p,n) RETURN
+        CARD FUNC Hold(CARD keep) BYTE i
+          Forward(@i,5) Forward($A2,7) out=i RETURN(keep+1)
+        PROC Main() out=Hold(out) RETURN";
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    let n = nir(source);
+    let mut trace = Mir6502Trace::default();
+    let image =
+        mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace)
+            .unwrap();
+    let home = |name| {
+        image
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| {
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                    && s.name == name
+            })
+            .unwrap()
+            .address
+    };
+    assert!(home("i") >= 256);
+    assert!(
+        home("keep") < 255 && !(home("keep")..=home("keep") + 1).contains(&0xa2),
+        "{:#?}",
+        trace.events()
+    );
+}
+
+#[test]
+fn forwarded_numeric_destination_protects_the_original_inline_home() {
+    let source = |address| {
+        nir(&format!(
+            "PROC Draw(BYTE POINTER p BYTE n) p^=n RETURN
+        PROC Forward(BYTE POINTER p BYTE n) Draw(p,n) RETURN
+        CARD FUNC Hold(CARD keep) Forward(${address:04X},5) RETURN(keep+1)
+        PROC Main() Hold(7) RETURN"
+        ))
+    };
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    let baseline_config = Mir6502Config {
+        enable_cross_call_home_selection: false,
+        ..config.clone()
+    };
+    let baseline = |n| {
+        mir6502::generate_output_with_config_and_runtime(
+            n,
+            0x3000,
+            &baseline_config,
+            Runtime::ActionCart,
+        )
+        .unwrap()
+    };
+    let keep = |image: &actionc::codegen::CodegenOutput| {
+        image
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| {
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                    && s.name == "keep"
+            })
+            .unwrap()
+            .address
+    };
+    let disjoint = source(0x7100);
+    let address = keep(&baseline(&disjoint)) + 1;
+    let n = source(address);
+    let old = baseline(&n);
+    assert_eq!(address, keep(&old) + 1);
+    let mut trace = Mir6502Trace::default();
+    let new =
+        mir6502::generate_output_with_trace(&n, 0x3000, &config, Runtime::ActionCart, &mut trace)
+            .unwrap();
+    assert_eq!(keep(&new), keep(&old));
+    assert!(
+        trace
+            .events()
+            .iter()
+            .any(|event| event.kind == "cross-call-home-result"
+                && event.data["diagnostics"]
+                    .as_str()
+                    .is_some_and(|d| d.contains("numeric observation overlaps"))),
+        "{:#?}",
+        trace.events()
+    );
+}

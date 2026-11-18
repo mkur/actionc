@@ -21,8 +21,9 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
     let resident = routine.frame.resident_bytes();
     let owned: BTreeSet<_> = resident.iter().map(|(_, slot)| MirHomeByte::FixedZeroPage(*slot)).collect();
     if owned.is_empty() { return vec![]; }
-    let private = addresses.is_some_and(|facts| facts.owns_routine(routine)
-        && resident.iter().all(|(mem, _)| facts.compiler_controls_address(routine.id, mem)));
+    let private: BTreeSet<_> = resident.iter().filter(|(mem, _)| addresses.is_some_and(|facts|
+        facts.owns_routine(routine) && facts.compiler_controls_address(routine.id, mem)))
+        .map(|(_,slot)| MirHomeByte::FixedZeroPage(*slot)).collect();
     let Ok(cfg) = MirCfg::from_routine(routine) else {
         return vec![MirDiagnostic::routine(&routine.name, "source-object residence requires a closed CFG")];
     };
@@ -73,7 +74,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 )];
             }
             let e = classify_op(op);
-            let ordinary_pointee = private && super::super::analysis::effects::writes_ordinary_pointee(op);
+            let ordinary_pointee = !private.is_empty() && super::super::analysis::effects::writes_ordinary_pointee(op);
             if (e.memory.opaque || (e.memory.indirect_writes && !ordinary_pointee)) && !consumes && !call_dead && invocation.is_none() {
                 return vec![MirDiagnostic::routine(
                     &routine.name,
@@ -86,6 +87,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 .union(&e.addresses.pair_writes)
                 .copied()
                 .collect();
+            if ordinary_pointee { writes.extend(owned.difference(&private)); }
             for range in &e.memory.direct_writes {
                 for offset in 0..range.bytes {
                     if let Some(slot) = physical_slot(&range.base, offset) {
@@ -102,7 +104,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 writes.extend(owned.iter().filter(|home| match home {
                     MirHomeByte::FixedZeroPage(slot) => {
                         let fixed = fixed.as_deref().expect("invocation has call facts");
-                        !(if private { invocation.preserves_private_fixed_byte(*slot, fixed) }
+                        !(if private.contains(home) { invocation.preserves_private_fixed_byte(*slot, fixed) }
                             else { invocation.preserves_fixed_byte(*slot, fixed) })
                     },
                     _ => true,

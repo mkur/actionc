@@ -17,12 +17,17 @@ pub(in crate::mir6502) struct ResidenceCalls<'a> {
 
 impl<'a> ResidenceCalls<'a> {
     pub fn new(program: &'a MirProgram, stage: MirCalleeEntryStage) -> Self {
+        Self::with_entries(program, stage, None)
+    }
+
+    fn with_entries(program: &'a MirProgram, stage: MirCalleeEntryStage, acyclic: Option<MirAcyclicEntryAnalysis<'a>>) -> Self {
         Self {
             program,
-            known: MirKnownCalleeSummaries::analyze_for_residence(program),
+            known: if acyclic.is_some() { MirKnownCalleeSummaries::analyze_for_source_homes(program) }
+                else { MirKnownCalleeSummaries::analyze_for_residence(program) },
             entries: BTreeMap::new(),
             reviewed_fingerprints: BTreeMap::new(),
-            acyclic: None,
+            acyclic,
             stage,
         }
     }
@@ -35,9 +40,7 @@ impl<'a> ResidenceCalls<'a> {
     }
 
     pub fn at_origin(program: &'a MirProgram, stage: MirCalleeEntryStage, origin: u16) -> Self {
-        let mut facts = Self::new(program, stage);
-        facts.acyclic = Some(MirAcyclicEntryAnalysis::at_origin(program, origin));
-        facts
+        Self::with_entries(program, stage, Some(MirAcyclicEntryAnalysis::at_origin(program, origin)))
     }
 
     fn entry(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {
@@ -190,7 +193,15 @@ impl<'a> ResidenceCalls<'a> {
             .get(*target)
             .ok_or("unknown residence callee writes")?
             .writes();
-        if matches!(writes, MirKnownMemoryWrites::Unknown) {
+        let projected;
+        let writes = if writes.has_formal_writes() {
+            let (routine, site) = site.ok_or("unresolved residence pointer argument")?;
+            let values = crate::mir6502::runtime_contracts::buffers::argument_values(self.program, routine)
+                .ok_or("unresolved residence pointer argument")?;
+            projected = self.known.writes_at_site(self.program, routine, call, &values, site);
+            &projected
+        } else { writes };
+        if writes.has_formal_writes() || matches!(writes, MirKnownMemoryWrites::Unknown) {
             return Err("unknown residence callee writes");
         }
         Ok(writes.clone())

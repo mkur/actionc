@@ -77,7 +77,7 @@ pub(in crate::mir6502) struct FormalWrite {
     argument: u16,
     offset: u16,
     bytes: u16,
-    carrier: u8,
+    carrier: Option<u8>,
 }
 
 #[derive(PartialEq)]
@@ -118,9 +118,16 @@ fn physical_cell(
     )
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TracePurpose {
+    Preservation,
+    NumericObservation,
+}
+
 /// Follow byte copies back to entry or a relocation. At a join, a loop, or
 /// any other definition the incoming identity is unavailable.
 fn origin(
+    purpose: TracePurpose,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
     site: MirSite,
@@ -185,6 +192,14 @@ fn origin(
                 Lane::Reg(r) if classify_op(op).may_clobber_reg_compat(*r) => return None,
                 Lane::Cell(cell) => {
                     let mut writes = MirKnownMemoryWrites::exact();
+                    if let MirOp::Call { target, .. } = op {
+                        // The inventory records possible observations even if the
+                        // intervening call could also have changed this byte.
+                        if purpose == TracePurpose::NumericObservation {
+                            continue;
+                        }
+                        known.for_target(target)?;
+                    }
                     summarize_op_writes(op, routine, known, &mut writes);
                     if writes.may_write_mem(cell, &known.fixed_storage) {
                         return None;
@@ -224,6 +239,7 @@ enum Base {
 }
 
 fn paired_origin(
+    purpose: TracePurpose,
     program: &MirProgram,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
@@ -234,8 +250,8 @@ fn paired_origin(
 ) -> Option<Base> {
     let [l, h] = lanes;
     match (
-        origin(routine, known, site, l)?,
-        origin(routine, known, site, h)?,
+        origin(purpose, routine, known, site, l)?,
+        origin(purpose, routine, known, site, h)?,
     ) {
         (Origin::Input(l), Origin::Input(h)) if h == l + 1 => {
             let mut start = 0;
@@ -305,15 +321,53 @@ fn retained_base(
                 .find(|b| b.id == block)?
                 .ops
                 .get(op_index)?;
-            let MirOp::LeaAddr {
-                target,
-                width: MirWidth::Word,
-                ..
-            } = op
-            else {
-                return None;
-            };
-            target.clone()
+            match op {
+                MirOp::LeaAddr {
+                    target,
+                    width: MirWidth::Word,
+                    ..
+                } => target.clone(),
+                MirOp::Load {
+                    src: MirAddr::Direct(MirMem::Param { id, offset: 0 }),
+                    width: MirWidth::Word,
+                    ..
+                } => {
+                    // Retained parameter storage denotes its incoming value only
+                    // before any reachable write. This bounded case starts in
+                    // the entry block and stops at the first possible alias.
+                    let cfg = MirCfg::from_routine(routine).ok()?;
+                    if cfg.entry() != Some(block) || !cfg.predecessors(block).is_empty() {
+                        return None;
+                    }
+                    let b = &routine.blocks[cfg.block_index(block)?];
+
+                    if b.ops[..op_index].iter().any(|op| {
+                        let e = classify_op(op);
+                        e.memory.may_write_any
+                            || e.memory.opaque
+                            || matches!(op, MirOp::Call { .. })
+                            || e.memory
+                                .direct_writes
+                                .iter()
+                                .any(|r| matches!(r.base,MirMem::Param{id:other,..} if other==*id))
+                    }) {
+                        return None;
+                    }
+                    let index = routine
+                        .frame
+                        .params
+                        .iter()
+                        .position(|p| p.base == MirStorageBase::Param(*id))?;
+                    let params = routine.frame.direct_parameter_abi.as_ref()?;
+                    if params.get(index) != Some(&MirDirectParamAbi::Pointer) {
+                        return None;
+                    }
+                    return Some(Base::Formal(crate::mir6502::abi::parameter_bytes(
+                        params.get(..index)?,
+                    )?));
+                }
+                _ => return None,
+            }
         }
         _ => return None,
     };
@@ -330,7 +384,8 @@ fn record_base(
         Base::Numeric(base) => {
             let start = base.wrapping_add(write.offset);
             if write.bytes > 1
-                && [write.carrier, write.carrier.wrapping_add(1)]
+                && let Some(carrier) = write.carrier
+                && [carrier, carrier.wrapping_add(1)]
                     .into_iter()
                     .any(|s| u16::from(s).wrapping_sub(start) < write.bytes)
             {
@@ -371,7 +426,6 @@ impl MirKnownCalleeSummaries {
     ) -> Option<MirKnownMemoryWrites> {
         let MirOp::Call {
             target: MirCallTarget::Routine(id),
-            args,
             ..
         } = call
         else {
@@ -384,41 +438,71 @@ impl MirKnownCalleeSummaries {
         else {
             return Some(writes);
         };
-        let callee = program.routines.iter().find(|r| r.id == *id)?;
-        let lanes = crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
-        crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
         for write in std::mem::take(formals) {
-            let n = usize::from(write.argument);
-            let mut start = 0;
-            let arg = args.iter().find(|arg| {
-                let found = start == write.argument;
-                start += crate::mir6502::abi::action_arg_width_bytes(arg.width);
-                found
-            })?;
-            let base = if arg.width == MirWidth::Word {
-                retained_base(program, routine, site, &arg.value, write)?
-            } else {
-                match crate::mir6502::runtime_contracts::buffers::argument_word(
-                    program,
-                    call,
-                    write.argument,
-                    Some((values, site)),
-                ) {
-                    Some(base) => Base::Numeric(base),
-                    None => paired_origin(
-                        program,
-                        routine,
-                        self,
-                        site,
-                        [(*lanes.get(n)?).into(), (*lanes.get(n + 1)?).into()],
-                        write.offset,
-                        write.bytes,
-                    )?,
-                }
-            };
+            let base = self.call_base(
+                TracePurpose::Preservation,
+                program,
+                routine,
+                call,
+                values,
+                site,
+                write,
+            )?;
             record_base(base, write, numeric, formals)?;
         }
         Some(writes)
+    }
+    fn call_base(
+        &self,
+        purpose: TracePurpose,
+        program: &MirProgram,
+        routine: &MirRoutine,
+        call: &MirOp,
+        values: &MirMachineValueAvailability,
+        site: MirSite,
+        write: FormalWrite,
+    ) -> Option<Base> {
+        let MirOp::Call {
+            target: MirCallTarget::Routine(id),
+            args,
+            ..
+        } = call
+        else {
+            return None;
+        };
+        let callee = program.routines.iter().find(|r| r.id == *id)?;
+        let lanes = crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
+        crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
+
+        let n = usize::from(write.argument);
+        let mut start = 0;
+        let arg = args.iter().find(|arg| {
+            let found = start == write.argument;
+            start += crate::mir6502::abi::action_arg_width_bytes(arg.width);
+            found
+        })?;
+        Some(if arg.width == MirWidth::Word {
+            retained_base(program, routine, site, &arg.value, write)?
+        } else {
+            match crate::mir6502::runtime_contracts::buffers::argument_word(
+                program,
+                call,
+                write.argument,
+                Some((values, site)),
+            ) {
+                Some(base) => Base::Numeric(base),
+                None => paired_origin(
+                    purpose,
+                    program,
+                    routine,
+                    self,
+                    site,
+                    [(*lanes.get(n)?).into(), (*lanes.get(n + 1)?).into()],
+                    write.offset,
+                    write.bytes,
+                )?,
+            }
+        })
     }
 }
 
@@ -477,14 +561,15 @@ fn reviewed_pointer(
     false
 }
 
-pub(super) fn store(
+fn store_base(
+    purpose: TracePurpose,
     program: &MirProgram,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
     values: &MirMachineValueAvailability,
     site: MirSite,
     op: &MirOp,
-) -> Option<MirKnownMemoryWrites> {
+) -> Option<(Base, FormalWrite)> {
     let (pair, mut offset, mut bytes, indexed) = destination(op)?;
     let lo = fixed_pair(routine, pair)?;
     let hi = lo.wrapping_add(1);
@@ -515,6 +600,7 @@ pub(super) fn store(
         }
         _ if reviewed_pointer(program, routine, known, site, lo) => Base::Object,
         _ => paired_origin(
+            purpose,
             program,
             routine,
             known,
@@ -524,19 +610,37 @@ pub(super) fn store(
             bytes,
         )?,
     };
-    let mut numeric = Vec::new();
-    let mut formals = BTreeSet::new();
-    record_base(
+    Some((
         base,
         FormalWrite {
             argument: 0,
             offset,
             bytes,
-            carrier: lo,
+            carrier: Some(lo),
         },
-        &mut numeric,
-        &mut formals,
+    ))
+}
+
+pub(super) fn store(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    known: &MirKnownCalleeSummaries,
+    values: &MirMachineValueAvailability,
+    site: MirSite,
+    op: &MirOp,
+) -> Option<MirKnownMemoryWrites> {
+    let (base, write) = store_base(
+        TracePurpose::Preservation,
+        program,
+        routine,
+        known,
+        values,
+        site,
+        op,
     )?;
+    let mut numeric = Vec::new();
+    let mut formals = BTreeSet::new();
+    record_base(base, write, &mut numeric, &mut formals)?;
     let effects = classify_op(op);
     if effects.memory.opaque || !effects.logical.temp_defs.is_empty() {
         return None;
@@ -552,173 +656,8 @@ pub(super) fn store(
     Some(writes)
 }
 
+mod observations;
+pub(in crate::mir6502) use observations::native_numeric_observations;
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mir6502::ir::{MirDef, MirValue};
-
-    fn materialized(source: &str) -> MirProgram {
-        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
-        let model =
-            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
-                .unwrap();
-        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
-        crate::mir6502::materialize_program(
-            crate::mir6502::lower_program(&nir).unwrap(),
-            &Default::default(),
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn pointer_writes_keep_general_memory_unknown_and_physical_stores_visible() {
-        let mut p = materialized("BYTE v PROC Draw() v=1 RETURN PROC Main() Draw() RETURN");
-        let pair = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {
-            lo: MirFixedZpSlot(0xac),
-        });
-        let cell = |slot| MirMem::FixedZeroPage(MirFixedZpSlot(slot));
-        let store = |slot, n| MirOp::Store {
-            dst: MirAddr::Direct(cell(slot)),
-            src: MirValue::ConstU8(n),
-            width: MirWidth::Byte,
-        };
-        for op in [
-            MirOp::StoreIndirect {
-                consumer: pair,
-                offset: 1,
-                src: MirValue::Def(MirDef::Reg(MirReg::A)),
-            },
-            MirOp::CopyDirectWordToIndirect {
-                source: cell(0xa0),
-                destination: pair,
-                destination_offset: 1,
-            },
-        ] {
-            let bytes = if matches!(op, MirOp::StoreIndirect { .. }) {
-                1
-            } else {
-                2
-            };
-            p.routines[0].blocks[0].ops = vec![
-                store(0xac, 0xff),
-                store(0xad, 0xff),
-                store(0xe4, 9),
-                op,
-                store(0xe4, 0),
-            ];
-            let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
-            let writes = known.get(p.routines[0].id).unwrap().writes();
-            assert!(
-                matches!(writes, MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(0, bytes)]),
-                "{writes:?}"
-            );
-            assert!(writes.may_write_mem(&cell(0xed), &known.fixed_storage));
-            assert!(
-                !writes.preserves_private_fixed_byte(MirFixedZpSlot(0xe4), &known.fixed_storage)
-            );
-            assert!(
-                writes.preserves_private_fixed_byte(MirFixedZpSlot(0xed), &known.fixed_storage)
-            );
-        }
-    }
-
-    #[test]
-    fn forwarded_pointer_is_instantiated_separately_at_each_call() {
-        let mut p = materialized(
-            "PROC Draw(BYTE POINTER p BYTE n) p^=n RETURN
-            PROC Forward(BYTE POINTER p BYTE n) Draw(p,n) RETURN
-            PROC Near() Forward($A2,7) RETURN PROC Far() Forward($7100,8) RETURN
-            PROC Wrap() Forward($FFFF,9) RETURN
-            PROC Branch(BYTE which) IF which THEN Near() ELSE Far() FI RETURN
-            PROC Main() Branch(0) Wrap() RETURN",
-        );
-        for width in [1, 2] {
-            if width == 2 {
-                let op = p.routines[0].blocks[0]
-                    .ops
-                    .iter_mut()
-                    .find(|op| matches!(op, MirOp::StoreIndirect { .. }))
-                    .unwrap();
-                let MirOp::StoreIndirect { consumer, .. } = op else {
-                    unreachable!()
-                };
-                *op = MirOp::CopyDirectWordToIndirect {
-                    source: MirMem::Absolute(0x680),
-                    destination: *consumer,
-                    destination_offset: 0,
-                };
-            }
-            let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
-            for (name, ranges) in [
-                ("Near", vec![(0xA2, width)]),
-                ("Far", vec![(0x7100, width)]),
-                ("Wrap", vec![(0xFFFF, width)]),
-                ("Branch", vec![(0xA2, width), (0x7100, width)]),
-            ] {
-                let r = p.routines.iter().find(|r| r.name == name).unwrap();
-                let writes = known.get(r.id).unwrap().writes();
-                assert!(
-                    matches!(writes, MirKnownMemoryWrites::Pointee { numeric, formals, .. }
-                    if formals.is_empty() && numeric.len() == ranges.len() && ranges.iter().all(|r|numeric.contains(r))),
-                    "{name}: {writes:?}"
-                );
-                for lane in [0, 0xA2, 0xA3] {
-                    assert_eq!(
-                        writes.preserves_private_fixed_byte(
-                            MirFixedZpSlot(lane),
-                            &known.fixed_storage
-                        ),
-                        ranges
-                            .iter()
-                            .all(|&(a, n)| u16::from(lane).wrapping_sub(a) >= n)
-                    );
-                }
-            }
-            assert!(
-                known
-                    .get(p.routines[1].id)
-                    .unwrap()
-                    .writes()
-                    .has_formal_writes()
-            );
-        }
-    }
-
-    #[test]
-    fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
-        let path =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
-        let ast = crate::includes::load_program_with_includes(path).unwrap();
-        let model =
-            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
-                .unwrap();
-        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
-        let mut p = crate::mir6502::materialize_program(
-            crate::mir6502::lower_program(&nir).unwrap(),
-            &Default::default(),
-        )
-        .unwrap();
-        let putchar = p.routines.iter().find(|r| r.name == "Putchar").unwrap();
-        let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
-        let writes = known.get(putchar.id).unwrap().writes();
-        assert!(
-            matches!(writes, MirKnownMemoryWrites::Pointee { ordinary: true, .. }),
-            "{writes:?}"
-        );
-        for slot in [0xa0, 0xe6, 0xe7, 0xff] {
-            assert!(
-                !writes.preserves_private_fixed_byte(MirFixedZpSlot(slot), &known.fixed_storage)
-            );
-        }
-        assert!(writes.preserves_private_fixed_byte(MirFixedZpSlot(0xa8), &known.fixed_storage));
-        assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(0xa8), &known.fixed_storage));
-        let id = putchar.id;
-        let producer = p.routines.iter_mut().find(|r| r.name == "CalcAdr").unwrap();
-        producer.frame.callee_review.as_mut().unwrap().fingerprint ^= 1;
-        let stale = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
-        assert_eq!(
-            stale.get(id).unwrap().writes(),
-            &MirKnownMemoryWrites::Unknown
-        );
-    }
-}
+mod tests;
