@@ -130,6 +130,10 @@ pub(super) struct CaptureSummary {
     pub state_reads: Vec<MirMem>,
 }
 
+/// Fixed program state observed by SArgs. ABI lanes and scratch belong to
+/// each invocation. On BREAK the helper also increments BRKKEY.
+pub(super) const SARGS_STATE: &[crate::codegen::ZeroPage] = &[crate::codegen::runtime_zp::BRKKEY];
+
 pub(super) fn sargs_capture(
     program: &MirProgram,
     routine: &MirRoutine,
@@ -179,7 +183,9 @@ pub(super) fn sargs_capture(
             .chain(0xa0..=0xa2)
             .map(|b| MirMem::FixedZeroPage(MirFixedZpSlot(b)))
             .collect(),
-        state_reads: vec![MirMem::FixedZeroPage(MirFixedZpSlot(0x11))],
+        state_reads: SARGS_STATE.iter()
+            .map(|state| MirMem::FixedZeroPage(MirFixedZpSlot(state.address())))
+            .collect(),
     })
 }
 

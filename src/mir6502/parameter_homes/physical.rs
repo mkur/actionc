@@ -7,6 +7,7 @@ use crate::mir6502::analysis::{
     known_callees::{fixed_storage_address, machine_storage_observations},
     record_bases::{MirPhysicalMemory, SourceBinding, SourceObject, SourceStorage},
 };
+use crate::mir6502::runtime_contracts::{SARGS_STATE, selected_helper};
 
 fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
     !r.frame.resident_bytes().is_empty() && has_pointee_writes(p, r)
@@ -219,7 +220,16 @@ fn check(
 pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
     let mut out: Vec<_> = crate::mir6502::analysis::known_callees::numeric_buffer_observations(p)
         .into_iter().map(|(_, address, size, _)| (address, size)).collect();
+    let sargs = selected_helper(p, MirRuntimeHelper::SArgs).map(|helper| &helper.target);
+    if sargs.is_some() {
+        out.extend(SARGS_STATE.iter().map(|state| (u16::from(state.address()), 1)));
+    }
     for r in &p.routines {
+        // The selected helper's only fixed program state is recorded above.
+        // Its BREAK dependencies remain separate routines in this inventory.
+        if sargs == Some(&MirRuntimeHelperTarget::Routine(r.id)) {
+            continue;
+        }
         let values = r.blocks.iter().flat_map(|b| &b.ops)
             .any(|op| super::super::runtime_contracts::library_invocation(p, op).is_some())
             .then(|| super::super::runtime_contracts::buffers::argument_values(p, r)).flatten();
@@ -322,6 +332,35 @@ fn numeric_base(p: &MirProgram, mem: &MirMem) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_sargs_exposes_program_state_in_both_runtimes() {
+        use crate::mir6502::{Mir6502Config, lower_program, materialize_program_with_origin_and_runtime};
+        use crate::runtime::Runtime;
+
+        let source = "PROC Capture(BYTE a,b,c,d,e) RETURN PROC Main() Capture(1,2,3,4,5) RETURN";
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model = crate::semantic::analyze(&ast).unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let mut p = materialize_program_with_origin_and_runtime(
+                lower_program(&nir).unwrap(), &Mir6502Config::default(), 0x3000, runtime,
+            ).unwrap();
+            let seen = numeric_observations(&p, None).unwrap();
+            assert!(seen.contains(&(0x11, 1)));
+            // The indexed copy from $A0 exposes only the ABI lanes for this call.
+            assert!(!seen.iter().any(|&(base, bytes)| 0xe4u16.wrapping_sub(base) < bytes));
+            if runtime == Runtime::Standalone {
+                assert!(seen.contains(&(0x04c1, 1))); // Break saves the stack pointer.
+                assert!(seen.contains(&(0x000a, 1)) && seen.contains(&(0x000b, 1))); // Error's DOSVEC.
+                let helper = p.runtime_helpers.iter_mut().find(|h| h.helper == MirRuntimeHelper::SArgs).unwrap();
+                let MirRuntimeHelperTarget::Routine(owner) = helper.target else { panic!("expected linked SArgs") };
+                helper.binding = None;
+                assert_eq!(numeric_observations(&p, None).unwrap_err().routine_id, owner.0);
+            }
+        }
+    }
+
     #[test]
     fn symbolic_observation_retained_sources_use_their_own_layouts_and_protect_old_and_new_homes() {
         let source = "PROC POINTER ptr\nPROC Probe=*()\nASM\n jmp (ptr)\nENDASM\nPROC Main() RETURN";

@@ -320,6 +320,13 @@ physical checks, and the supported binding contract. Unknown/custom helper
 bindings do not gain capture guarantees merely from the SArgs name. Apply the
 normal-return rule above to Break/Error without analyzing handler clobbers.
 
+The ZP-home allocator takes fixed program-state addresses from the selected
+SArgs contract in both runtimes. It records the BREAK flag at `$11`. Each
+capture accounts for its argument lanes, destination frame and scratch. When
+the selected helper is linked into the executable, the allocator skips its
+body and still inventories the separate Break and Error routines. A missing
+or stale binding leaves the linked routine subject to ordinary assembly checks.
+
 ### Separate capture strategy from ABI knowledge
 
 `MAX_DIRECT_PARAM_CAPTURE_BYTES` selects the current emission strategy: direct
