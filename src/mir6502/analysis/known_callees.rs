@@ -78,7 +78,7 @@ impl MirKnownMemoryWrites {
         };
         writes.iter().all(|write| {
             matches!(write, MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. } | MirMem::Static { .. })
-                || !fixed.may_overlap(write, &MirMem::FixedZeroPage(slot))
+                || !fixed.may_overlap_zp(write, slot)
         })
     }
 
@@ -312,27 +312,27 @@ impl MirKnownCalleeSummaries {
     }
 
     pub(in crate::mir6502) fn analyze(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, true, None, false)
+        Self::analyze_exit_facts(program, true, None, None)
     }
 
     /// Local rewrites do not yet preserve an interprocedural N/Z exit contract.
     /// Keep exact flags from immutable machine routines, but do not publish a
     /// mutable MIR routine's incidental return flags to another routine.
     pub(in crate::mir6502) fn analyze_for_rewriting(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false, None, false)
+        Self::analyze_exit_facts(program, false, None, None)
     }
 
     /// Successful-return footprints are scoped to residence validation. Generic
     /// rewriting retains all invocation observations, including terminal paths.
     pub(in crate::mir6502) fn analyze_for_residence(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false, Some(program), false)
+        Self::analyze_exit_facts(program, false, Some(program), None)
     }
 
-    pub(in crate::mir6502) fn analyze_for_source_homes(program: &MirProgram) -> Self {
-        Self::analyze_exit_facts(program, false, Some(program), true)
+    pub(in crate::mir6502) fn analyze_for_source_homes(program: &MirProgram, origin: u16) -> Self {
+        Self::analyze_exit_facts(program, false, Some(program), Some(origin))
     }
 
-    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>, native_pointer_writes: bool) -> Self {
+    fn analyze_exit_facts(program: &MirProgram, mutable_return_flags: bool, normal: Option<&MirProgram>, source_home_origin: Option<u16>) -> Self {
         let direct_call_targets = program
             .routines
             .iter()
@@ -355,8 +355,8 @@ impl MirKnownCalleeSummaries {
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
             mutable_return_flags,
-            native_pointer_writes,
-            fixed_storage: Arc::new(MirFixedStorage::new(program)),
+            native_pointer_writes: source_home_origin.is_some(),
+            fixed_storage: Arc::new(MirFixedStorage::at_origin(program, source_home_origin.unwrap_or(0))),
             entry_flags: BTreeMap::new(),
             scalar_entries_ignoring_flags: program
                 .routines

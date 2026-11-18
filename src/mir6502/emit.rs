@@ -934,7 +934,7 @@ impl MirObjectLayout {
                             address
                         };
                     let address = logical_global_address(global, storage_address);
-                    let logical_size = logical_global_size(global, size);
+                    let logical_size = global.logical_size(size);
                     layout.globals.insert(
                         global.id,
                         MirStoragePlacement::Absolute {
@@ -1612,14 +1612,6 @@ fn logical_global_address(global: &super::ir::MirGlobal, storage_address: u16) -
         })
 }
 
-fn logical_global_size(global: &super::ir::MirGlobal, object_size: u16) -> u16 {
-    global
-        .init
-        .as_ref()
-        .and_then(global_descriptor_size)
-        .unwrap_or(object_size)
-}
-
 fn logical_slot_address(slot: &MirStorageSlot, storage_address: u16) -> u16 {
     slot.init
         .as_ref()
@@ -1641,18 +1633,6 @@ fn global_descriptor_backing_size(init: &MirGlobalInit) -> Option<u16> {
         MirGlobalInit::Descriptor { backing, .. } => {
             Some((backing.image.bytes.len() as u16).saturating_add(backing.zero_fill))
         }
-        _ => None,
-    }
-}
-
-fn global_descriptor_size(init: &MirGlobalInit) -> Option<u16> {
-    match init {
-        MirGlobalInit::Descriptor {
-            descriptor_size, ..
-        }
-        | MirGlobalInit::RoutineAddress {
-            descriptor_size, ..
-        } => Some(*descriptor_size),
         _ => None,
     }
 }

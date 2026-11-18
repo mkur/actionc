@@ -20,14 +20,14 @@ impl<'a> ResidenceCalls<'a> {
         Self::with_entries(program, stage, None)
     }
 
-    fn with_entries(program: &'a MirProgram, stage: MirCalleeEntryStage, acyclic: Option<MirAcyclicEntryAnalysis<'a>>) -> Self {
+    fn with_entries(program: &'a MirProgram, stage: MirCalleeEntryStage, origin: Option<u16>) -> Self {
         Self {
             program,
-            known: if acyclic.is_some() { MirKnownCalleeSummaries::analyze_for_source_homes(program) }
+            known: if let Some(origin) = origin { MirKnownCalleeSummaries::analyze_for_source_homes(program, origin) }
                 else { MirKnownCalleeSummaries::analyze_for_residence(program) },
             entries: BTreeMap::new(),
             reviewed_fingerprints: BTreeMap::new(),
-            acyclic,
+            acyclic: origin.map(|origin| MirAcyclicEntryAnalysis::at_origin(program, origin)),
             stage,
         }
     }
@@ -40,7 +40,7 @@ impl<'a> ResidenceCalls<'a> {
     }
 
     pub fn at_origin(program: &'a MirProgram, stage: MirCalleeEntryStage, origin: u16) -> Self {
-        Self::with_entries(program, stage, Some(MirAcyclicEntryAnalysis::at_origin(program, origin)))
+        Self::with_entries(program, stage, Some(origin))
     }
 
     fn entry(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {

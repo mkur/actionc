@@ -185,6 +185,10 @@ byte for `PutImage` in `$A3` before entering the reviewed body.
 For ZP home selection, a reviewed copy contributes its fixed writes and each
 destination span at the call site. In `RestorePos`, `MovePage(@zx,
 arenaRestoreCursor, 4)` writes `$005A–$005D` and uses `$A0–$A2` as scratch.
-The dynamic source contributes reads. An unknown destination, or a destination
-that can overwrite a fixed pointer or count carrier, keeps the write footprint
-unknown. Native wrappers also contribute their own staging and cursor writes.
+The dynamic source contributes reads. For a potentially nonempty copy, the
+write footprint stays unknown if the destination is unknown or the span can
+overwrite a fixed pointer or count carrier. Native wrappers also contribute
+their own staging and cursor writes.
+A write to an in-bounds byte of an ordinary image global, such as
+`arenaRestoreCursor`, is disjoint from ZP when the image origin is at least
+`$0100`. Fixed-address globals and their aliases use their physical addresses.

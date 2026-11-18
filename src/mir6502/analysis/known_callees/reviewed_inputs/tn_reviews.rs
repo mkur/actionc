@@ -1,4 +1,5 @@
 use super::*;
+use crate::mir6502::ir::MirValue;
 
 fn tn_semir() -> crate::semantic::ir::SemProgram {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
@@ -88,6 +89,41 @@ fn tn_destination_contracts_match_both_backends_and_bound_native_writers() {
             "{name}"
         );
     }
+    check_restore_pos_writes(&mir);
+}
+
+fn check_restore_pos_writes(mir: &MirProgram) {
+    let source_homes = MirKnownCalleeSummaries::analyze_for_source_homes(mir, 0x3000);
+    let writes = |name| {
+        let id = mir.routines.iter().find(|r| r.name == name).unwrap().id;
+        source_homes.get(id).unwrap().writes()
+    };
+    let restore = writes("RestorePos");
+    assert!(matches!(restore, MirKnownMemoryWrites::Pointee { numeric, .. }
+        if numeric == &[(0x5a, 4)]), "{restore:?}");
+    for slot in [0x5a, 0x5b, 0x5c, 0x5d, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xe8, 0xe9] {
+        assert!(!restore.preserves_fixed_byte(MirFixedZpSlot(slot), source_homes.fixed_storage()), "${slot:02x}");
+    }
+    for slot in [0x59, 0x5e, 0xea] {
+        assert!(restore.preserves_fixed_byte(MirFixedZpSlot(slot), source_homes.fixed_storage()), "${slot:02x}: {restore:?}");
+    }
+    assert_eq!(writes("MovePage"), &MirKnownMemoryWrites::Unknown);
+    let wrapper = mir.routines.iter().find(|r| r.name == "RestorePos").unwrap();
+    let copy = mir.routines.iter().find(|r| r.name == "MovePage").unwrap().id;
+    let (site, call) = wrapper.blocks.iter().find_map(|block| {
+        block.ops.iter().enumerate().find_map(|(op_index, op)| {
+            matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == copy)
+                .then_some((MirSite::Op { block: block.id, op_index }, op))
+        })
+    }).unwrap();
+    let mut call = call.clone();
+    let MirOp::Call { args, .. } = &mut call else { unreachable!() };
+    // The diagnostic operand can be stale. The expanded call reads $A4.
+    args.last_mut().unwrap().value = MirValue::ConstU8(200);
+    let values = crate::mir6502::runtime_contracts::buffers::argument_values(mir, wrapper).unwrap();
+    let invocation = source_homes.writes_at_site(mir, wrapper, &call, &values, site);
+    assert!(matches!(invocation, MirKnownMemoryWrites::Pointee { ref numeric, .. }
+        if numeric == &[(0x5a, 4)]), "{invocation:?}");
 }
 
 #[test]

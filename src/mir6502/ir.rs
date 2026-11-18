@@ -104,6 +104,17 @@ pub struct MirGlobal {
     pub init: Option<MirGlobalInit>,
 }
 
+impl MirGlobal {
+    /// Bytes accessible from the logical address, after any descriptor backing.
+    pub(super) fn logical_size(&self, object_size: u16) -> u16 {
+        match &self.init {
+            Some(MirGlobalInit::Descriptor { descriptor_size, .. }
+                | MirGlobalInit::RoutineAddress { descriptor_size, .. }) => *descriptor_size,
+            _ => object_size,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirArrayGlobalFact {
     pub elem_size: u16,

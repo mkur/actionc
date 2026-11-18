@@ -251,7 +251,7 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                     let (bytes, listing) = compile(&sources, name, mode, runtime);
                     if mode == CompileMode::Mir6502 && name == "TN.ACT" {
                         for label in ["param_Window_x", "param_Window_y", "param_Window_dx",
-                            "param_Window_dy", "local_Window_buf", "local_Window_h"] {
+                            "param_Window_dy", "local_Window_buf", "local_Window_h", "local_PopUp_ch"] {
                             let prefix = format!("{label} = $");
                             let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
                                 .and_then(|hex| u16::from_str_radix(hex, 16).ok());
@@ -307,6 +307,14 @@ fn real_arena_success_and_window_checkpoints_with_lf_and_crlf() {
                     assert_eq!(vm.bus().ram().read_word(0x2000), 0xBEEF);
                     vm = machine::call(vm, &mut hooks, routine("Pull"), &[]);
                     assert_eq!(vm.bus().ram().read_word(0xA0), 0xBEEF);
+                    assert_eq!(vm.bus().ram().read_word(0xE8), 0x2000);
+                    // Restore four distinct bytes and leave both neighbors intact.
+                    let position = [3, 5, 12, 7];
+                    vm.bus_mut().ram_mut().map(0x5a, &position).unwrap();
+                    vm = machine::call(vm, &mut hooks, routine("SavePos"), &[]);
+                    vm.bus_mut().ram_mut().map(0x59, &[0x70, 0, 0, 0, 0, 0xa5]).unwrap();
+                    vm = machine::call(vm, &mut hooks, routine("RestorePos"), &[]);
+                    assert_eq!(machine::bytes(&vm, 0x59, 6), [0x70, 3, 5, 12, 7, 0xa5]);
                     assert_eq!(vm.bus().ram().read_word(0xE8), 0x2000);
                     // MkDir's released allocation remains writable scratch.
                     vm = machine::call(vm, &mut hooks, routine("Alloc"), &20u16.to_le_bytes());

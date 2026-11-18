@@ -319,7 +319,7 @@ mod tests {
         let id = |name: &str| p.routines.iter().find(|r| r.name == name).unwrap().id;
         let restore = id("Restore");
         let copy = id("CopyBytes");
-        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
         for (name, start, size) in [
             ("Restore", 0x5a, 4),
             ("FullPage", 0x7000, 256),
@@ -359,7 +359,7 @@ mod tests {
             .unwrap()
             .fingerprint ^= 1;
         assert_eq!(
-            MirKnownCalleeSummaries::analyze_for_source_homes(&p)
+            MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0)
                 .get(restore)
                 .unwrap()
                 .writes(),

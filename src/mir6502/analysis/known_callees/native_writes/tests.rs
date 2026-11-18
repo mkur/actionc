@@ -50,7 +50,7 @@ fn pointer_writes_keep_general_memory_unknown_and_physical_stores_visible() {
             op,
             store(0xe4, 0),
         ];
-        let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
+        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
         let writes = known.get(p.routines[0].id).unwrap().writes();
         assert!(
             matches!(writes, MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(0, bytes)]),
@@ -88,7 +88,7 @@ fn forwarded_pointer_is_instantiated_separately_at_each_call() {
                 destination_offset: 0,
             };
         }
-        let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
+        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
         for (name, ranges) in [
             ("Near", vec![(0xA2, width)]),
             ("Far", vec![(0x7100, width)]),
@@ -135,7 +135,7 @@ fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
     )
     .unwrap();
     let putchar = p.routines.iter().find(|r| r.name == "Putchar").unwrap();
-    let known = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
     let writes = known.get(putchar.id).unwrap().writes();
     assert!(
         matches!(writes, MirKnownMemoryWrites::Pointee { ordinary: true, .. }),
@@ -149,7 +149,7 @@ fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
     let id = putchar.id;
     let producer = p.routines.iter_mut().find(|r| r.name == "CalcAdr").unwrap();
     producer.frame.callee_review.as_mut().unwrap().fingerprint ^= 1;
-    let stale = MirKnownCalleeSummaries::analyze_exit_facts(&p, false, Some(&p), true);
+    let stale = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
     assert_eq!(
         stale.get(id).unwrap().writes(),
         &MirKnownMemoryWrites::Unknown
@@ -174,7 +174,7 @@ fn a_captured_pointer_uses_the_staged_zp_arguments() {
     // Deliberately disagree with the bytes actually staged at $A3/$A4.
     args[3].value = MirValue::ConstU8(0xa8);
     args[4].value = MirValue::ConstU8(0);
-    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
     let writes = known.get(p.routines[1].id).unwrap().writes();
     assert!(
         matches!(writes,MirKnownMemoryWrites::Pointee{numeric,formals,..}
@@ -192,7 +192,7 @@ fn a_captured_pointer_uses_the_staged_zp_arguments() {
         unreachable!()
     };
     *byte_count -= 1;
-    let stale = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+    let stale = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
     assert_eq!(
         stale.get(p.routines[1].id).unwrap().writes(),
         &MirKnownMemoryWrites::Unknown

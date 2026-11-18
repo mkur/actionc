@@ -1,21 +1,32 @@
 //! Source-fixed address evidence for one analysis of one program.
 //! Logical footprints remain unchanged; no caller frame resolves callee homes.
-use super::{MirMem, MirProgram, fixed_storage_address};
+use super::{MirFixedZpSlot, MirMem, MirProgram, fixed_storage_address};
+use crate::mir6502::ir::MirGlobalBacking;
 use crate::nir::SymbolId;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirFixedStorage {
     globals: BTreeMap<SymbolId, u16>,
+    above_zp_sizes: BTreeMap<SymbolId, u16>,
 }
 
 impl MirFixedStorage {
     pub(in crate::mir6502) fn new(program: &MirProgram) -> Self {
+        Self::at_origin(program, 0)
+    }
+
+    pub(super) fn at_origin(program: &MirProgram, origin: u16) -> Self {
         Self {
             globals: program.globals.iter().filter_map(|global| {
                 fixed_storage_address(program, &MirMem::Global { id: global.id, offset: 0 })
                     .map(|address| (global.id, address))
             }).collect(),
+            // Both the inline and deferred image segments start at or above
+            // origin. Only an in-bounds logical byte can use this evidence.
+            above_zp_sizes: program.globals.iter().filter(|g|
+                origin >= 0x100 && matches!(g.backing, MirGlobalBacking::Ordinary { .. })
+            ).map(|g| (g.id, g.logical_size(g.storage_size))).collect(),
         }
     }
 
@@ -33,6 +44,15 @@ impl MirFixedStorage {
             (Some(left), Some(right)) => left == right,
             _ => true,
         }
+    }
+
+    pub(super) fn may_overlap_zp(&self, mem: &MirMem, slot: MirFixedZpSlot) -> bool {
+        if let MirMem::Global { id, offset } = mem
+            && self.above_zp_sizes.get(id).is_some_and(|size| offset < size)
+        {
+            return false;
+        }
+        self.may_overlap(mem, &MirMem::FixedZeroPage(slot))
     }
 }
 
@@ -108,5 +128,22 @@ mod tests {
         let byte = MirMem::Absolute(0xe5);
         assert!(!old.may_overlap(&mem(1, 0), &byte));
         assert!(candidate.may_overlap(&mem(1, 0), &byte));
+    }
+
+    #[test]
+    fn only_in_bounds_image_bytes_are_disjoint_from_zp_at_a_known_origin() {
+        let mut p = program(vec![global(0, MirGlobalBacking::Ordinary { offset: 0 }),
+            global(1, MirGlobalBacking::Absolute(0xe4)),
+            global(2, MirGlobalBacking::Alias { target: SymbolId(1), offset: 1 })]);
+        let slot = MirFixedZpSlot(0xe5);
+        for origin in [0xff, 0x100, 0x3000] {
+            let fixed = MirFixedStorage::at_origin(&p, origin);
+            assert_eq!(fixed.may_overlap_zp(&mem(0, 1), slot), origin < 0x100);
+            for unknown_or_overlapping in [mem(0, 2), mem(1, 1), mem(2, 0), mem(99, 0)] {
+                assert!(fixed.may_overlap_zp(&unknown_or_overlapping, slot));
+            }
+        }
+        p.globals[0].backing = MirGlobalBacking::Absolute(0xe4);
+        assert!(MirFixedStorage::at_origin(&p, 0x3000).may_overlap_zp(&mem(0, 1), slot));
     }
 }
