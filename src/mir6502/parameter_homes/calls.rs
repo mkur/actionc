@@ -3,7 +3,6 @@
 use super::*;
 use crate::mir6502::analysis::known_callees::{
     MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirKnownCalleeSummaries, MirKnownMemoryWrites,
-    abi_inputs_review_fingerprint,
 };
 use std::collections::BTreeMap;
 
@@ -98,22 +97,20 @@ impl<'a> ResidenceCalls<'a> {
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
         super::super::abi::validate_direct_call_result(callee, call)?;
-        if let Some(review) = &callee.frame.callee_review {
-            if machine && self.acyclic.is_some() && self.known.get(*target).is_some_and(|s| s.call_facts().abi_inputs_only) {
-                return Ok(());
-            }
-            self.reviewed_fingerprints.entry(*target).or_insert_with(||
-                crate::mir6502::analysis::known_callees::body_fingerprint(self.program, callee, review.version()));
-            return Err("missing reviewed assembly entry guarantee");
-        }
-        if machine && self.acyclic.is_some() && let Some(expected) = callee.frame.abi_inputs_only_review {
-            let current = self.reviewed_fingerprints.entry(*target)
-                .or_insert_with(|| abi_inputs_review_fingerprint(self.program, callee));
-            if *current == Some(expected) { return Ok(()); }
-        }
         let observable = callee.abi == MirRoutineAbi::ActionObservable;
         match self.entry(*target) {
             Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,
+            None if callee.frame.callee_review.is_some() => {
+                let review = callee.frame.callee_review.as_ref().unwrap();
+                self.reviewed_fingerprints.entry(*target).or_insert_with(||
+                    crate::mir6502::analysis::known_callees::body_fingerprint(self.program, callee, review.version()));
+                return Err("missing reviewed assembly entry guarantee");
+            }
+            None if callee.frame.abi_inputs_only_review.is_some() => {
+                self.reviewed_fingerprints.entry(*target).or_insert_with(||
+                    crate::mir6502::analysis::known_callees::abi_inputs_review_fingerprint(self.program, callee));
+                return Err("unknown residence callee entry");
+            }
             // Observable and machine entries require an actual certificate,
             // including at dead boundaries. The absence of MIR call edges cannot
             // exclude hidden calls or implicit inputs in a machine payload.

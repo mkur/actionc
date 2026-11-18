@@ -1,13 +1,17 @@
 use super::*;
 
-#[test]
-fn tn_destination_contracts_match_both_backends_and_bound_native_writers() {
+fn tn_semir() -> crate::semantic::ir::SemProgram {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
     let ast = crate::includes::load_program_with_includes(path).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
             .unwrap();
-    let sem = crate::semantic::ir::lower_program(&ast, &model);
+    crate::semantic::ir::lower_program(&ast, &model)
+}
+
+#[test]
+fn tn_destination_contracts_match_both_backends_and_bound_native_writers() {
+    let sem = tn_semir();
     let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
 
     for name in [
@@ -83,5 +87,31 @@ fn tn_destination_contracts_match_both_backends_and_bound_native_writers() {
             !writes.preserves_fixed_byte(MirFixedZpSlot(state), summaries.fixed_storage()),
             "{name}"
         );
+    }
+}
+
+#[test]
+fn internal_review_composes_through_native_print_callers() {
+    use crate::mir6502::analysis::known_callees::{MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirCalleeEntryStage};
+    let input = crate::mir6502::lower_program(&crate::nir::lower_program(&tn_semir())).unwrap();
+    let p = crate::mir6502::materialize_program(input, &Default::default()).unwrap();
+    let id = |name| p.routines.iter().find(|r| r.name == name).unwrap().id;
+    let stage = MirCalleeEntryStage::ActualEntry;
+    let internal = id("Internal");
+    let review = reviewed_contract(&p, p.routines.iter().find(|r| r.id == internal).unwrap()).unwrap();
+    assert!(review.abi_inputs_only && !review.physical_abi_inputs);
+    assert!(MirCalleeEntryFact::analyze(&p, internal, stage).is_none());
+    let mut home = MirAcyclicEntryAnalysis::new(&p);
+    let leaf = home.analyze(internal).unwrap();
+    assert!(leaf.inputs.registers.a && !leaf.inputs.registers.x && !leaf.inputs.registers.y);
+    assert!(!leaf.inputs.flags.any() && leaf.inputs.fixed.is_empty());
+    for name in ["Putchar", "Print"] {
+        let wrapper = home.analyze(id(name)).unwrap();
+        assert!(!wrapper.inputs.flags.c);
+        assert!(wrapper.is_current(&p, stage));
+        let mut stale = p.clone();
+        stale.globals.iter_mut().find(|g| g.name == "internalMap").unwrap().storage_size = 3;
+        assert!(!wrapper.is_current(&stale, stage));
+        assert!(MirAcyclicEntryAnalysis::new(&stale).analyze(id(name)).is_none());
     }
 }

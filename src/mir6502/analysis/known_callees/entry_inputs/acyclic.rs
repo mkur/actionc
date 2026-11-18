@@ -52,12 +52,10 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
             matches!(op, MirOp::MachineBlock { .. })).map(|op_index|
                 MirSite::Op { block: b.id, op_index }))
         {
-            // The existing leaf producer certifies the complete machine body,
-            // including its closed control flow. No MIR call edges alone is not
-            // evidence that a payload has no hidden call. Keep result definitions
-            // and source witnesses exactly as published by that producer.
-            let fact = MirCalleeEntryFact::analyze(self.program, target,
-                MirCalleeEntryStage::ActualEntry).map(Arc::new);
+            // The leaf contributes only its matched caller obligations. Its own
+            // implementation matcher certifies that the complete body is covered.
+            let fact = MirCalleeEntryFact::analyze_with_dependencies(self.program, target,
+                MirCalleeEntryStage::ActualEntry, Some(BTreeMap::new())).map(Arc::new);
             if fact.is_none() {
                 self.failures.insert(target, (target, Some(site), "uncertified machine leaf entry"));
             }

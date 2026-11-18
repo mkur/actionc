@@ -1,5 +1,5 @@
 use super::*;
-use crate::mir6502::analysis::known_callees::MirKnownMemoryReads;
+use crate::mir6502::analysis::known_callees::{MirKnownMemoryReads, abi_inputs_review_fingerprint};
 
 fn lower_with_home(source: &str) -> MirProgram {
     let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();

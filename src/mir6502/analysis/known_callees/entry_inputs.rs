@@ -21,8 +21,9 @@ pub(in crate::mir6502) enum MirCalleeEntryStage {
     ActualEntry,
 }
 
-/// Incoming machine values observed before a guaranteed definition. Program
-/// memory observations belong to the separate read footprint, not this set.
+/// Entry obligations for the requested consumer. Physical entry analysis asks
+/// which machine values can be read before definition. Home placement asks
+/// which values a caller must supply. Program-data reads have a separate footprint.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirEntryRequirements {
     pub registers: MirRegisterSet,
@@ -91,9 +92,18 @@ impl MirCalleeEntryFact {
             .map(|id| program.machine_blocks.iter().find(|m| m.id == id).cloned())
             .collect::<Option<_>>()?;
         let (inputs, defined_results) = if !machines.is_empty() {
-            if dependencies.is_some() { return None; }
+            // Only the acyclic home analysis supplies a dependency map.
+            let home_placement = dependencies.is_some();
             let inputs = if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
-                if !super::reviewed_contract(program, routine)?.physical_abi_inputs { return None; }
+                let certified = if let Some(review) = super::reviewed_contract(program, routine) {
+                    if home_placement { review.abi_inputs_only || review.physical_abi_inputs }
+                    else { review.physical_abi_inputs }
+                } else {
+                    home_placement && routine.frame.callee_review.is_none()
+                        && routine.frame.abi_inputs_only_review.is_some_and(|expected|
+                            super::abi_inputs_review_fingerprint(program, routine) == Some(expected))
+                };
+                if !certified { return None; }
                 let abi = routine.frame.direct_parameter_abi.as_ref()?;
                 let bytes = crate::mir6502::abi::parameter_bytes(abi)?;
                 let mut inputs = MirEntryRequirements::default();
