@@ -71,6 +71,7 @@ mod regs;
 pub(super) mod register_copies;
 pub(super) mod pointer_retention;
 mod runtime;
+pub(super) mod shift_helpers;
 mod small_loops;
 pub(super) mod spills;
 mod ssa_lite;
@@ -230,7 +231,6 @@ use regs::{op_reads_reg, op_writes_reg};
 pub(in crate::mir6502) use runtime::helper_for_binary;
 use runtime::{
     ensure_helper_decl, helper_for_typed_binary, materialize_runtime_helper_binary,
-    runtime_helper_result_width,
 };
 pub(super) use runtime::{deferred_helper_decl, helper_abi_for, helper_additional_results, helper_args, helper_effects};
 pub(super) use runtime::helper_return_effects;
@@ -5971,56 +5971,15 @@ fn materialize_ops_impl(
                     &mut out,
                 );
             }
-            MirOp::Binary {
-                op,
-                dst,
-                left,
-                right,
-                width,
-                ..
-            } if config.select_runtime_helpers
-                && helper_for_typed_binary(
-                    op,
-                    width,
-                    &left,
-                    &right,
-                    &temp_widths,
-                    config.select_widening_byte_multiply,
-                    config.enable_peepholes,
-                    helpers,
-                )
-                .is_some() =>
+            ref binary @ MirOp::Binary { .. }
+                if let Some(helper) = runtime::expand_binary_helper(
+                    binary, config, layout, &temp_widths, helpers, &mut out,
+                ) =>
             {
-                let selection = helper_for_typed_binary(
-                    op,
-                    width,
-                    &left,
-                    &right,
-                    &temp_widths,
-                    config.select_widening_byte_multiply,
-                    config.enable_peepholes,
-                    helpers,
-                )
-                .expect("helper selection exists");
-                let helper = selection.helper;
-                let result_width = if helper == MirRuntimeHelper::MulByte {
+                if helper == MirRuntimeHelper::MulByte {
                     peephole_stats.record(routine_id, "widening-byte-multiply-selected");
-                    selection.result_width
-                } else {
-                    runtime_helper_result_width(&helper, width, &dst)
-                };
-                helpers.push(helper.clone());
-                materialize_runtime_helper_binary(
-                    helper,
-                    Some(dst),
-                    left,
-                    right,
-                    selection.input_widths,
-                    result_width,
-                    layout,
-                    &temp_widths,
-                    &mut out,
-                );
+                }
+                helpers.push(helper);
             }
             MirOp::Binary {
                 op,

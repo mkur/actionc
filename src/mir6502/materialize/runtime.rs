@@ -1,4 +1,5 @@
 use super::layout::MaterializeLayout;
+use crate::mir6502::Mir6502Config;
 use super::values::{split_def, split_value_with_temp_widths};
 use crate::mir6502::analysis::use_def::{MirTempLane, MirTempUseDefIndex};
 use crate::mir6502::ir::{
@@ -437,6 +438,22 @@ pub(in crate::mir6502) fn helper_implements_binary(
         }
         _ => false,
     }
+}
+
+/// The unfused binary fallback, including argument staging and result capture.
+pub(super) fn expand_binary_helper(
+    binary: &MirOp, config: &Mir6502Config, layout: &MaterializeLayout,
+    widths: &BTreeMap<MirTempId, MirWidth>, linked: &[MirRuntimeHelper], out: &mut Vec<MirOp>,
+) -> Option<MirRuntimeHelper> {
+    let MirOp::Binary { op, dst, left, right, width, .. } = binary else { return None };
+    if !config.select_runtime_helpers { return None; }
+    let selection = helper_for_typed_binary(*op, *width, left, right, widths,
+        config.select_widening_byte_multiply, config.enable_peepholes, linked)?;
+    let helper = selection.helper;
+    let result_width = runtime_helper_result_width(&helper, *width, dst);
+    materialize_runtime_helper_binary(helper, Some(dst.clone()), left.clone(), right.clone(),
+        selection.input_widths, result_width, layout, widths, out);
+    Some(helper)
 }
 
 pub(super) fn materialize_runtime_helper_binary(
