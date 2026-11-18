@@ -53,14 +53,8 @@ pub(super) fn propose_configured(
     if lifetimes && config.select_runtime_helpers {
         let layout = std::cell::LazyCell::new(|| super::super::materialize::MaterializeLayout::new(input, origin));
         for actual in &selected.routines {
-            let mut shifts = actual.blocks.iter().flat_map(|b| &b.ops).filter(|op| matches!(op,
-                MirOp::RuntimeHelper { helper: MirRuntimeHelper::Lsh | MirRuntimeHelper::Rsh, .. })).peekable();
-            if shifts.peek().is_none() || !shifts.all(|op| super::super::runtime_contracts::helper_invocation(selected, op).is_some()) {
-                continue;
-            }
             let Some(retained) = input.routines.iter().find(|r| r.id == actual.id) else { continue };
-            if let Some(plan) = super::super::materialize::shift_helpers::planned_word_shifts(retained, config, &layout)
-                && plan.agrees_with(actual) {
+            if let Some(plan) = super::super::materialize::arithmetic_homes::plan(retained, actual, selected, config, &layout) {
                 views.insert(retained.id, plan);
             }
         }

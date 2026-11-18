@@ -71,7 +71,7 @@ mod regs;
 pub(super) mod register_copies;
 pub(super) mod pointer_retention;
 mod runtime;
-pub(super) mod shift_helpers;
+pub(super) mod arithmetic_homes;
 mod small_loops;
 pub(super) mod spills;
 mod ssa_lite;
@@ -5942,35 +5942,6 @@ fn materialize_ops_impl(
                 result,
                 effects,
             } => materialize_call(target, abi, args, result, additional_results, effects, layout, &mut out),
-            MirOp::Binary {
-                op,
-                dst,
-                left,
-                right,
-                width: MirWidth::Byte,
-                ..
-            } if config.select_runtime_helpers
-                && matches!(op, MirBinaryOp::Lsh | MirBinaryOp::Rsh)
-                && !matches!(right, MirValue::ConstU8(_) | MirValue::ConstU16(_)) =>
-            {
-                let helper = match op {
-                    MirBinaryOp::Lsh => MirRuntimeHelper::Lsh,
-                    MirBinaryOp::Rsh => MirRuntimeHelper::Rsh,
-                    _ => unreachable!(),
-                };
-                helpers.push(helper.clone());
-                materialize_runtime_helper_binary(
-                    helper,
-                    Some(dst),
-                    left,
-                    right,
-                    [MirWidth::Byte; 2],
-                    MirWidth::Byte,
-                    layout,
-                    &temp_widths,
-                    &mut out,
-                );
-            }
             ref binary @ MirOp::Binary { .. }
                 if let Some(helper) = runtime::expand_binary_helper(
                     binary, config, layout, &temp_widths, helpers, &mut out,

@@ -1080,3 +1080,42 @@ PROC Main() RETURN");
         }
     }
 }
+
+#[test]
+fn scalar_helper_calls_preserve_a_live_word_and_compute_the_result() {
+    let source = "CARD w=$700,out=$704 BYTE a=$710,b=$711
+        CARD FUNC Product(CARD keep) out=a*b RETURN(keep+1)
+        CARD FUNC Quotient(CARD keep) out=w/b RETURN(keep+1)
+        CARD FUNC Shift(CARD keep) out=w RSH b RETURN(keep+1)
+        PROC Main() RETURN";
+    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
+    let model = actionc::semantic::analyze_with_options(&ast,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&ast, &model))).unwrap();
+    struct NoHooks;
+    impl VmRunHooks for NoHooks { type Error = String; }
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+            &Mir6502Config::optimized(), runtime).unwrap();
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for (keep, word, a, b) in [(0xfeffu16, 0x8123u16, 243u8, 7u8), (0xffff, 0xbabe, 255, 16)] {
+            for (offset, value) in word.to_le_bytes().into_iter().enumerate() {
+                vm.bus_mut().ram_mut().write(0x700 + offset as u16, value);
+            }
+            vm.bus_mut().ram_mut().write(0x710, a);
+            vm.bus_mut().ram_mut().write(0x711, b);
+            for (name, expected) in [("Product", u16::from(a)*u16::from(b)),
+                ("Quotient", word/u16::from(b)), ("Shift", word.checked_shr(u32::from(b)).unwrap_or(0))] {
+                let home = output.map.storage_symbols.iter().find(|s|
+                    s.scope == actionc::codegen::CodegenSymbolScope::Routine(name.into()) && s.name == "keep").unwrap();
+                assert!(home.address < 256, "{runtime:?} {name}");
+                let entry = output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+                vm = machine::call(vm, &mut NoHooks, entry, &keep.to_le_bytes());
+                assert_eq!(machine::bytes(&vm, 0x704, 2), expected.to_le_bytes(), "{runtime:?} {name}");
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.wrapping_add(1).to_le_bytes());
+            }
+        }
+    }
+}

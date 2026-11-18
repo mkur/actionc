@@ -447,8 +447,16 @@ pub(super) fn expand_binary_helper(
 ) -> Option<MirRuntimeHelper> {
     let MirOp::Binary { op, dst, left, right, width, .. } = binary else { return None };
     if !config.select_runtime_helpers { return None; }
-    let selection = helper_for_typed_binary(*op, *width, left, right, widths,
-        config.select_widening_byte_multiply, config.enable_peepholes, linked)?;
+    let selection = match (op, width) {
+        (MirBinaryOp::Lsh | MirBinaryOp::Rsh, MirWidth::Byte)
+            if super::constant_value_u16(right).is_none() => MirRuntimeBinarySelection {
+                helper: if *op == MirBinaryOp::Lsh { MirRuntimeHelper::Lsh } else { MirRuntimeHelper::Rsh },
+                input_widths: [MirWidth::Byte; 2],
+                result_width: MirWidth::Byte,
+            },
+        _ => helper_for_typed_binary(*op, *width, left, right, widths,
+            config.select_widening_byte_multiply, config.enable_peepholes, linked)?,
+    };
     let helper = selection.helper;
     let result_width = runtime_helper_result_width(&helper, *width, dst);
     materialize_runtime_helper_binary(helper, Some(dst.clone()), left.clone(), right.clone(),

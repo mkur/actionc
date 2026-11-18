@@ -440,13 +440,31 @@ fn parameter_residence_saves_final_bytes_in_one_bounded_trial() {
 }
 
 #[test]
+fn contracted_arithmetic_keeps_caller_parameters_in_zero_page() {
+    let n = nir("CARD w=$700,v=$702,out=$704 BYTE a=$710,b=$711
+        CARD FUNC Product(CARD keep) out=a*b RETURN(keep+1)
+        CARD FUNC Quotient(CARD keep) out=w/b RETURN(keep+1)
+        CARD FUNC Shift(CARD keep) out=w RSH b RETURN(keep+1)
+        CARD FUNC Caller(CARD x,y) RETURN(Product(x)+x+y)");
+    let config = Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, runtime).unwrap();
+        for routine in ["Product", "Quotient", "Shift", "Caller"] {
+            let home = output.map.storage_symbols.iter().find(|s|
+                s.scope == actionc::codegen::CodegenSymbolScope::Routine(routine.into())
+                && s.name == if routine == "Caller" { "x" } else { "keep" }).unwrap();
+            assert!(home.address < 256, "{runtime:?} {routine}: {home:?}");
+        }
+    }
+}
+
+#[test]
 fn unsupported_calls_exposed_objects_and_exhaustion_retain_the_fallback() {
     for source in [
         "CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Exposed(CARD x) x=Leaf(x) RETURN(@x)",
         "BYTE ARRAY window(4)=$A0,pool(16)=$E0 CARD FUNC Leaf(CARD x) RETURN(x+1) CARD FUNC Subject(CARD x,y) RETURN(Leaf(x)+y)",
         "CARD FUNC Leaf(CARD x) RETURN(x+1)",
         "CARD FUNC Recurse(CARD x) IF x THEN RETURN(Recurse(x-1)+x) FI RETURN(x)",
-        "CARD FUNC Helper(CARD x,y) RETURN(x*y) CARD FUNC Caller(CARD x,y) RETURN(Helper(x,3)+x+y)",
         "PROC Machine(BYTE x)\nASM\n rts\nENDASM\nBYTE FUNC Caller(BYTE x) Machine(x) RETURN(x)",
     ] {
         let n = nir(source);
