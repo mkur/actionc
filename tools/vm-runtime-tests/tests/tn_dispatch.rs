@@ -223,6 +223,54 @@ fn check_conversion_leaf(compiled: &CompiledProgram, listing: &str, name: &str, 
     }
 }
 
+fn check_calcadr(compiled: &CompiledProgram, listing: &str) {
+    use actionc_vm::{AddressRange, BusAccess};
+    let [lo, hi] = routine_address(listing, "CalcAdr").to_le_bytes();
+    let table = global_address(listing, "quickmul");
+    let mut vm = machine::load(compiled);
+    vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
+    for row in 0..24 {
+        let [low, high] = (row * 40u16).to_le_bytes();
+        vm.bus_mut().ram_mut().write(table + row, low);
+        vm.bus_mut().ram_mut().write(table + 24 + row, high);
+    }
+    for row in 0..=255u8 {
+        // The two indexed reads are defined by the CPU even beyond the table.
+        let address = table + u16::from(row);
+        let offset = u16::from_le_bytes([vm.bus().ram().read(address), vm.bus().ram().read(address + 24)]);
+        let base = 0x710fu16;
+        let column = row.wrapping_add(79);
+        let (sum, carry) = base.overflowing_add(offset);
+        let expected = sum.wrapping_add(u16::from(carry)).wrapping_add(u16::from(column));
+        for (flag, poison) in [(0x18, 0x35), (0x38, 0xca)] {
+            let saved_y = row ^ poison;
+            let saved_pairs = [row, !row, poison, !poison];
+            let ram = vm.bus_mut().ram_mut();
+            ram.write_word(0x58, base);
+            ram.write(0xfe, row);
+            ram.write(0xff, column);
+            ram.write_word(0xe6, !expected);
+            ram.map(0xac, &saved_pairs).unwrap();
+            // Vary the incoming A, X, Y and carry before the real JSR.
+            ram.map(ENTRY, &[0xa9, poison, 0xa2, !poison, 0xa0, saved_y, flag, 0x20, lo, hi, 0xea]).unwrap();
+            vm.set_pc(ENTRY);
+            let sp = vm.cpu().registers().sp;
+            vm.bus_mut().clear_events();
+            let stop = ENTRY + 10;
+            let run = VmRunner::new(vm).run(RunRequest { max_steps: 32, stop_after_pc: Some(stop), history_len: 0 });
+            assert_eq!(run.stop_reason(), StopReason::PcReached { pc: stop });
+            vm = run.into_vm();
+            assert_eq!(machine::bytes(&vm, 0xe6, 2), expected.to_le_bytes(), "row {row}");
+            assert_eq!(machine::bytes(&vm, 0xac, 4), saved_pairs);
+            assert_eq!((vm.cpu().registers().y, vm.cpu().registers().sp), (saved_y, sp));
+            let stack = [0x100 + u16::from(sp), 0x100 + u16::from(sp.wrapping_sub(1))];
+            for event in vm.bus().events().iter().filter(|e| e.access == BusAccess::Write) {
+                assert!(stack.contains(&event.address) || matches!(event.address, 0xe6 | 0xe7));
+            }
+        }
+    }
+}
+
 #[test]
 fn tn_dispatch_and_panel_state_preserve_behavior() {
     // The maintained programs advertise cartridge builds in these two modes.
@@ -256,12 +304,16 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             }
             let listing = compiled.source_listing();
             if mode == CompileMode::Mir6502 && !debug {
-                let home = listing.lines().find_map(|line| line.strip_prefix("param_Convert_s = $"))
-                    .and_then(|hex| u16::from_str_radix(hex, 16).ok())
-                    .expect("missing Convert.s home in the selected TN image");
-                assert!(home < 0xff, "Convert.s needs two zero-page bytes");
+                for (label, width) in [("param_Convert_s", 2u16), ("param_Putchar_ch", 1)] {
+                    let prefix = format!("{label} = $");
+                    let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
+                        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+                        .unwrap_or_else(|| panic!("missing ZP home for {label}"));
+                    assert!(home <= 0x100 - width, "{label} needs {width} zero-page bytes");
+                }
             }
             if !debug {
+                check_calcadr(&compiled, &listing);
                 check_conversion_leaf(&compiled, &listing, "Ascii", "asciiMap", [0x20, 0x40, 0, 0x60]);
                 check_conversion_leaf(&compiled, &listing, "Internal", "internalMap", [0x40, 0, 0x20, 0x60]);
             }

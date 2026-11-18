@@ -18,15 +18,17 @@ CONST BYTE OPEN_READ=4, OPEN_DIRECTORY=6, OPEN_WRITE=8
 CONST BYTE IO_SUCCESS=1, IO_EOF=136
 
 BYTE i=$E0,j=$E1,r0=$70
-BYTE kx=$FF,ky=$FE
+CONST BYTE CURSOR_X_ADDR=$FF,CURSOR_Y_ADDR=$FE
+BYTE kx=CURSOR_X_ADDR,ky=CURSOR_Y_ADDR
 
 BYTE zx=$5A,zy=zx+1,zdx=zx+2,zdy=zx+3
 
 ; Place screen/scl/sch at $E6/$E7 and allocp at $E8/$E9.
 ; Keep these allocator controls for both compiler backends.
-SET $E=$E6
+CONST BYTE SCREEN_LO_ADDR=$E6,SCREEN_HI_ADDR=SCREEN_LO_ADDR+1
+SET $E=SCREEN_LO_ADDR
 SET $F=$00
-SET $491=$E6
+SET $491=SCREEN_LO_ADDR
 SET $492=$00
 
 BYTE POINTER screen
@@ -150,23 +152,28 @@ CONST BYTE CLEAR=$00, FILL=$40, INVERT=$80
 
 BYTE ARRAY quickmul(SCREEN_ROWS*2)
 
+; ky is an unchecked byte, so indexed reads can extend beyond quickmul.
+;@actionc reviewed-6502 c90e0cc387ca90eb
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc writes-only $E6-$E7
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers $E6/$E7
 PROC CalcAdr=*()
 ASM
-  ldx.z ky
+  ldx.z CURSOR_Y_ADDR
   lda $58
   clc
   adc quickmul,x
-  sta.z scl
+  sta.z SCREEN_LO_ADDR
   lda $59
   adc quickmul+24,x ; SCREEN_ROWS; relocation addends must be numeric
-  sta.z sch
-  lda.z scl
-  adc.z kx
-  sta.z scl
+  sta.z SCREEN_HI_ADDR
+  lda.z SCREEN_LO_ADDR
+  adc.z CURSOR_X_ADDR
+  sta.z SCREEN_LO_ADDR
   bcc done
-  inc.z sch
+  inc.z SCREEN_HI_ADDR
 done:
   rts
 ENDASM

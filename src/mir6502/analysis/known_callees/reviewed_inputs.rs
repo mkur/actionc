@@ -232,6 +232,70 @@ mod tests {
     }
 
     #[test]
+    fn tn_calcadr_review_matches_both_backends_and_binds_table_offset() {
+        use crate::semantic::ir::{SemItem, SemProgram, SemStmt};
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
+        let ast = crate::includes::load_program_with_includes(path).unwrap();
+        let model =
+            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+                .unwrap();
+        let mut sem = crate::semantic::ir::lower_program(&ast, &model);
+        let project = |sem: &SemProgram| {
+            let classic = crate::codegen::projected_review_for_test(sem, "CalcAdr");
+            let mir = crate::mir6502::lower_program(&crate::nir::lower_program(sem)).unwrap();
+            let routine = mir.routines.iter().find(|r| r.name == "CalcAdr").unwrap();
+            let facts = reviewed_contract(&mir, routine).cloned();
+            // CalcAdr declares only absolute ranges, independent of backend IDs.
+            assert_eq!(
+                classic.map(|facts| crate::callee6502::Review {
+                    fingerprint: 0,
+                    facts
+                }
+                .map_ids(|_| None)
+                .unwrap()
+                .facts),
+                facts
+            );
+            facts
+        };
+        let facts = project(&sem).expect("CalcAdr review matches the maintained TN library");
+        assert!(facts.abi_inputs_only && facts.physical_abi_inputs && facts.preserves_regs.y);
+        assert_eq!(facts.reads, None);
+        assert_eq!(
+            facts.writes.as_deref(),
+            Some(
+                [crate::callee6502::DataRange {
+                    global: None,
+                    start: 0xe6,
+                    end: 0xe7,
+                }]
+                .as_slice()
+            )
+        );
+
+        let routine = sem
+            .modules
+            .iter_mut()
+            .flat_map(|m| &mut m.items)
+            .find_map(|item| match item {
+                SemItem::Routine(r) if r.symbol.name == "CalcAdr" => Some(r),
+                _ => None,
+            })
+            .unwrap();
+        let [SemStmt::InlineAsm { program, .. }] = routine.body.as_mut_slice() else {
+            panic!()
+        };
+        program
+            .relocations
+            .iter_mut()
+            .find(|r| r.addend == 24)
+            .unwrap()
+            .addend = 23;
+        assert!(project(&sem).is_none());
+    }
+
+    #[test]
     fn reviewed_contract_tracks_objects_and_independent_directions() {
         let nir = lower(SOURCE).unwrap();
         crate::nir::verify_program(&nir).unwrap();

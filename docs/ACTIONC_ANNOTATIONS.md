@@ -81,6 +81,12 @@ In TN, `Ascii` rotates the incoming carry into bit 3 and then masks it out
 before indexing `asciiMap`. Its only data write is the byte result at `$A0`.
 This lets `Convert` keep its pointer in a disjoint ZP pair across both calls.
 
+TN's `CalcAdr` sets its own carry and loads the screen base and coordinates
+from program data. It writes only the screen pointer at `$E6/$E7`.
+Its review omits `reads-only` because an unchecked row byte can index beyond
+the 48-byte table. The compiler retains the indexed addresses in its storage
+inventory while callers see an unknown read footprint.
+
 ## Current Use
 
 The annotations feed `RoutineEffects` and `RoutineFacts`, so modern codegen can
