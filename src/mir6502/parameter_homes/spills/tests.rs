@@ -1,8 +1,12 @@
 use super::*;
 
 fn nir() -> crate::nir::NirProgram {
+    nir_with_caller("")
+}
+
+fn nir_with_caller(caller: &str) -> crate::nir::NirProgram {
     let source =
-        include_str!("../../../../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n");
+        include_str!("../../../../fixtures/runtime/cross_call_spills.act").replace("\r\n", "\n") + caller;
     let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
@@ -22,6 +26,27 @@ fn program() -> MirProgram {
         },
     )
     .unwrap()
+}
+
+#[test]
+fn spill_selection_protects_a_live_source_home_through_an_intermediate_caller() {
+    let n = nir_with_caller("\nBYTE FUNC Outer(BYTE keep) Main() RETURN(keep)");
+    let input = crate::mir6502::lower_program(&n).unwrap();
+    let mut p = crate::mir6502::materialize_program(input, &crate::mir6502::Mir6502Config {
+        enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized()
+    }).unwrap();
+    let first = discover(&p, true).into_iter().find(|h|
+        p.routines.iter().any(|r| r.id == h.owner && r.name == "Hold")).unwrap();
+    let outer = p.routines.iter_mut().find(|r| r.name == "Outer").unwrap();
+    let MirStorageBase::Param(param) = outer.frame.params[0].base else { panic!() };
+    install_bindings(outer, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(first.fixed) }]);
+    let protected = live_caller_bytes(&p);
+    for name in ["Main", "Hold"] {
+        let r = p.routines.iter().find(|r| r.name == name).unwrap();
+        assert!(protected[&r.id].contains(&first.fixed.0), "{name}");
+    }
+    let next = discover(&p, true).into_iter().find(|h| h.owner == first.owner && h.spill == first.spill).unwrap();
+    assert_ne!(next.fixed, first.fixed);
 }
 
 #[test]

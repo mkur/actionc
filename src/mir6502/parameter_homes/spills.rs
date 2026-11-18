@@ -21,6 +21,41 @@ pub(in crate::mir6502) struct Placement {
     fixed: MirFixedZpSlot,
 }
 
+/// A spill introduced after source-home selection must respect live values in
+/// callers, including callers above an intervening routine with no homes.
+fn live_caller_bytes(program: &MirProgram) -> BTreeMap<RoutineId, BTreeSet<u8>> {
+    use crate::mir6502::analysis::sites::MirSite;
+    let mut children = BTreeMap::<_, BTreeSet<_>>::new();
+    let mut protected = BTreeMap::<_, BTreeSet<_>>::new();
+    for r in &program.routines {
+        let resident = r.frame.resident_bytes();
+        let live = std::cell::LazyCell::new(|| logical::LogicalHomes::new(r));
+        for block in &r.blocks {
+            for (op_index, op) in block.ops.iter().enumerate() {
+                let MirOp::Call { target: MirCallTarget::Routine(target), .. } = op else { continue };
+                children.entry(r.id).or_default().insert(*target);
+                let site = MirSite::Op { block: block.id, op_index };
+                for (object, byte) in &resident {
+                    if live.as_ref().and_then(|l| l.live_after(object, site)) != Some(false) {
+                        protected.entry(*target).or_default().insert(byte.0);
+                    }
+                }
+            }
+        }
+    }
+    let mut pending: BTreeSet<_> = protected.keys().copied().collect();
+    while let Some(caller) = pending.pop_first() {
+        let inherited = protected[&caller].clone();
+        for &target in children.get(&caller).into_iter().flatten() {
+            let bytes = protected.entry(target).or_default();
+            let old = bytes.len();
+            bytes.extend(&inherited);
+            if bytes.len() != old { pending.insert(target); }
+        }
+    }
+    protected
+}
+
 /// The first slice reserves each byte for the entire invocation and requires
 /// every call to preserve it. No sharing, save/restore or recursive summaries.
 pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<Placement> {
@@ -29,6 +64,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
     if physical::numeric_observations(program, None).is_err() {
         return Vec::new();
     }
+    let protected = live_caller_bytes(program);
     let ownership = StorageOwnership::new(program);
     let mut calls = ResidenceCalls::new(program, MirCalleeEntryStage::ActualEntry);
     let fixed = calls.fixed_storage();
@@ -45,6 +81,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
         };
         let live = MirHomeLiveness::analyze(r, &cfg);
         let mut used = super::source_zero_page(program, r);
+        used.extend(protected.get(&r.id).into_iter().flatten().copied());
         used.extend(r.frame.fixed_zero_page.iter().map(|s| s.0));
         used.extend(r.frame.resident_bytes().iter().map(|(_, s)| s.0));
         for a in &r.frame.zero_page_allocations {
