@@ -59,6 +59,14 @@ fields formerly grouped under `Inputs`. Its contract is machine
 entry dependence, not all memory dependence. An unavailable entry fact remains
 unavailable; an empty requirement set is a successful proof, not a fallback.
 
+For reviewed source assembly, ZP residence asks which values a caller must
+supply. A matched `abi-inputs-only` contract answers that question at every
+depth. Keep the physical entry requirements available for consumers that
+reason about instruction reads. Compose a native wrapper using the reviewed
+call's arguments, memory effects and normal-return result. An ancestor that
+uses the wrapper's summary must see the same call boundary.
+[Opaque reviewed calls at every depth](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
+
 ## Preserve the origin of each read
 
 Classify an access before reducing it to a physical ZP byte. The initial positive
@@ -306,9 +314,10 @@ The result declaration must agree with the supported Action ABI before its homes
 can be certified. When validating a call that consumes a result, a conflicting
 known result width or home cannot be justified from an incidental store or a
 caller annotation; reject the proof. Ignoring a declared result remains valid.
-No new assembly-call composition, recursive proof or exceptional-return model
-is introduced by this repair. The result proof remains limited to supported
-native bodies; a typed declaration alone never certifies a machine block.
+Issue 4 established this definition proof for supported native bodies. A
+matched assembly review can separately establish the result value available
+to its caller on normal return. A physical definition on every returning path
+remains a stronger claim. [Reviewed result guarantees](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 Carry the result contract through routine cloning and materialization. Generated
 routines without an authoritative typed interface use Unknown. Hand-built test

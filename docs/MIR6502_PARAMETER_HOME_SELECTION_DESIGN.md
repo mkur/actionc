@@ -25,8 +25,10 @@ native `=*` actual-entry analysis. Entry-contract composition and coordinated
 placement use the existing single ordinary-call batch.
 
 The [certified assembly-leaf extension](#proposed-extension-certified-assembly-leaves-in-acyclic-call-chains)
-is proposed for fact-repair issue 9. It reuses existing leaf certificates at
-native call boundaries; implementation and qualification are pending.
+was qualified for fact-repair issue 9 using the existing physical entry
+certificates. For reviewed source assembly, the design calls for the same
+caller-facing contract in direct and transitive ZP decisions.
+[Opaque reviewed calls at every depth](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 The completed [leaf implementation plan](MIR6502_PARAMETER_HOME_SELECTION_IMPLEMENTATION_PLAN.md)
 covers the leaf scope. The [handoff implementation plan](MIR6502_PARAMETER_ARGUMENT_HANDOFF_IMPLEMENTATION_PLAN.md)
@@ -1695,7 +1697,7 @@ turning any one of these answers into the other two.
 
 ### Reuse the leaf producer as a terminal call-graph node
 
-When the acyclic walker encounters a machine routine, request its existing
+For a machine routine covered by the bounded entry analysis, request its existing
 `MirCalleeEntryFact::analyze(..., ActualEntry)` certificate. On success, cache
 that fact as a terminal dependency and compose it into native ancestors through
 the existing call transfers. Do not feed a machine body through the native
@@ -1758,7 +1760,7 @@ from a terminal cleanup proof into a program-wide assembly summary. Unknown
 reads remain Unknown and retain their ordering/observation constraints; they
 do not erase independently complete writes.
 
-### Result definitions remain an explicit limit
+### Result definitions in the bounded assembly analysis
 
 The bounded assembly entry path currently publishes an empty `defined_results`
 set. Preserve that answer in the first extension. A declared BYTE/CARD/pointer
@@ -1771,11 +1773,12 @@ control must expose that limitation rather than have it hidden by a fabricated
 result definition. Use a void assembly PROC and native wrappers with no
 dependency on an assembly result as the first positive placement control.
 
-A separate narrow follow-up could export typed result-byte definitions from the
-bounded walk's existing definite-definition state at every reachable return.
-It would need the [typed result contract](MIR6502_CALL_FACT_CONTRACT_DESIGN.md#typed-direct-result-contract)
-and conditional/no-return negative controls. It is not required to connect the
-already-certified entry and write facts in this first scope.
+For reviewed source assembly, take the normal-return result from the validated
+call contract. In TN this lets a load of `$A0` after `Internal` consume its
+BYTE result when composing `Putchar`. A missing result guarantee leaves that
+dependency unresolved. The bounded walk remains a separate source of physical
+facts for eligible machine bodies.
+[Reviewed call transfer](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 ### Preserve observations, ownership and transaction boundaries
 
@@ -1856,7 +1859,7 @@ to `$A3`, saving two inline bytes and three instruction bytes. `IsTagged` can
 compose `Value`'s certified entry and preserve `Tag`'s live home; the later
 `Store` call retains Unknown writes and crosses only dead candidate values.
 
-The existing 13 controls retain their sizes. `MovePage` retains Unknown writes;
-`CalcAdr`, `Internal` and `Ascii` still lack leaf entry certificates. Assembly
-result definitions remain empty. The one combined ordinary-call trial and all
-six issue-8 core fallbacks remain; no extra per-leaf trials were introduced.
+In that qualification, the 13 existing controls retained their sizes.
+`MovePage` had Unknown writes, and `CalcAdr`, `Internal` and `Ascii` lacked
+leaf entry certificates. Assembly result definitions were empty. The compiler
+ran one combined ordinary-call trial and retained all six issue-8 core fallbacks.

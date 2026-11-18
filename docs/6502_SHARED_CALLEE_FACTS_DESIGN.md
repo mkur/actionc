@@ -27,6 +27,47 @@ A shared 6502 component matches them to the assembled implementation and
 exposes one set of queries to both consumers. Register placement, overlap
 after layout and instruction selection remain target decisions.
 
+## Opaque reviewed calls at every depth
+
+A matched `reviewed-6502` routine is an opaque call boundary. Classic codegen
+and MIR6502 use the same reviewed facts whether they are optimizing a direct
+caller or summarizing that caller for its own callers. Match the review to the
+selected body, ABI and dependencies before using its claims. At each call
+site, check the arguments, result ABI and any declared preconditions.
+MIR analyzes the native caller's setup, control flow and uses after the call.
+The assembly body's contribution comes entirely from its contract.
+
+In TN's `Print → Putchar → Internal` chain, the call has the following transfer.
+
+| Caller question | Answer for `Internal(ch)` |
+| --- | --- |
+| What values must be supplied? | The signature places `ch` in A. The matched `abi-inputs-only` review permits arbitrary incoming carry and scratch values. |
+| What memory can the call observe or change? | It can read `internalMap[0..3]` and write `$A0`. It preserves `$AC/$AD` and `$AE/$AF` on return. The table remains a program-data read at every depth. |
+| Where does the caller get the result? | On every normal return, the typed BYTE result is in `$A0` and `returns A=$A0` makes it available in A. The complete read footprint excludes the old `$A0`. A subsequent load by `Putchar` therefore consumes `Internal`'s result. |
+
+Apply input and memory observations before providing the result on the
+normal-return edge. A possible write alone cannot establish a result. Equality
+between A and `$A0` alone also permits a routine to load the old slot and
+return it unchanged. If a contract permits reading the old slot, retain that
+dependency. A caller-visible result guarantees a value at the boundary. An
+optimization that requires a physical store on every path needs evidence for
+that stronger property. [TN implementation and callers](../samples/tn/modern/LIB.ACT)
+
+For zero-page placement, `Print` inherits the obligations and effects of the
+native `Putchar` wrapper, including its own writes. Calling through the wrapper
+adds no carry requirement for `Internal`. The optional `entry-reads abi`
+serves queries about physical reads before definition. A failed match leaves
+the assembly opaque. Only independently established guarantees, such as the
+argument layout, remain available. [Annotation semantics](ACTIONC_ANNOTATIONS.md)
+
+**MIR6502 implementation gap.** Direct home discovery accepts
+`abi-inputs-only`. Acyclic composition currently requires `entry-reads abi`
+for reviewed source assembly and exports an empty set of result definitions.
+The intended ZP analysis uses the caller-facing transfer above at both depths.
+Qualification should exercise the original `Internal` body with both incoming
+carry values, a native wrapper that reads the returned slot, and a stale
+review that loses its guarantees. [Current entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
+
 ## The contract for Ascii
 
 | Caller question | Reviewed answer |
