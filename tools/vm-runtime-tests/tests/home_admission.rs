@@ -90,8 +90,8 @@ PROC Main() RETURN"));
 
 #[test]
 fn bounded_word_shifts_use_resident_homes_with_overlap_and_live_siblings() {
-    for direction in ["LSH","RSH"] {
-        for count in [0u32,1,4] {
+    for (direction, counts) in [("LSH", &[0u32, 1, 4][..]), ("RSH", &[0, 1, 4, 8][..])] {
+        for &count in counts {
             let n=nir(&format!("CARD FUNC Shift(CARD x,keep) x=x {direction} {count} RETURN(x+keep) PROC Main() RETURN"));
             for runtime in [Runtime::ActionCart,Runtime::Standalone] {
                 let output=mir6502::generate_output_with_config_and_runtime(&n,0x3000,&config(),runtime).unwrap();
@@ -102,7 +102,7 @@ fn bounded_word_shifts_use_resident_homes_with_overlap_and_live_siblings() {
                 let entry=output.routine_addresses.iter().find(|r|r.name=="Shift").unwrap().address;
                 let (mut vm,profile)=support::vm_for(runtime);
                 vm.load_atari_object_for_execution(profile,&actionc::codegen::format_load_file(&output)).unwrap();
-                for x in [0u16,1,0xff,0x8001,0xffff] {
+                for x in [0u16,1,0xff,0x0100,0x8001,0xffff] {
                     for keep in [0x50ffu16,0xffff] {
                         let mut args=x.to_le_bytes().to_vec(); args.extend(keep.to_le_bytes());
                         vm=machine::call(vm,&mut Observe,entry,&args);

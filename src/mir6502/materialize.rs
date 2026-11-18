@@ -2144,6 +2144,60 @@ fn constant_value_u16(value: &MirValue) -> Option<u16> {
     }
 }
 
+enum NativeWordShift {
+    Identity,
+    Small(u16),
+    Projection {
+        direction: MirBinaryOp,
+        remaining: u8,
+        dst_lo: MirDef,
+        dst_hi: MirDef,
+    },
+    Zero,
+}
+
+fn native_word_shift(op: &MirOp) -> Option<NativeWordShift> {
+    let MirOp::Binary {
+        op: direction @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
+        dst,
+        left,
+        right,
+        width: MirWidth::Word,
+        carry_in: None,
+        carry_out: MirCarryOut::Ignore,
+    } = op else {
+        return None;
+    };
+    let count = constant_value_u16(right)?;
+    if count == 0 {
+        return Some(NativeWordShift::Identity);
+    }
+    // Keep the complete pointer-cell read when a recipe would omit or duplicate a lane.
+    if value_contains_pointer_cell(left) {
+        return None;
+    }
+    if count >= 16 {
+        return Some(NativeWordShift::Zero);
+    }
+    let (dst_lo, dst_hi) = split_def(dst.clone())?;
+    match count {
+        1..=MAX_INLINE_WORD_CONSTANT_SHIFT => Some(NativeWordShift::Small(count)),
+        8..=15 => Some(NativeWordShift::Projection {
+            direction: *direction,
+            remaining: (count - 8) as u8,
+            dst_lo,
+            dst_hi,
+        }),
+        _ => None,
+    }
+}
+
+pub(super) fn word_shift_supports_source_homes(op: &MirOp) -> bool {
+    matches!(native_word_shift(op),
+        Some(NativeWordShift::Identity | NativeWordShift::Small(_)
+            | NativeWordShift::Projection { direction: MirBinaryOp::Rsh, remaining: 0, .. }))
+}
+
 fn lower_constant_word_shift_projections(
     routine: &mut super::ir::MirRoutine,
     layout: &MaterializeLayout,
@@ -2155,145 +2209,48 @@ fn lower_constant_word_shift_projections(
     for block in &mut routine.blocks {
         let mut out = Vec::with_capacity(block.ops.len());
         for op in std::mem::take(&mut block.ops) {
-            let MirOp::Binary {
-                op: shift_op @ (MirBinaryOp::Lsh | MirBinaryOp::Rsh),
-                dst,
-                left,
-                right,
-                width: MirWidth::Word,
-                carry_in,
-                carry_out,
-            } = op
-            else {
-                out.push(op);
-                continue;
-            };
-            let Some(count) = constant_value_u16(&right) else {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
-            };
-            if carry_in.is_some() || carry_out != MirCarryOut::Ignore {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
+            match (native_word_shift(&op), op) {
+                (Some(NativeWordShift::Identity), MirOp::Binary { dst, left, .. }) => {
+                    out.push(MirOp::Move { dst, src: left, width: MirWidth::Word });
+                }
+                (Some(NativeWordShift::Zero), MirOp::Binary { dst, .. }) => {
+                    out.push(MirOp::Move { dst, src: MirValue::ConstU16(0), width: MirWidth::Word });
+                }
+                (Some(NativeWordShift::Projection { direction, remaining, dst_lo, dst_hi }),
+                    MirOp::Binary { left, .. }) => {
+                    let (left_lo, left_hi) =
+                        split_value_with_storage_widths(left, routine.id, layout, &temp_widths);
+                    let (zero_dst, projected_dst, projected_src) = match direction {
+                        MirBinaryOp::Lsh => (dst_lo, dst_hi, left_lo),
+                        MirBinaryOp::Rsh => (dst_hi, dst_lo, left_hi),
+                        _ => unreachable!(),
+                    };
+                    if remaining == 0 {
+                        out.push(MirOp::Move { dst: projected_dst, src: projected_src, width: MirWidth::Byte });
+                    } else {
+                        out.push(MirOp::Binary {
+                            op: direction,
+                            dst: projected_dst,
+                            left: projected_src,
+                            right: MirValue::ConstU8(remaining),
+                            width: MirWidth::Byte,
+                            carry_in: None,
+                            carry_out: MirCarryOut::Ignore,
+                        });
+                    }
+                    out.push(MirOp::Move { dst: zero_dst, src: MirValue::ConstU8(0), width: MirWidth::Byte });
+                }
+                (_, op) => {
+                    out.push(op);
+                    continue;
+                }
             }
-
-            if count == 0 {
-                out.push(MirOp::Move {
-                    dst,
-                    src: left,
-                    width: MirWidth::Word,
-                });
-                lowered += 1;
-                continue;
-            }
-
-            // Pointer-cell values still represent a complete word read at
-            // this operation. Keep the helper when a projection or zero
-            // result would otherwise skip one or both source bytes.
-            if value_contains_pointer_cell(&left) || count < 8 {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
-            }
-
-            if count >= 16 {
-                out.push(MirOp::Move {
-                    dst,
-                    src: MirValue::ConstU16(0),
-                    width: MirWidth::Word,
-                });
-                lowered += 1;
-                continue;
-            }
-
-            let Some((dst_lo, dst_hi)) = split_def(dst.clone()) else {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst,
-                    left,
-                    right,
-                    width: MirWidth::Word,
-                    carry_in,
-                    carry_out,
-                });
-                continue;
-            };
-            let (left_lo, left_hi) =
-                split_value_with_storage_widths(left, routine.id, layout, &temp_widths);
-            let remaining = (count - 8) as u8;
-            let (zero_dst, projected_dst, projected_src) = match shift_op {
-                MirBinaryOp::Lsh => (dst_lo, dst_hi, left_lo),
-                MirBinaryOp::Rsh => (dst_hi, dst_lo, left_hi),
-                _ => unreachable!(),
-            };
-            if remaining == 0 {
-                out.push(MirOp::Move {
-                    dst: projected_dst,
-                    src: projected_src,
-                    width: MirWidth::Byte,
-                });
-            } else {
-                out.push(MirOp::Binary {
-                    op: shift_op,
-                    dst: projected_dst,
-                    left: projected_src,
-                    right: MirValue::ConstU8(remaining),
-                    width: MirWidth::Byte,
-                    carry_in: None,
-                    carry_out: MirCarryOut::Ignore,
-                });
-            }
-            out.push(MirOp::Move {
-                dst: zero_dst,
-                src: MirValue::ConstU8(0),
-                width: MirWidth::Byte,
-            });
             lowered += 1;
         }
         block.ops = out;
     }
 
     peephole_stats.record_many(routine.id, "constant-word-shift-projection", lowered);
-}
-
-/// Existing native word-shift recipes admitted for source-home placement.
-/// Zero remains a whole-word move; nonzero shifts require splittable lanes and
-/// must not duplicate pointer-cell reads. No entry/exit carry contract is added.
-pub(super) fn bounded_native_word_shift(op: &MirOp) -> Option<u16> {
-    let MirOp::Binary {
-        op: MirBinaryOp::Lsh | MirBinaryOp::Rsh,
-        dst, left, right, width: MirWidth::Word, carry_in, carry_out,
-    } = op else { return None; };
-    let count = constant_value_u16(right)?;
-    if count > MAX_INLINE_WORD_CONSTANT_SHIFT || carry_in.is_some()
-        || *carry_out != MirCarryOut::Ignore
-        || (count != 0 && (value_contains_pointer_cell(left) || split_def(dst.clone()).is_none())) {
-        return None;
-    }
-    Some(count)
 }
 
 fn lower_small_constant_word_shifts(
@@ -2311,7 +2268,7 @@ fn lower_small_constant_word_shifts(
         let mut out = Vec::with_capacity(block.ops.len());
         for op in std::mem::take(&mut block.ops) {
             // The preceding projection pass handles zero with a word move.
-            let Some(count) = bounded_native_word_shift(&op).filter(|count| *count != 0) else {
+            let Some(NativeWordShift::Small(count)) = native_word_shift(&op) else {
                 out.push(op);
                 continue;
             };

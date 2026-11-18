@@ -223,17 +223,22 @@ fn check_conversion_leaf(compiled: &CompiledProgram, listing: &str, name: &str, 
     }
 }
 
-fn check_calcadr(compiled: &CompiledProgram, listing: &str) {
+struct Direct;
+impl VmRunHooks for Direct { type Error = String; }
+
+fn check_init_and_calcadr(compiled: &CompiledProgram, listing: &str) {
     use actionc_vm::{AddressRange, BusAccess};
     let [lo, hi] = routine_address(listing, "CalcAdr").to_le_bytes();
     let table = global_address(listing, "quickmul");
     let mut vm = machine::load(compiled);
-    vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
+    vm.bus_mut().ram_mut().map(table, &[0xa5; 48]).unwrap();
+    vm = machine::call(vm, &mut Direct, routine_address(listing, "Init"), &[]);
     for row in 0..24 {
         let [low, high] = (row * 40u16).to_le_bytes();
-        vm.bus_mut().ram_mut().write(table + row, low);
-        vm.bus_mut().ram_mut().write(table + 24 + row, high);
+        assert_eq!(vm.bus().ram().read(table + row), low, "Init low byte, row {row}");
+        assert_eq!(vm.bus().ram().read(table + 24 + row), high, "Init high byte, row {row}");
     }
+    vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
     for row in 0..=255u8 {
         // The two indexed reads are defined by the CPU even beyond the table.
         let address = table + u16::from(row);
@@ -273,8 +278,6 @@ fn check_calcadr(compiled: &CompiledProgram, listing: &str) {
 
 fn check_store_and_value(compiled: &CompiledProgram, listing: &str) {
     use actionc_vm::{AddressRange, BusAccess};
-    struct Direct;
-    impl VmRunHooks for Direct { type Error = String; }
 
     let store = routine_address(listing, "Store");
     let value = routine_address(listing, "Value");
@@ -343,7 +346,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             if mode == CompileMode::Mir6502 && !debug {
                 for (label, width) in [
                     ("param_Convert_s", 2u16), ("param_Putchar_ch", 1),
-                    ("param_Tag_i", 1), ("local_Tag_a", 1),
+                    ("param_Tag_i", 1), ("local_Tag_a", 1), ("local_Init_h", 2),
                 ] {
                     let prefix = format!("{label} = $");
                     let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
@@ -354,7 +357,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             }
             check_store_and_value(&compiled, &listing);
             if !debug {
-                check_calcadr(&compiled, &listing);
+                check_init_and_calcadr(&compiled, &listing);
                 check_conversion_leaf(&compiled, &listing, "Ascii", "asciiMap", [0x20, 0x40, 0, 0x60]);
                 check_conversion_leaf(&compiled, &listing, "Internal", "internalMap", [0x40, 0, 0x20, 0x60]);
             }

@@ -206,15 +206,16 @@ for objects satisfying the shared contract. Check those objects even when MIR
 bindings are supplied directly rather than produced by automatic selection.
 
 Qualified operations include existing native byte/word indexed reads and
-writes, constant BYTE Lsh/Rsh counts 0 through 8, and constant WORD Lsh/Rsh
-counts 0 through 4. Word admission shares the materializer's native-recipe
-predicate: no carry input/output contract; nonzero counts require splittable
-lanes and no pointer-cell operand. Zero keeps its whole-word move behavior.
+writes, constant BYTE Lsh/Rsh counts 0 through 8, constant WORD Lsh/Rsh
+counts 0 through 4, and the WORD Rsh-by-8 high-byte extraction. Home selection
+uses the same word-shift recipes as materialization. Admitted recipes require
+unused carry input and output. Nonzero counts require a splittable destination
+and a source without pointer-cell reads. Zero keeps its whole-word move behavior.
 The actual expanded recipes must account for both bytes and every physical
 resource used, including overlapping homes and live siblings. A zero shift
 need not define flags; this grants no new entry/exit flag facts. Variable
-shifts, helper-producing arithmetic pseudo-operations and larger word-shift
-recipes retain their current exclusions. Explicit runtime helper invocations
+shifts, helper-producing arithmetic pseudo-operations and other constant
+word-shift recipes retain their current exclusions. Explicit runtime helper invocations
 are independently qualified through their existing invocation contracts.
 Do not broaden a caller merely because an operation is labelled nonopaque.
 An array parameter with a verified scalar word ABI lane is a pointer cell and
