@@ -387,6 +387,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 for (label, width) in [
                     ("param_Convert_s", 2u16), ("param_Putchar_ch", 1),
                     ("param_Tag_i", 1), ("local_Tag_a", 1), ("local_Init_h", 2),
+                    ("param_Draw_cnt", 1), ("param_Inv_cnt", 1), ("local_Push_captured", 2),
                 ] {
                     assert_zp_home(&listing, label, width);
                 }

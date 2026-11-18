@@ -122,7 +122,13 @@ native wrapper additionally includes its own generated scratch writes. Native
 storage-only loops without a returning path keep their terminal effects in
 general rewrite and observation queries.
 
-TN uses this contract for screen and image destinations. Its checked arena
-copy entry restricts the shared copy implementation to arena destinations
-inside Push and SavePos. The unrestricted MovePage entry retains its original
-argument-relative buffer contract.
+In TN, `Window` passes `GetImage` the arena allocation for its rectangle.
+`SwapScr` passes its full-screen allocation on the first capture and a row
+within that allocation on later captures. For `Block` and `PutImage`, the
+destination is the screen rectangle computed by `CalcAdr`. [Window and image routines](../samples/tn/modern/LIB.ACT) · [SwapScr](../samples/tn/modern/TN.ACT)
+
+`Push` and `SavePos` use a checked arena copy entry. The unrestricted
+`MovePage` entry retains its argument-relative buffer contract. A live caller
+home also has to survive outgoing argument stores and spill writes anywhere
+in the called routine's subtree. For example, the caller stages the fourth
+byte for `PutImage` in `$A3` before entering the reviewed body.
