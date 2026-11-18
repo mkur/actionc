@@ -9,6 +9,10 @@ use actionc_vm::{
     StopReason, VmRunHooks, VmRunner,
 };
 
+#[allow(dead_code)]
+#[path = "support/fixed_point.rs"]
+mod fixed_point;
+
 #[path = "support/tn_copy.rs"]
 mod copy;
 #[path = "support/tn_directory.rs"]
@@ -226,18 +230,54 @@ fn check_conversion_leaf(compiled: &CompiledProgram, listing: &str, name: &str, 
 struct Direct;
 impl VmRunHooks for Direct { type Error = String; }
 
-fn check_init_and_calcadr(compiled: &CompiledProgram, listing: &str) {
-    use actionc_vm::{AddressRange, BusAccess};
-    let [lo, hi] = routine_address(listing, "CalcAdr").to_le_bytes();
+fn run_init(compiled: &CompiledProgram, listing: &str, shift: u32) -> CompilerVm {
     let table = global_address(listing, "quickmul");
     let mut vm = machine::load(compiled);
     vm.bus_mut().ram_mut().map(table, &[0xa5; 48]).unwrap();
     vm = machine::call(vm, &mut Direct, routine_address(listing, "Init"), &[]);
     for row in 0..24 {
-        let [low, high] = (row * 40u16).to_le_bytes();
-        assert_eq!(vm.bus().ram().read(table + row), low, "Init low byte, row {row}");
-        assert_eq!(vm.bus().ram().read(table + 24 + row), high, "Init high byte, row {row}");
+        let offset = 40u16 * row;
+        assert_eq!(vm.bus().ram().read(table + row), offset as u8, "Init low byte, row {row}");
+        assert_eq!(vm.bus().ram().read(table + 24 + row), (offset >> shift) as u8,
+            "Init RSH {shift}, row {row}");
     }
+    vm
+}
+
+#[test]
+fn tn_init_keeps_its_word_across_shift_helper_calls() {
+    let loaded = actionc::includes::load_program_with_expanded_source(root().join("samples/tn/modern/TN.ACT")).unwrap();
+    let source = loaded.source.replace("\r\n", "\n");
+    let original = "quickmul(i + SCREEN_ROWS) = h rsh 8";
+    assert_eq!(source.matches(original).count(), 1);
+    for (shift, newline) in [(5, "\n"), (6, "\r\n")] {
+        let variant = source.replace(original, &format!("quickmul(i + SCREEN_ROWS) = h rsh {shift}"))
+            .replace('\n', newline);
+        let file = fixed_point::Source::new(&variant);
+        let compiled = compile_file(&file.0, &CompileOptions::for_mode(CompileMode::Mir6502)
+            .with_runtime(Runtime::ActionCart).with_origin(0x3000)).unwrap();
+        let listing = compiled.source_listing();
+        let init = listing.lines().skip_while(|l| *l != "proc_Init:")
+            .take_while(|l| !l.starts_with("; ===== END PROC Init"));
+        assert!(init.into_iter().any(|l| l.contains("JSR.A $A0E6")), "missing RShift in Init");
+        assert_zp_home(&listing, "local_Init_h", 2);
+        run_init(&compiled, &listing, shift);
+    }
+}
+
+fn assert_zp_home(listing: &str, label: &str, width: u16) {
+    let prefix = format!("{label} = $");
+    let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
+        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+        .unwrap_or_else(|| panic!("missing ZP home for {label}"));
+    assert!(home <= 0x100 - width, "{label} needs {width} zero-page bytes");
+}
+
+fn check_init_and_calcadr(compiled: &CompiledProgram, listing: &str) {
+    use actionc_vm::{AddressRange, BusAccess};
+    let [lo, hi] = routine_address(listing, "CalcAdr").to_le_bytes();
+    let table = global_address(listing, "quickmul");
+    let mut vm = run_init(compiled, listing, 8);
     vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
     for row in 0..=255u8 {
         // The two indexed reads are defined by the CPU even beyond the table.
@@ -348,11 +388,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                     ("param_Convert_s", 2u16), ("param_Putchar_ch", 1),
                     ("param_Tag_i", 1), ("local_Tag_a", 1), ("local_Init_h", 2),
                 ] {
-                    let prefix = format!("{label} = $");
-                    let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
-                        .and_then(|hex| u16::from_str_radix(hex, 16).ok())
-                        .unwrap_or_else(|| panic!("missing ZP home for {label}"));
-                    assert!(home <= 0x100 - width, "{label} needs {width} zero-page bytes");
+                    assert_zp_home(&listing, label, width);
                 }
             }
             check_store_and_value(&compiled, &listing);

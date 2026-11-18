@@ -1567,9 +1567,16 @@ applies only to small shifts. See the
 [object-storage design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#placement-and-verification)
 for operand and carry requirements.
 
-The [helper-backed home admission plan](MIR6502_HELPER_BACKED_HOME_ADMISSION_IMPLEMENTATION_PLAN.md)
-describes how to use existing invocation contracts for word shifts that become
-helper calls during materialization.
+Cross-call home selection also handles constant word shifts that load a word
+directly and either store the shifted word directly or truncate it for a byte
+store. When materialization selects the arithmetic helper, planning uses its
+ordered argument setup, invocation contract and result capture. It reserves
+the count staging byte and checks the helper scratch against live source
+objects. The selected routine must contain the corresponding shift helpers
+with valid bindings. Retained storage IDs identify the proposed homes, and
+the expanded candidate must independently pass the residence and cost checks.
+The [implementation and TN measurements](MIR6502_HELPER_BACKED_HOME_ADMISSION_IMPLEMENTATION_PLAN.md#qualification)
+cover both shift directions and both result widths.
 
 Retain the mixed bindings and per-object exposure/lifetime filtering that are
 already implemented. Exposed or entry-dependent siblings can stay inline;

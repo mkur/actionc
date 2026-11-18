@@ -1,6 +1,6 @@
 # ZP homes across arithmetic helper calls in MIR6502
 
-Proposed against `cb6849ae`. Deliver in three separately tested commits.
+Implemented in three slices against `cb6849ae`.
 
 ## What should work
 
@@ -14,7 +14,7 @@ can survive that sequence. [Helper signatures and effects](../src/mir6502/runtim
 These are measured working-tree TN cartridge builds at `$3000`. Each variant
 changes just the shift count in a temporary copy of the same `LIB.ACT`.
 
-| Expression | Current lowering | Current home of `Init.h` | XEX bytes |
+| Expression | Baseline lowering | Baseline home of `Init.h` | XEX bytes |
 | --- | --- | --- | ---: |
 | `h RSH 5` | `JSR $A0E6` | `$339E/$339F` | 9,839 |
 | `h RSH 6` | `JSR $A0E6` | `$339E/$339F` | 9,839 |
@@ -105,3 +105,29 @@ divide when their selected expansions are qualified. Division in particular
 can select different helpers or fuse quotient and remainder, and has a
 separate fault path. Each extension should demonstrate the chosen expansion
 and its effects before widening admission. [Runtime helper contract design](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md)
+
+## Qualification
+
+The cartridge builds at `$3000` used the same TN sources as the baseline.
+For counts 5 and 6, `Init` still loads the count into `$84` and calls
+`RShift` at `$A0E6`. The eight shorter accesses to `h` save eight code bytes
+and placing the word in ZP frees two bytes of inline storage.
+
+| Expression | Selected home of `Init.h` | `Init` code bytes, before → after | XEX bytes, before → after |
+| --- | --- | ---: | ---: |
+| `h RSH 5` | `$E2/$E3` | 112 → 104 | 9,839 → 9,829 |
+| `h RSH 6` | `$E2/$E3` | 112 → 104 | 9,839 → 9,829 |
+| `h RSH 8` | `$E2/$E3` | 95 → 95 | 9,820 → 9,820, byte-identical |
+
+Discovery covers a word loaded directly into the shift operand, with an
+immediate direct word store or a truncation followed by a byte store.
+Other consumers can select different argument or address staging and
+continue through the existing admission checks.
+
+The VM executed the TN variants from LF and CRLF sources and checked all
+48 table bytes for each shift. Cartridge and standalone controls checked the
+full word, a truncated array store and both live input words for left and
+right shifts. Forced overlaps with caller setup and helper scratch each
+restored the previous executable and its bindings. The broader parameter-home
+unit suite passed 77 tests and reproduced the baseline carry-flag assertion
+in `an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact`.

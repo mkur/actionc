@@ -116,3 +116,34 @@ fn bounded_word_shifts_use_resident_homes_with_overlap_and_live_siblings() {
         }
     }
 }
+
+#[test]
+fn helper_backed_word_shifts_preserve_live_words_and_truncated_results() {
+    for (direction, count) in [("RSH", 5u32), ("RSH", 6), ("LSH", 5), ("LSH", 6)] {
+        let n = nir(&format!("CARD full=$800 BYTE ARRAY bytes=$810
+CARD FUNC Hold(CARD x,keep)
+  full=x {direction} {count}
+  bytes(1)=x {direction} {count}
+  RETURN(x+keep)
+PROC Main() RETURN"));
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config(), runtime).unwrap();
+            assert_zp(&output, "Hold", "x");
+            assert_zp(&output, "Hold", "keep");
+            let entry = output.routine_addresses.iter().find(|r| r.name == "Hold").unwrap().address;
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+            for x in [0u16, 0xff, 0x0100, 0x807f, 0xffff] {
+                let keep = 0xa53bu16;
+                let [lo, hi] = x.to_le_bytes();
+                let [klo, khi] = keep.to_le_bytes();
+                vm.bus_mut().ram_mut().map(0x810, &[0xcc; 3]).unwrap();
+                vm = machine::call(vm, &mut Observe, entry, &[lo, hi, klo, khi]);
+                let result = if direction == "RSH" { x >> count } else { x << count };
+                assert_eq!(machine::bytes(&vm, 0x800, 2), result.to_le_bytes());
+                assert_eq!(machine::bytes(&vm, 0x810, 3), [0xcc, result as u8, 0xcc]);
+                assert_eq!(machine::bytes(&vm, 0xa0, 2), x.wrapping_add(keep).to_le_bytes());
+            }
+        }
+    }
+}

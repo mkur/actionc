@@ -213,10 +213,12 @@ unused carry input and output. Nonzero counts require a splittable destination
 and a source without pointer-cell reads. Zero keeps its whole-word move behavior.
 The actual expanded recipes must account for both bytes and every physical
 resource used, including overlapping homes and live siblings. A zero shift
-need not define flags; this grants no new entry/exit flag facts. Variable
-shifts, helper-producing arithmetic pseudo-operations and other constant
-word-shift recipes retain their current exclusions. Explicit runtime helper invocations
-are independently qualified through their existing invocation contracts.
+need not define flags; this grants no new entry/exit flag facts. For a directly loaded word shifted by a constant and stored as a word or
+truncated byte, cross-call planning can use the selected shift helper and its
+argument staging. The expanded placement must pass the existing invocation
+and lifetime checks. Other helper-producing arithmetic and variable shifts
+retain their existing admission rules.
+[Helper-backed word shifts](MIR6502_HELPER_BACKED_HOME_ADMISSION_IMPLEMENTATION_PLAN.md#qualification)
 Do not broaden a caller merely because an operation is labelled nonopaque.
 An array parameter with a verified scalar word ABI lane is a pointer cell and
 may receive a home. This does not promote inline array objects or reinterpret
