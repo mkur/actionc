@@ -179,7 +179,7 @@ fn lower_routine(
         restored_registers: Vec::new(),
     };
     let lowered = Mir68kRoutine {
-        entry: routine.entry,
+        entry: routine.entry.clone(),
         signature: routine.signature.clone(),
         result_home: routine.signature.result.as_ref().map(result_home),
         params: routine

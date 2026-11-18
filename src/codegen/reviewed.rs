@@ -9,6 +9,7 @@ use crate::target::ByteSize;
 #[derive(Clone, Default)]
 pub(super) struct ClassicCalleeReviews {
     pub(super) entries: HashMap<String, u64>,
+    pub(super) contracts: HashMap<String, crate::callee6502::CallFacts<crate::semantic::SymbolId>>,
 }
 
 impl ClassicCalleeReviews {
@@ -16,6 +17,17 @@ impl ClassicCalleeReviews {
         let mut facts = Self::default();
         for item in program.modules.iter().flat_map(|module| &module.items) {
             let SemItem::Routine(routine) = item else { continue };
+            if let Some(review) = &routine.callee_review {
+                if classic_fingerprint(program, routine, crate::callee6502::CONTRACT_VERSION) == Some(review.fingerprint)
+                    && review.dependencies_match(|id| {
+                        let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else { return None };
+                        if !asm.relocations.iter().any(|rel| matches!(&rel.target, SemInlineAsmTarget::Symbol(s) if s.id == *id)) { return None; }
+                        u16::try_from(program.layout.array_for_symbol(*id)?.storage_size?).ok()
+                    }) {
+                    facts.contracts.insert(normalize_name(&routine.symbol.name), review.facts.clone());
+                }
+                continue;
+            }
             let Some(expected) = routine.annotations.iter().find_map(|annotation| match annotation {
                 ActioncAnnotation::AbiInputsOnly { fingerprint } => Some(*fingerprint),
                 _ => None,

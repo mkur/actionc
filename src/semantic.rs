@@ -74,6 +74,7 @@ pub struct SemanticModel {
     /// The authoritative semantic representation is the typed subject/SemIR
     /// nodes. Codegen and SemIR lowering must not depend on this side table.
     pub expression_observations: Vec<ExpressionObservation>,
+    pub callee_reviews: HashMap<SymbolId, crate::callee6502::Review<SymbolId>>,
     pub routine_scopes: Vec<RoutineScope>,
     pub lexical_blocks: Vec<SemanticLexicalBlock>,
     pub array_symbols: HashSet<SymbolId>,
@@ -628,6 +629,15 @@ impl Analyzer {
                     "multidimensional fixed array endpoint exceeds the target address space"));
             }
         }
+        for (owner, review) in &self.callee_reviews {
+            for range in review.facts.reads.iter().chain(&review.facts.writes).flatten() {
+                if let Some(id) = range.global && !layout.array_for_symbol(id)
+                    .and_then(|array| array.storage_size).is_some_and(|size| u32::from(range.end) < size) {
+                    self.diagnostics.push(Diagnostic::new(self.symbols.symbols[owner.0].span,
+                        format!("reviewed footprint exceeds the known extent of {}", self.symbols.symbols[id.0].name)));
+                }
+            }
+        }
         if !self.diagnostics.is_empty() {
             return Err(self.diagnostics);
         }
@@ -644,6 +654,7 @@ impl Analyzer {
             symbols: self.symbols,
             modules: self.modules,
             expression_observations: self.expression_observations,
+            callee_reviews: self.callee_reviews,
             routine_scopes: self.routine_scopes,
             lexical_blocks: self.lexical_blocks,
             array_symbols: self.array_symbols,
@@ -688,6 +699,7 @@ struct Analyzer {
     routines_by_symbol: HashMap<SymbolId, SemanticCallableSignature>,
     static_initializer_targets: HashMap<String, SymbolClass>,
     retargeted_routine_names: HashSet<String>,
+    callee_reviews: HashMap<SymbolId, crate::callee6502::Review<SymbolId>>,
     routine_scopes: Vec<RoutineScope>,
     lexical_blocks: Vec<SemanticLexicalBlock>,
     array_symbols: HashSet<SymbolId>,
@@ -775,6 +787,7 @@ impl Analyzer {
             routines_by_symbol: HashMap::new(),
             static_initializer_targets: HashMap::new(),
             retargeted_routine_names: HashSet::new(),
+            callee_reviews: HashMap::new(),
             routine_scopes: Vec::new(),
             lexical_blocks: Vec::new(),
             array_symbols: HashSet::new(),
@@ -1628,6 +1641,21 @@ impl Analyzer {
             self.analyze_decl(routine_scope, local, false);
         }
 
+        match crate::callee6502::declaration(&routine.annotations) {
+            Ok(Some(review)) => {
+                let resolved = review.map_ids(|name| {
+                    let binding = self.symbols.resolve_action_name(routine_scope, name)?;
+                    matches!(binding.stage, LookupStage::Global | LookupStage::Module).then_some(binding.id)
+                });
+                if let (Some(owner), Some(review)) = (symbol, resolved) {
+                    self.callee_reviews.insert(owner, review);
+                } else {
+                    self.diagnostics.push(Diagnostic::new(routine.span, "reviewed footprint requires a resolved global array"));
+                }
+            }
+            Err(message) => self.diagnostics.push(Diagnostic::new(routine.span, message)),
+            Ok(None) => {}
+        }
         let context = ControlContext::routine(&routine.kind);
         self.analyze_binding_statements(routine_scope, &routine.body, context);
         self.validate_routine_return_paths(routine);

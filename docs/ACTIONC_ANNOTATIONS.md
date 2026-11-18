@@ -30,6 +30,16 @@ Supported forms:
 | `writes Ioerr` | listed symbols are resolved to their current storage range |
 | `abi-inputs-only <16 hex digits>` | reviewed 6502 assembly accepts the ordinary Action! arguments with arbitrary incoming scratch registers, flags and scratch bytes |
 
+A full review starts with `reviewed-6502 <16 hex digits>`. Bare
+`abi-inputs-only` declares that supplying the ordinary arguments suffices.
+`reads-only` and `writes-only` bound all program-data accesses in their
+respective direction. Use space-separated absolute addresses, absolute ranges,
+or global array slices such as `asciiMap[0..3]` with inclusive byte offsets.
+Use `none` for an empty set. Omitting a direction leaves it unknown.
+`preserves` names registers and numeric zero-page ranges that survive a normal
+return. `returns A=$A0` describes the returned byte. Both backends match the
+review to the selected leaf, ABI and referenced table before using it.
+
 Registers are conservative by default: unless a routine explicitly says it
 preserves `A`, `X`, or `Y`, the state tracker invalidates those registers across
 the call. Zero-page and absolute-memory facts are preserved only for known calls

@@ -409,6 +409,7 @@ pub struct SemRoutine {
     pub constants: Vec<SemConst>,
     pub body: Vec<SemStmt>,
     pub system_address: Option<SemExpr>,
+    pub callee_review: Option<crate::callee6502::Review<SymbolId>>,
     pub annotations: Vec<ActioncAnnotation>,
     pub effects: SemEffects,
     pub control_flow: SemControlFlow,
@@ -3360,6 +3361,7 @@ impl<'a> IrBuilder<'a> {
                 .system_address
                 .as_ref()
                 .map(|address| self.lower_expr(parent_scope, address)),
+            callee_review: self.model.callee_reviews.get(&symbol.id).cloned(),
             annotations: routine.annotations.clone(),
             effects: SemEffects::default(),
             control_flow: {

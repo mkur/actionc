@@ -209,7 +209,7 @@ fn lower_routine(
         helper: None,
         id: routine.id,
         signature: routine.signature.id,
-        entry: routine.entry,
+        entry: routine.entry.clone(),
         temps: routine.temps.iter().map(|t| (t.id, t.ty.clone())).collect(),
         name: routine.name.clone(),
         convention: routine.convention,

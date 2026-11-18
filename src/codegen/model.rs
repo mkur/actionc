@@ -460,7 +460,8 @@ pub(super) fn routine_facts_from_annotations(annotations: &[ActioncAnnotation]) 
     for annotation in annotations {
         match annotation {
             ActioncAnnotation::ReturnsAEqualsA0 => facts.returns_a_equals_a0 = true,
-            ActioncAnnotation::DebugProfileCompat | ActioncAnnotation::AbiInputsOnly { .. } => {}
+            ActioncAnnotation::DebugProfileCompat | ActioncAnnotation::AbiInputsOnly { .. } | ActioncAnnotation::Reviewed6502 { .. }
+                | ActioncAnnotation::OrdinaryAbiInputs | ActioncAnnotation::ReadsOnly(_) | ActioncAnnotation::WritesOnly(_) => {}
             ActioncAnnotation::Preserves { .. }
             | ActioncAnnotation::Clobbers { .. }
             | ActioncAnnotation::Writes { .. } => {}

@@ -389,6 +389,14 @@ impl NirVerifier {
     }
 
     fn routine(&mut self, routine: &NirRoutine) {
+        if let Some(review) = &routine.entry.callee_review {
+            for range in review.facts.reads.iter().chain(&review.facts.writes).flatten() {
+                if range.start > range.end || range.global.is_some_and(|id| !self.global_sizes.get(&id)
+                    .is_some_and(|extent| u32::from(range.end) < extent.get())) {
+                    self.diagnostics.push(NirDiagnostic::routine(&routine.name, "invalid reviewed data range"));
+                }
+            }
+        }
         if routine.entry.external != routine.entry.external_symbol.is_some() {
             self.diagnostics.push(NirDiagnostic::routine(
                 &routine.name,

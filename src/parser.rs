@@ -3571,6 +3571,20 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         .to_ascii_uppercase();
     match normalized.as_str() {
         "RETURNS A=$A0" => Some(ActioncAnnotation::ReturnsAEqualsA0),
+        "ABI-INPUTS-ONLY" => Some(ActioncAnnotation::OrdinaryAbiInputs),
+        _ if normalized.starts_with("REVIEWED-6502 ") => {
+            let hex = normalized.strip_prefix("REVIEWED-6502 ")?;
+            (hex.len() == 16 && hex.bytes().all(|b| b.is_ascii_hexdigit())).then_some(())?;
+            Some(ActioncAnnotation::Reviewed6502 { fingerprint: u64::from_str_radix(hex, 16).ok()? })
+        }
+        _ if normalized.starts_with("READS-ONLY ") || normalized.starts_with("WRITES-ONLY ") => {
+            let (direction, values) = normalized.split_once(' ')?;
+            let ranges = if values == "NONE" { Vec::new() } else {
+                values.split_whitespace().map(parse_review_range).collect::<Option<Vec<_>>>()?
+            };
+            Some(if direction == "READS-ONLY" { ActioncAnnotation::ReadsOnly(ranges) }
+                else { ActioncAnnotation::WritesOnly(ranges) })
+        }
         _ if normalized.starts_with("ABI-INPUTS-ONLY ") => {
             let hex = normalized.strip_prefix("ABI-INPUTS-ONLY ")?;
             (hex.len() == 16 && hex.bytes().all(|b| b.is_ascii_hexdigit())).then_some(())?;
@@ -3580,6 +3594,17 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         _ if normalized.starts_with("WRITES ") => parse_writes_annotation(&normalized),
         _ => parse_effect_annotation(&normalized),
     }
+}
+
+fn parse_review_range(text: &str) -> Option<crate::callee6502::DataRange<String>> {
+    use crate::callee6502::DataRange;
+    if let Some(range) = parse_annotation_address_range(text) {
+        return Some(DataRange { global: None, start: range.start, end: range.end });
+    }
+    let (name, offsets) = text.strip_suffix(']')?.split_once('[')?;
+    let (low, high) = offsets.split_once("..")?;
+    let (start, end) = (low.parse().ok()?, high.parse().ok()?);
+    (start <= end).then_some(DataRange { global: Some(parse_annotation_symbol(name)?.to_owned()), start, end })
 }
 
 fn is_source_actionc_annotation(text: &str) -> bool {

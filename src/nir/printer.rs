@@ -109,7 +109,7 @@ impl NirPrinter {
             routine.signature.id.0,
             convention_summary(routine.convention),
             activation_summary(routine.activation),
-            routine_entry_summary(routine.entry),
+            routine_entry_summary(&routine.entry),
             params,
             locals
         ));
@@ -615,7 +615,7 @@ fn duration_summary(duration: NirStorageDuration) -> &'static str {
     }
 }
 
-fn routine_entry_summary(entry: NirRoutineEntry) -> String {
+fn routine_entry_summary(entry: &NirRoutineEntry) -> String {
     let placement = match entry.placement {
         NirRoutinePlacement::Relocatable => "relocatable".to_string(),
         NirRoutinePlacement::CurrentLocation => "current-location".to_string(),
@@ -627,6 +627,9 @@ fn routine_entry_summary(entry: NirRoutineEntry) -> String {
         (false, true) => format!("external+{placement}"),
         (true, true) => format!("program+external+{placement}"),
     };
+    if let Some(review) = &entry.callee_review {
+        summary.push_str(&format!(" reviewed-6502 {:016x} {:?}", review.fingerprint, review.facts));
+    }
     if let Some(fingerprint) = entry.abi_inputs_only_review {
         summary.push_str(&format!(" abi-inputs-only {fingerprint:016x}"));
     }

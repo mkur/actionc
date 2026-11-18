@@ -10,7 +10,7 @@ mod observations;
 pub(in crate::mir6502) use observations::{fixed_storage_address, machine_storage_observations};
 mod entry_inputs;
 mod reviewed_inputs;
-pub(in crate::mir6502) use reviewed_inputs::abi_inputs_review_fingerprint;
+pub(in crate::mir6502) use reviewed_inputs::{abi_inputs_review_fingerprint, reviewed_contract};
 pub(in crate::mir6502) use entry_inputs::{MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirCalleeEntryStage};
 pub(in crate::mir6502) use bounded_memory::BoundedMachine;
 

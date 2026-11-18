@@ -375,6 +375,10 @@ pub struct Routine {
 pub enum ActioncAnnotation {
     ReturnsAEqualsA0,
     AbiInputsOnly { fingerprint: u64 },
+    Reviewed6502 { fingerprint: u64 },
+    OrdinaryAbiInputs,
+    ReadsOnly(Vec<crate::callee6502::DataRange<String>>),
+    WritesOnly(Vec<crate::callee6502::DataRange<String>>),
     DebugProfileCompat,
     Preserves {
         registers: AnnotationRegisterSet,

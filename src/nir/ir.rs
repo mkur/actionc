@@ -595,8 +595,9 @@ pub struct NirRoutine {
     pub blocks: Vec<NirBlock>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NirRoutineEntry {
+    pub callee_review: Option<crate::callee6502::Review<SymbolId>>,
     /// Source review of the foreign implementation. Only the consuming target
     /// can match this fingerprint to its current entry ABI and machine body.
     pub abi_inputs_only_review: Option<u64>,
@@ -613,6 +614,7 @@ pub struct NirRoutineEntry {
 impl Default for NirRoutineEntry {
     fn default() -> Self {
         Self {
+            callee_review: None,
             abi_inputs_only_review: None,
             source_span: None,
             program: false,

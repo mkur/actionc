@@ -1743,3 +1743,8 @@ Proven increasing SSA counters can carry generated address-stride products as
 ordinary block parameters. A header bound must exclude source-counter wrap before
 widening; backedges advance the offset in the target ADDRESS width. This adds no
 IR opcode, shape metadata, memory caching or alias assumption.
+
+A routine entry can also carry a complete 6502 assembly review with separate
+optional read and write footprints. Global ranges use NIR symbol IDs and
+inclusive byte offsets. The verifier checks their bounds. The target binds the
+review to the selected implementation before a caller may use any field.

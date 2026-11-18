@@ -648,7 +648,8 @@ impl Generator {
                     }
                 }
                 ActioncAnnotation::ReturnsAEqualsA0 | ActioncAnnotation::DebugProfileCompat
-                | ActioncAnnotation::AbiInputsOnly { .. } => {}
+                | ActioncAnnotation::AbiInputsOnly { .. } | ActioncAnnotation::Reviewed6502 { .. }
+                | ActioncAnnotation::OrdinaryAbiInputs | ActioncAnnotation::ReadsOnly(_) | ActioncAnnotation::WritesOnly(_) => {}
             }
         }
         effects

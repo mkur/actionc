@@ -756,6 +756,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     MirRoutineAbi::Action
                 },
                 frame: MirFrame {
+                    callee_review: routine.entry.callee_review.clone(),
                     abi_inputs_only_review: routine.entry.abi_inputs_only_review,
                     direct_parameter_abi: direct_parameter_abi(&routine.signature),
                     parameter_homes: None,
