@@ -278,6 +278,18 @@ fn check_init_and_calcadr(compiled: &CompiledProgram, listing: &str) {
     let [lo, hi] = routine_address(listing, "CalcAdr").to_le_bytes();
     let table = global_address(listing, "quickmul");
     let mut vm = run_init(compiled, listing, 8);
+    // Print the four conversion classes through the original native wrapper.
+    let screen = 0x7100;
+    let start = screen + 40 + 2;
+    let ram = vm.bus_mut().ram_mut();
+    ram.write_word(0x58, screen);
+    ram.write(0xfe, 1);
+    ram.write(0xff, 2);
+    ram.map(0x680, &[4, 0, 0x20, 0x40, 0x60]).unwrap();
+    ram.map(start - 1, &[0xa5; 6]).unwrap();
+    vm = machine::call(vm, &mut Direct, routine_address(listing, "Print"), &0x680u16.to_le_bytes());
+    assert_eq!(machine::bytes(&vm, start - 1, 6), [0xa5, 0x40, 0, 0x20, 0x60, 0xa5]);
+    assert_eq!(vm.bus().ram().read(0xff), 6);
     vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
     for row in 0..=255u8 {
         // The two indexed reads are defined by the CPU even beyond the table.

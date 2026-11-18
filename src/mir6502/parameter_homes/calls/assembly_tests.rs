@@ -268,3 +268,73 @@ fn uncertified_machine_entries_cannot_use_the_native_dead_call_fallback() {
         );
     }
 }
+
+#[test]
+fn nested_reviewed_write_rejects_an_overlapping_live_home_at_the_call() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/runtime/reviewed_conversion_home.act");
+    let ast = crate::includes::load_program_with_includes(path).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let mut input = crate::mir6502::lower_program(&nir).unwrap();
+    let hold = input
+        .routines
+        .iter_mut()
+        .find(|r| r.name == "HoldConverted")
+        .unwrap();
+    let MirStorageBase::Param(param) = hold.frame.params[0].base else {
+        panic!()
+    };
+    hold.frame.parameter_homes = Some(vec![MirParamBinding {
+        param,
+        home: MirParamHome::ZeroPage(MirFixedZpSlot(0xe4)),
+    }]);
+    hold.frame
+        .fixed_zero_page
+        .extend([MirFixedZpSlot(0xe4), MirFixedZpSlot(0xe5)]);
+    let p = crate::mir6502::materialize_program(input, &Default::default()).unwrap();
+    for start in [0xe4, 0xa0] {
+        let mut candidate = p.clone();
+        let hold = candidate
+            .routines
+            .iter_mut()
+            .find(|r| r.name == "HoldConverted")
+            .unwrap();
+        hold.frame.parameter_homes.as_mut().unwrap()[0].home =
+            MirParamHome::ZeroPage(MirFixedZpSlot(start));
+        let call_site = hold
+            .blocks
+            .iter()
+            .find_map(|b| {
+                b.ops
+                    .iter()
+                    .position(|op| matches!(op, MirOp::Call { .. }))
+                    .map(|op_index| crate::mir6502::analysis::sites::MirSite::Op {
+                        block: b.id,
+                        op_index,
+                    })
+            })
+            .unwrap();
+        let hold = candidate
+            .routines
+            .iter()
+            .find(|r| r.name == "HoldConverted")
+            .unwrap();
+        let mut calls =
+            ResidenceCalls::at_origin(&candidate, MirCalleeEntryStage::ActualEntry, 0x3000);
+        let errors = verify_lifetimes(hold, Some(&mut calls));
+        if start == 0xe4 {
+            assert!(errors.is_empty(), "{errors:?}");
+        } else {
+            assert!(
+                errors
+                    .iter()
+                    .any(|d| d.message.contains("clobbers live source-object home")
+                        && d.message.contains(&format!("{call_site:?}"))),
+                "{errors:?}"
+            );
+        }
+    }
+}

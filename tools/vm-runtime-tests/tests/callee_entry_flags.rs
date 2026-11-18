@@ -56,6 +56,8 @@ fn compile_flags(
         &nir,
         origin,
         &Mir6502Config {
+            // Exercise the forwarding pass with its original store/reload present.
+            enable_cross_call_home_selection: false,
             enable_argument_x_bitwise_forwarding: false,
             enable_precise_callee_entry_flags: enabled,
             enable_argument_staging_reduction: predecessors[0],

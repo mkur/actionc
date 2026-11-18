@@ -23,6 +23,8 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
         for rt in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
                 let config = Mir6502Config {
+                    // Keep the store/reload in Forward so this measures flag-based forwarding.
+                    enable_cross_call_home_selection: false,
                     enable_argument_x_bitwise_forwarding: false,
                     enable_precise_callee_entry_flags: false,
                     ..Mir6502Config::optimized()
@@ -61,6 +63,29 @@ fn callee_entry_flags_baseline_matches_modes_runtimes_and_origins() {
                     assert_eq!(
                         (old.end - old.start) - (new.end - new.start),
                         if old.name == "Forward" { 2 } else { 0 }
+                    );
+                }
+                if optimized && origin == 0x3000 {
+                    // Cross-call placement already shortens Forward in the normal pipeline.
+                    let with_homes = |precise| {
+                        let config = Mir6502Config {
+                            enable_cross_call_home_selection: true,
+                            enable_precise_callee_entry_flags: precise,
+                            ..config.clone()
+                        };
+                        mir6502::generate_output_with_config_and_runtime(nir, origin, &config, rt)
+                            .unwrap()
+                    };
+                    let forward_size = |output: &actionc::codegen::CodegenOutput| {
+                        let forward = output.map.routine_ranges.iter()
+                            .find(|r| r.name == "Forward").unwrap();
+                        forward.end - forward.start
+                    };
+                    let placed = with_homes(false);
+                    assert_eq!(forward_size(&placed), forward_size(&after));
+                    assert_eq!(
+                        actionc::codegen::format_load_file(&placed),
+                        actionc::codegen::format_load_file(&with_homes(true))
                     );
                 }
                 if optimized {

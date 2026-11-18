@@ -1181,3 +1181,61 @@ fn fpp_products_preserve_homes_outside_the_package_workspace() {
         assert_eq!(machine::bytes(&vm, 0xa0, 2), [0, 0x92]);
     }
 }
+
+#[test]
+fn reviewed_conversion_through_a_native_wrapper_preserves_a_live_home() {
+    let ast = actionc::includes::load_program_with_includes(
+        root().join("fixtures/runtime/reviewed_conversion_home.act"),
+    )
+    .unwrap();
+    let model =
+        actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&ast, &model),
+    ))
+    .unwrap();
+    let config = Mir6502Config {
+        enable_small_leaf_inlining: false,
+        ..Mir6502Config::optimized()
+    };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output =
+            mir6502::generate_output_with_config_and_runtime(&nir, 0x3000, &config, runtime)
+                .unwrap();
+        let home = output
+            .map
+            .storage_symbols
+            .iter()
+            .find(|s| {
+                s.name == "keep"
+                    && s.scope
+                        == actionc::codegen::CodegenSymbolScope::Routine("HoldConverted".into())
+            })
+            .unwrap();
+        assert!(
+            home.address < 0xff && !(home.address..=home.address + 1).contains(&0xa0),
+            "{runtime:?} {home:?}"
+        );
+        let entry = output
+            .routine_addresses
+            .iter()
+            .find(|r| r.name == "HoldConverted")
+            .unwrap()
+            .address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output))
+            .unwrap();
+        for keep in [0x1200u16, 0x3401, 0x567f, 0x7880, 0xffff] {
+            let [ch, hi] = keep.to_le_bytes();
+            let expected = ch.wrapping_mul(2);
+            vm.bus_mut().ram_mut().write(0x680, !expected);
+            vm = machine::call(vm, &mut NoHooks, entry, &[ch, hi]);
+            assert_eq!(vm.bus().ram().read(0x680), expected);
+            assert_eq!(
+                machine::bytes(&vm, 0xa0, 2),
+                keep.wrapping_add(1).to_le_bytes()
+            );
+        }
+    }
+}

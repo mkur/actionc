@@ -1,0 +1,28 @@
+BYTE converted=$0680
+
+; The mask discards the bit supplied by incoming carry.
+;@actionc reviewed-6502 8148e92586e27a1f
+;@actionc abi-inputs-only
+;@actionc reads-only none
+;@actionc writes-only $A0
+;@actionc returns A=$A0
+BYTE FUNC DoubleByte=*(BYTE ch)
+ASM
+  rol a
+  and #$FE
+  sta $A0
+  rts
+ENDASM
+
+PROC SaveConverted(BYTE ch)
+  converted=DoubleByte(ch)
+RETURN
+
+CARD FUNC HoldConverted(CARD keep)
+  SaveConverted(BYTE(keep))
+RETURN(keep+1)
+
+CARD observed
+PROC Main()
+  observed=HoldConverted(observed)
+RETURN

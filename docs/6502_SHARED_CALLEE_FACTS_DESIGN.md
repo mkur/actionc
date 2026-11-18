@@ -60,16 +60,16 @@ serves queries about physical reads before definition. A failed match leaves
 the assembly opaque. Only independently established guarantees, such as the
 argument layout, remain available. [Annotation semantics](ACTIONC_ANNOTATIONS.md)
 
-**MIR6502 implementation gap.** Direct home discovery accepts
-`abi-inputs-only`. Acyclic composition currently requires `entry-reads abi`
-for reviewed source assembly and exports an empty set of result definitions.
-The intended ZP analysis uses the caller-facing transfer above at both depths.
-Qualification should exercise the original `Internal` body with both incoming
-carry values, a native wrapper that reads the returned slot, and a stale
-review that loses its guarantees. [Current entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
+MIR6502 applies this transfer to direct calls and through acyclic native
+wrappers. When a reviewed footprint refers to a table, the analysis uses the
+candidate image layout to check overlap with machine bytes. If disjointness
+is unproved, the caller retains a possible read of the incoming byte unless
+the review independently excludes that entry read. [Entry analysis](../src/mir6502/analysis/known_callees/entry_inputs.rs)
 
-The [MIR6502 implementation plan](MIR6502_REVIEWED_CALL_COMPOSITION_IMPLEMENTATION_PLAN.md)
-covers entry obligations, returned values and TN qualification in three commits.
+In TN, `Print` inherits a separate requirement for the screen pointer at
+`$E6/$E7`. `Putchar` reads it after `CalcAdr`, whose review bounds writes
+but does not guarantee a definition of the pointer on every normal return.
+[TN qualification](MIR6502_REVIEWED_CALL_COMPOSITION_IMPLEMENTATION_PLAN.md#qualification)
 
 ## The contract for Ascii
 

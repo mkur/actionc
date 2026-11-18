@@ -66,5 +66,38 @@ focused analysis, placement, physical-flag and VM targets.
 ```sh
 cargo test --lib mir6502::analysis::known_callees::
 cargo test --test mir6502_cross_call_homes --test mir6502_callee_entry_flags
-cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch --test cross_call_homes
+cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test tn_dispatch --test cross_call_homes --test callee_entry_flags
 ```
+
+## Qualification
+
+Compiled modern TN with MIR6502 at origin `$3000` and compared the complete XEX
+and named parameter/local homes against `22e3c38b`.
+
+| Runtime | Baseline XEX | Qualified XEX | Named ZP homes |
+| --- | ---: | ---: | ---: |
+| Cartridge | 9,690 bytes | 9,687 bytes | 46 → 47 |
+| Standalone | 9,829 bytes | 9,826 bytes | 46 → 47 |
+
+Both runtimes gained `Attrib.cmd` at `$A2` and retained all prior homes.
+The original `Internal` review and assembly qualify for both incoming carry
+values. Its caller gets the returned byte in A and `$A0`.
+
+| Routine | Placement and remaining dependency |
+| --- | --- |
+| `Putchar` | `ch` keeps its home at `$E2`. The indirect screen store reads `$E6/$E7` after `CalcAdr()`. Its review permits writes to both bytes but does not establish that it defines them on every return. |
+| `Print`, `PrintFname` | The string and loop index stay inline. Both are live across `Putchar`, whose entry summary requires A and `$E6/$E7`. It requires no incoming flags. |
+| `PrintE`, `DrawMenu` | Calls to `Print` inherit the same `$E6/$E7` requirement. |
+| `PrintNonzeroDigit` | `b` is live across `Putchar` and stays inline. `divisor` is dead at that call and keeps its `$A2` home. |
+
+The cartridge VM exercised all 256 inputs to `Internal` with both carry
+values on classic and MIR6502, and checked four conversions through the real
+`Print` loop against screen bytes and adjacent sentinels. On both runtimes a
+separate native wrapper stored a reviewed result while a caller's word
+survived in a disjoint ZP home. Forcing the word to overlap `$A0` produced a
+lifetime diagnostic at the call. [VM fixture](../fixtures/runtime/reviewed_conversion_home.act)
+
+The physical-flag regression measures its two-byte saving in `Forward` with
+cross-call placement disabled. With placement enabled, the routine already
+has the shorter form. Toggling the flag optimization then produces identical
+XEX files on both runtimes. [Integration test](../tests/mir6502_callee_entry_flags.rs)
