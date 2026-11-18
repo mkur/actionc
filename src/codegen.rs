@@ -597,7 +597,7 @@ impl Generator {
                 )
             })
         {
-            effects = RoutineEffects::known_empty();
+            effects = RoutineEffects::all_writable();
         }
         for annotation in annotations {
             match annotation {
@@ -1342,6 +1342,11 @@ use opts::*;
 pub use opts::{CodegenOptimization, CodegenOptimizationKind};
 
 mod expr;
+
+fn source_assembly_routine(routine: &Routine) -> bool {
+    routine.body.iter().any(|s| matches!(s, Stmt::InlineAsm { .. }))
+        || routine.annotations.iter().any(|a| matches!(a, ActioncAnnotation::Reviewed6502 { .. }))
+}
 
 fn routine_has_effect_contract(routine: &Routine) -> bool {
     routine.annotations.iter().any(|annotation| {

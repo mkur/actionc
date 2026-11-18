@@ -89,6 +89,19 @@ impl StorageAddress {
     }
 }
 
+pub(in crate::mir6502) fn reviewed_observations(
+    ranges: Option<&[crate::callee6502::DataRange<crate::nir::SymbolId>]>,
+) -> Option<Vec<StorageObservation>> {
+    ranges?.iter().map(|range| {
+        let base = range.global.map(|id| MirMem::Global { id, offset: range.start })
+            .unwrap_or_else(|| absolute_mem(range.start));
+        Some(StorageObservation {
+            address: StorageAddress { base, addend: 0, requires_zero_page: false },
+            extent: ObservationExtent::Bytes(range.end.checked_sub(range.start)?.checked_add(1)?),
+        })
+    }).collect()
+}
+
 /// This is an explicit exposure inventory, never a complete memory-effect summary.
 /// None means invalid/opaque operands; a typed unresolved address remains pending.
 pub(in crate::mir6502) fn machine_storage_observations(
@@ -98,6 +111,13 @@ pub(in crate::mir6502) fn machine_storage_observations(
 ) -> Option<MachineStorageObservations> {
     use crate::asm6502::InlineAsmRelocationKind as Kind;
     use crate::mir6502::ir::MirInlineAsmTarget as Target;
+    if routine.frame.callee_review.is_some() {
+        let facts = reviewed_contract(program, routine)?;
+        return Some(MachineStorageObservations {
+            reads: reviewed_observations(facts.reads.as_deref())?,
+            writes: reviewed_observations(facts.writes.as_deref())?,
+        });
+    }
     let mut addresses = BTreeMap::new();
     // Compact Action machine words can contain an opcode and its operand, or
     // straddle instruction boundaries. Their emitted little-endian bytes are

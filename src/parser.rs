@@ -3598,6 +3598,9 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
 
 fn parse_review_range(text: &str) -> Option<crate::callee6502::DataRange<String>> {
     use crate::callee6502::DataRange;
+    if let Some(r) = parse_annotation_zero_page_range(text) {
+        return Some(DataRange { global: None, start: r.start.into(), end: r.end.into() });
+    }
     if let Some(range) = parse_annotation_address_range(text) {
         return Some(DataRange { global: None, start: range.start, end: range.end });
     }

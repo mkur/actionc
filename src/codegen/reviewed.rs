@@ -40,6 +40,31 @@ impl ClassicCalleeReviews {
     }
 }
 
+/// Classic tracks memory contents on normal return. An unknown footprint
+/// starts with every byte writable so partial preservation narrows only the
+/// locations explicitly covered.
+pub(super) fn classic_call_effects<Id>(facts: &crate::callee6502::CallFacts<Id>) -> RoutineEffects {
+    let mut effects = if let Some(writes) = &facts.writes {
+        let mut effects = RoutineEffects::known_empty();
+        for range in writes {
+            if range.global.is_some() || (range.start == 0 && range.end == u16::MAX) {
+                // At this point a symbolic range may still alias absolute storage.
+                effects = RoutineEffects::all_writable();
+                break;
+            }
+            effects.record_absolute_write(range.start, range.end - range.start + 1);
+        }
+        effects
+    } else { RoutineEffects::all_writable() };
+    for range in &facts.preserves_zp {
+        for addr in range.start..=range.end { effects.clear_zero_page_write(ZeroPage::new(addr)); }
+    }
+    effects.preserves_a = facts.preserves_regs.a;
+    effects.preserves_x = facts.preserves_regs.x;
+    effects.preserves_y = facts.preserves_regs.y;
+    effects
+}
+
 fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8]) -> Option<u64> {
     let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else { return None };
     if !matches!(routine.system_address.as_ref()?.kind, SemExprKind::CurrentLocation)

@@ -69,6 +69,19 @@ pub(super) struct EffectRange {
 }
 
 impl RoutineInfo {
+    /// Registers and result proven by the generated implementation. The
+    /// legacy normal-return invalidation mask cannot certify invocation writes.
+    pub(super) fn generated_call_facts(&self) -> crate::callee6502::CallFacts<crate::semantic::SymbolId> {
+        crate::callee6502::CallFacts {
+            returns_a_equals_a0: self.facts.returns_a_equals_a0,
+            preserves_regs: AnnotationRegisterSet {
+                a: self.effects.known && self.effects.preserves_a,
+                x: self.effects.known && self.effects.preserves_x,
+                y: self.effects.known && self.effects.preserves_y,
+            }, ..Default::default()
+        }
+    }
+
     pub(super) fn internal_abi(&self) -> RoutineInternalAbi {
         RoutineInternalAbi::from_public_result_and_facts(self.return_slot, self.facts)
     }
@@ -126,6 +139,13 @@ impl RoutineEffects {
             known: false,
             ..Self::default()
         }
+    }
+
+    pub(super) fn all_writable() -> Self {
+        let mut effects = Self { known: true, zero_page_writes: [u64::MAX; 4],
+            writes_unknown_absolute: true, ..Self::default() };
+        effects.refresh_pointer_write_flags();
+        effects
     }
 
     pub(super) fn known_empty() -> Self {
@@ -387,7 +407,8 @@ fn routine_info(
         params,
         return_slot,
         system_address,
-        facts: routine_facts_from_annotations(&routine.annotations),
+        facts: if source_assembly_routine(routine) { RoutineFacts::default() }
+            else { routine_facts_from_annotations(&routine.annotations) },
         effects: system_effects_for_address(system_address).unwrap_or_else(RoutineEffects::unknown),
     }
 }

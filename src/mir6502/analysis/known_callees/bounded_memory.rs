@@ -60,6 +60,7 @@ impl State {
 
 impl BoundedMachine {
     pub fn analyze(routine: &MirRoutine, program: &MirProgram) -> Option<Self> {
+        if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() { return None; }
         let [block] = routine.blocks.as_slice() else {
             return None;
         };

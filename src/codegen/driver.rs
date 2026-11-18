@@ -245,7 +245,13 @@ pub(super) fn generate_with_options_and_requirements_with_projection_facts(
         .cloned()
         .unwrap_or_else(|| collect_record_layouts(program));
     validate_aggregate_static_initializer_facts(program, &record_layouts, static_initializers)?;
-    let routines = collect_routine_info(program, &record_layouts, runtime_target)?;
+    let mut routines = collect_routine_info(program, &record_layouts, runtime_target)?;
+    for (name, facts) in &callee_reviews.contracts {
+        if let Some(info) = routines.get_mut(name) {
+            info.facts.returns_a_equals_a0 = facts.returns_a_equals_a0;
+            info.effects = super::reviewed::classic_call_effects(facts);
+        }
+    }
     let runtime_error_target = match runtime_error {
         Some(name) => RuntimeHelperTarget::Label(
             routines

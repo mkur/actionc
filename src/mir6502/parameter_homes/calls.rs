@@ -95,6 +95,12 @@ impl<'a> ResidenceCalls<'a> {
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
         super::super::abi::validate_direct_call_result(callee, call)?;
+        if callee.frame.callee_review.is_some() {
+            if machine && self.acyclic.is_some() && self.known.get(*target).is_some_and(|s| s.call_facts().abi_inputs_only) {
+                return Ok(());
+            }
+            return Err("missing reviewed assembly entry guarantee");
+        }
         if machine && self.acyclic.is_some() && let Some(expected) = callee.frame.abi_inputs_only_review {
             let current = self.reviewed_fingerprints.entry(*target)
                 .or_insert_with(|| abi_inputs_review_fingerprint(self.program, callee));

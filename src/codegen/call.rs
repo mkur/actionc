@@ -233,7 +233,7 @@ impl Generator {
     }
 
     pub(super) fn apply_call_return_facts(&mut self, info: &RoutineInfo) {
-        if info.facts.returns_a_equals_a0 {
+        if info.generated_call_facts().returns_a_equals_a0 {
             let return_low = StorageSlot::zero_page(runtime_zp::ARGS.address(), 1);
             let value = ValueFact::SlotByte {
                 slot: return_low,

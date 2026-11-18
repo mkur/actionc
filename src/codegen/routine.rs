@@ -167,13 +167,14 @@ impl Generator {
             .current_routine_effects
             .take()
             .unwrap_or_else(RoutineEffects::unknown);
-        let routine_effects = self.routine_effects_from_annotations(
-            routine_effects,
-            &routine.annotations,
-            &routine.name,
-            routine.span,
-        );
-        let mut routine_facts = routine_facts_from_annotations(&routine.annotations);
+        let (routine_effects, mut routine_facts) = if source_assembly_routine(routine) {
+            let matched = self.callee_reviews.contracts.get(&normalize_name(&routine.name));
+            (matched.map(super::reviewed::classic_call_effects).unwrap_or_else(RoutineEffects::unknown),
+                RoutineFacts { returns_a_equals_a0: matched.is_some_and(|f| f.returns_a_equals_a0), ..Default::default() })
+        } else {
+            (self.routine_effects_from_annotations(routine_effects, &routine.annotations, &routine.name, routine.span),
+                routine_facts_from_annotations(&routine.annotations))
+        };
         if !debug_compat_profile {
             if self
                 .current_inferred_routine_facts

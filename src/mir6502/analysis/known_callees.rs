@@ -207,6 +207,8 @@ pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
     /// Exact byte provenance that establishes both Z and N on every reachable
     /// return. `None` means either unknown or inconsistent across exits.
     zn: Option<MirMachineValue>,
+    /// Normal-return guarantees. Full-invocation reads and writes remain separate.
+    reviewed: Option<crate::callee6502::CallFacts<crate::nir::SymbolId>>,
     /// Registers whose incoming values survive every reachable return.
     ///
     /// The first consumers use X/Y. Keeping this as a machine register set
@@ -217,6 +219,32 @@ pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
 }
 
 impl MirKnownCalleeExitSummary {
+    /// Facts that can be expressed in the common direct-call contract.
+    /// Unrepresentable frame-private or indirect accesses keep their direction unknown.
+    pub(in crate::mir6502) fn call_facts(&self) -> crate::callee6502::CallFacts<crate::nir::SymbolId> {
+        if let Some(facts) = &self.reviewed { return facts.clone(); }
+        let ranges = |bytes: &[MirMem]| bytes.iter().map(|mem| {
+            let (global, offset) = match *mem {
+                MirMem::Global { id, offset } => (Some(id), offset),
+                MirMem::Absolute(address) => (None, address),
+                MirMem::FixedZeroPage(slot) => (None, slot.0.into()),
+                _ => return None,
+            };
+            Some(crate::callee6502::DataRange { global, start: offset, end: offset })
+        }).collect::<Option<Vec<_>>>();
+        crate::callee6502::CallFacts {
+            reads: match &self.reads { MirKnownMemoryReads::Exact(bytes) => ranges(bytes), _ => None },
+            writes: match &self.writes { MirKnownMemoryWrites::Exact(bytes) => ranges(bytes), _ => None },
+            returns_a_equals_a0: matches!(self.accumulator(), Some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0))))),
+            preserves_regs: crate::ast::AnnotationRegisterSet { a: self.preserves.a, x: self.preserves.x, y: self.preserves.y },
+            ..Default::default()
+        }
+    }
+
+    pub(in crate::mir6502) fn reviewed_facts(&self) -> Option<&crate::callee6502::CallFacts<crate::nir::SymbolId>> {
+        self.reviewed.as_ref()
+    }
+
     pub(in crate::mir6502) fn accumulator(&self) -> Option<&MirMachineValue> {
         self.accumulator.as_ref()
     }
@@ -242,7 +270,10 @@ impl MirKnownCalleeExitSummary {
     }
 
     pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
-        self.writes.preserves_fixed_pair(lo, fixed)
+        let preserved = |byte| self.reviewed.as_ref().is_some_and(|f|
+            f.preserves_zp.iter().any(|r| (r.start..=r.end).contains(&byte)));
+        lo.0.checked_add(1).is_some_and(|hi| preserved(lo.0) && preserved(hi))
+            || self.writes.preserves_fixed_pair(lo, fixed)
     }
 }
 
@@ -455,6 +486,7 @@ fn summarize_mir_routine(
     }
 
     MirKnownCalleeExitSummary {
+        reviewed: None,
         accumulator: saw_return
             .then_some(accumulator)
             .flatten()
@@ -937,10 +969,40 @@ fn summarize_structured_writes(
     }
 }
 
+fn reviewed_bytes(ranges: Option<&[crate::callee6502::DataRange<crate::nir::SymbolId>]>) -> Option<Vec<MirMem>> {
+    let mut bytes = Vec::new();
+    for range in ranges? {
+        // Exact byte summaries are deliberately small. Larger declarations stay
+        // valid but this projection cannot profitably enumerate them.
+        if bytes.len() + usize::from(range.end.checked_sub(range.start)?) + 1 > 256 { return None; }
+        bytes.extend((range.start..=range.end).map(|offset| match range.global {
+            Some(id) => MirMem::Global { id, offset },
+            None if offset < 256 => MirMem::FixedZeroPage(MirFixedZpSlot(offset as u8)),
+            None => MirMem::Absolute(offset),
+        }));
+    }
+    Some(bytes)
+}
+
+fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeExitSummary {
+    let Some(f) = reviewed_contract(program, routine) else { return MirKnownCalleeExitSummary::default() };
+    MirKnownCalleeExitSummary {
+        accumulator: f.returns_a_equals_a0.then_some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)))),
+        zn: None,
+        preserves: MirRegisterSet { a: f.preserves_regs.a, x: f.preserves_regs.x, y: f.preserves_regs.y, ..Default::default() },
+        reads: reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default(),
+        writes: reviewed_bytes(f.writes.as_deref()).map(MirKnownMemoryWrites::Exact).unwrap_or_default(),
+        reviewed: Some(f.clone()),
+    }
+}
+
 fn summarize_machine_routine(
     routine: &MirRoutine,
     program: &MirProgram,
 ) -> Option<MirKnownCalleeExitSummary> {
+    if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
+        return Some(reviewed_exit(program, routine));
+    }
     let [block] = routine.blocks.as_slice() else {
         return None;
     };
@@ -993,6 +1055,7 @@ fn summarize_bounded_machine_block(
         match opcode {
             0x60 if index + len == bytes.len() => {
                 return Some(MirKnownCalleeExitSummary {
+                    reviewed: None,
                     // The effect walk deliberately visits both sides of a
                     // forward branch by linearizing their union. That is exact
                     // for reads, writes, and register preservation, but not
@@ -2272,6 +2335,7 @@ mod tests {
     fn exact_zn_exit_fact_is_part_of_the_known_callee_contract() {
         let value = MirMachineValue::ConstU8(0);
         let summary = MirKnownCalleeExitSummary {
+            reviewed: None,
             accumulator: None,
             zn: Some(value.clone()),
             preserves: MirRegisterSet::default(),

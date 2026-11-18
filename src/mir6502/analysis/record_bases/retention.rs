@@ -102,7 +102,11 @@ impl CallWrites {
                 // An indexed base in the flat summary can read any byte index.
                 // Over-approximate every listed read by 256 bytes; no bank or
                 // hardware read may masquerade as a pure ISA memory access.
-                if reads.iter().any(|m| !safe_read(id, m, memory)) {
+                let reviewed = known.get(id)?.reviewed_facts().is_some();
+                if reads.iter().any(|m| if reviewed {
+                    // Each entry is one reviewed byte, including its precise indexed offset.
+                    memory.address(id, m).is_none_or(|a| a >= 0x8000)
+                } else { !safe_read(id, m, memory) }) {
                     return None;
                 }
                 for byte in bytes {
@@ -343,7 +347,23 @@ fn observe_retained(
                 }
             }
         } else {
-            *state = State::default();
+            // A preserved pair can still carry a known numeric destination.
+            // Unknown writes invalidate associations with all other memory,
+            // including the source of a pointer loaded before this call.
+            let mut saved = State::default();
+            if let MirOp::Call { target, effects, .. } = op
+                && !effects.opaque && !effects.may_call_os
+                && let Some(facts) = calls.known.for_target(target).and_then(|s| s.reviewed_facts())
+                && let Some(setup_writes) = argument_writes(op, routine, memory) {
+                for (&slot, &value) in &state.pairs {
+                    if matches!(value.0, ByteValue::Constant(_))
+                        && !setup_writes.contains(&u16::from(slot))
+                        && facts.preserves_zp.iter().any(|r| (r.start..=r.end).contains(&slot)) {
+                        saved.pairs.insert(slot, value);
+                    }
+                }
+            }
+            *state = saved;
         }
     } else if extended
         && matches!(op,MirOp::Load {dst:MirDef::Reg(_),src:MirAddr::Direct(mem),width:MirWidth::Byte} if memory.address(routine,mem).is_some_and(|a|a<0x100) && !memory.ordinary(routine,mem))
