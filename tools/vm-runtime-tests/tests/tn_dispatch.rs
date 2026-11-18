@@ -271,6 +271,43 @@ fn check_calcadr(compiled: &CompiledProgram, listing: &str) {
     }
 }
 
+fn check_store_and_value(compiled: &CompiledProgram, listing: &str) {
+    use actionc_vm::{AddressRange, BusAccess};
+    struct Direct;
+    impl VmRunHooks for Direct { type Error = String; }
+
+    let store = routine_address(listing, "Store");
+    let value = routine_address(listing, "Value");
+    let mut vm = machine::load(compiled);
+    vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
+
+    for address in [0x08ffu16, 0x0900, 0xac, 0xad, 0xae, 0xaf, 0xa0, 0xa1] {
+        let [lo, hi] = address.to_le_bytes();
+        let ram = vm.bus_mut().ram_mut();
+        ram.map(0xac, &[0x12, 0x34, 0x56, 0x78]).unwrap();
+        ram.write(address, 0x69);
+        let pairs = machine::bytes(&vm, 0xac, 4);
+        // Value installs p at $A0/$A1 before reading through it.
+        let expected = match address { 0xa0 => lo, 0xa1 => hi, _ => 0x69 };
+        let sp = vm.cpu().registers().sp;
+        let stack = [0x100 + u16::from(sp), 0x100 + u16::from(sp.wrapping_sub(1))];
+        vm.bus_mut().clear_events();
+        vm = machine::call(vm, &mut Direct, value, &[lo, hi, 0x97]);
+        assert_eq!(vm.cpu().registers().x, hi);
+        assert_eq!(vm.cpu().registers().a, expected);
+        assert_eq!(vm.bus().ram().read(0xa0), expected);
+        assert_eq!(machine::bytes(&vm, 0xac, 4), pairs);
+        for event in vm.bus().events().iter().filter(|e| e.access == BusAccess::Write) {
+            assert!(stack.contains(&event.address) || matches!(event.address, 0xa0 | 0xa1),
+                "Value(${address:04X}) wrote ${:04X}", event.address);
+        }
+
+        vm = machine::call(vm, &mut Direct, store, &[lo, hi, 0xc5]);
+        assert_eq!(vm.bus().ram().read(address), 0xc5, "Store(${address:04X})");
+        assert_eq!(vm.cpu().registers().x, hi);
+    }
+}
+
 #[test]
 fn tn_dispatch_and_panel_state_preserve_behavior() {
     // The maintained programs advertise cartridge builds in these two modes.
@@ -304,7 +341,10 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
             }
             let listing = compiled.source_listing();
             if mode == CompileMode::Mir6502 && !debug {
-                for (label, width) in [("param_Convert_s", 2u16), ("param_Putchar_ch", 1)] {
+                for (label, width) in [
+                    ("param_Convert_s", 2u16), ("param_Putchar_ch", 1),
+                    ("param_Tag_i", 1), ("local_Tag_a", 1),
+                ] {
                     let prefix = format!("{label} = $");
                     let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
                         .and_then(|hex| u16::from_str_radix(hex, 16).ok())
@@ -312,6 +352,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                     assert!(home <= 0x100 - width, "{label} needs {width} zero-page bytes");
                 }
             }
+            check_store_and_value(&compiled, &listing);
             if !debug {
                 check_calcadr(&compiled, &listing);
                 check_conversion_leaf(&compiled, &listing, "Ascii", "asciiMap", [0x20, 0x40, 0, 0x60]);

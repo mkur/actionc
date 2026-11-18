@@ -117,9 +117,11 @@ PROC GetAnyKey=*()
 RETURN
 
 
-;@actionc preserves X $AC/$AD $AE/$AF
-;@actionc clobbers $A0/$A1
-;@actionc writes $0100-$FFFF
+; p can point into zero page, including the scratch pairs.
+;@actionc reviewed-6502 ece1df91f776ef0d
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc preserves X
 PROC Store=*(CARD p BYTE value)
 ASM
   sta $A0
@@ -131,10 +133,14 @@ ASM
 ENDASM
           
 
+;@actionc reviewed-6502 37b4a18ec1518e18
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc writes-only $A0-$A1
 ;@actionc preserves X $AC/$AD $AE/$AF
 ;@actionc clobbers $A0/$A1
 ;@actionc returns A=$A0
-BYTE FUNC Value(CARD p)
+BYTE FUNC Value=*(CARD p)
 ASM
   sta $A0
   stx $A1
