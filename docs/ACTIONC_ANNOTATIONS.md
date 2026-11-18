@@ -32,6 +32,10 @@ Supported forms:
 
 A full review starts with `reviewed-6502 <16 hex digits>`. Bare
 `abi-inputs-only` declares that supplying the ordinary arguments suffices.
+Full reviews admit forward conditional branches to local instruction boundaries
+and a single terminal `RTS`. References to an ordinary global array can include
+a constant offset within the array. The fingerprint includes that offset and the
+array extent.
 `reads-only` and `writes-only` bound all program-data accesses in their
 respective direction. Use space-separated absolute addresses, absolute ranges,
 or global array slices such as `asciiMap[0..3]` with inclusive byte offsets.

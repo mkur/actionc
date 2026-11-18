@@ -131,15 +131,12 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
         );
         let width = usize::try_from(rel.encoding.width().get()).ok()?;
         cursor = start.checked_add(width)?;
-        if rel.addend != 0 {
-            return None;
-        }
         match (&rel.target, rel.encoding, rel.required_address_bits) {
             (
                 SemInlineAsmTarget::Absolute(addr),
                 ForeignRelocationEncoding::Address { width: w },
                 None,
-            ) if w.get() == 2 => {
+            ) if w.get() == 2 && rel.addend == 0 => {
                 items.extend(addr.to_le_bytes().map(BodyItem::Byte));
             }
             (
@@ -149,7 +146,7 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
                     width: ByteSize::ONE,
                 },
                 Some(8),
-            ) => {
+            ) if rel.addend == 0 => {
                 items.push(BodyItem::Byte(u8::try_from(*addr).ok()?));
             }
             (
@@ -193,6 +190,7 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
                 items.push(BodyItem::Global {
                     name: &decl.symbol.name,
                     extent,
+                    addend: rel.addend,
                 });
             }
             _ => return None,

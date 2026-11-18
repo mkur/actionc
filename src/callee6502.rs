@@ -4,7 +4,11 @@ use crate::codegen::{AddressingMode, decode_6502_opcode};
 
 pub(crate) enum BodyItem<'a> {
     Byte(u8),
-    Global { name: &'a str, extent: u16 },
+    Global {
+        name: &'a str,
+        extent: u16,
+        addend: i32,
+    },
 }
 
 pub(crate) fn fingerprint(
@@ -28,7 +32,7 @@ pub(crate) fn fingerprint(
     let mut iter = items.iter().peekable();
     while let Some(BodyItem::Byte(opcode)) = iter.next() {
         let (op, mode, len) = decode_6502_opcode(*opcode)?;
-        if version == BUFFER_VERSION {
+        if version != ENTRY_VERSION {
             starts.push(pc);
         }
         pc = pc.checked_add(len)?;
@@ -42,10 +46,11 @@ pub(crate) fn fingerprint(
             let BodyItem::Byte(delta) = iter.peek()? else {
                 return None;
             };
-            if version != BUFFER_VERSION {
+            let displacement = *delta as i8;
+            if version == ENTRY_VERSION || (version == CONTRACT_VERSION && displacement < 0) {
                 return None;
             }
-            targets.push(pc.checked_add_signed(isize::from(*delta as i8))?);
+            targets.push(pc.checked_add_signed(isize::from(displacement))?);
         }
         if matches!(
             op,
@@ -60,8 +65,20 @@ pub(crate) fn fingerprint(
                     add(&[0, *b]);
                     left -= 1;
                 }
-                BodyItem::Global { name, extent } if left == 2 => {
-                    add(&[1]);
+                BodyItem::Global {
+                    name,
+                    extent,
+                    addend,
+                } if left == 2 => {
+                    if *addend == 0 {
+                        add(&[1]);
+                    } else {
+                        if version == ENTRY_VERSION || !(0..i32::from(*extent)).contains(addend) {
+                            return None;
+                        }
+                        add(&[2]);
+                        add(&addend.to_le_bytes());
+                    }
                     add(&extent.to_le_bytes());
                     add(&u32::try_from(name.len()).ok()?.to_le_bytes());
                     add(name.as_bytes());
@@ -297,22 +314,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn buffer_review_allows_only_branches_to_local_instruction_starts() {
+    fn full_reviews_allow_only_branches_to_local_instruction_starts() {
         let eligible = |bytes: &[u8], version| {
             let items: Vec<_> = bytes.iter().copied().map(BodyItem::Byte).collect();
             fingerprint(&[], 0, &items, version).is_some()
         };
-        let body = [0x88, 0xd0, 0xfd, 0x60];
-        assert!(eligible(&body, BUFFER_VERSION));
-        assert!(!eligible(&body, CONTRACT_VERSION));
-        for bytes in [
-            &[0xd0, 0xff, 0x60][..],
-            &[0xd0, 0x01, 0x60],
-            &[0x48, 0x68, 0x60],
-            &[0x20, 0, 6, 0x60],
-            &[0x60, 0x60],
-        ] {
-            assert!(!eligible(bytes, BUFFER_VERSION));
+        let conditional = [0x90, 0x01, 0xe8, 0x60];
+        let counted_loop = [0x88, 0xd0, 0xfd, 0x60];
+        assert!(!eligible(&conditional, ENTRY_VERSION));
+        assert!(!eligible(&counted_loop, CONTRACT_VERSION));
+        assert!(eligible(&counted_loop, BUFFER_VERSION));
+        for version in [BUFFER_VERSION, CONTRACT_VERSION] {
+            assert!(eligible(&conditional, version));
+            for bytes in [
+                &[0xd0, 0xff, 0x60][..],
+                &[0xd0, 0x01, 0x60],
+                &[0x48, 0x68, 0x60],
+                &[0x20, 0, 6, 0x60],
+                &[0x60, 0x60],
+            ] {
+                assert!(!eligible(bytes, version));
+            }
         }
     }
 }

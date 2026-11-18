@@ -89,10 +89,10 @@ impl StorageAddress {
     }
 }
 
-pub(in crate::mir6502) fn reviewed_observations(
-    ranges: Option<&[crate::callee6502::DataRange<crate::nir::SymbolId>]>,
+fn reviewed_observations(
+    ranges: &[crate::callee6502::DataRange<crate::nir::SymbolId>],
 ) -> Option<Vec<StorageObservation>> {
-    ranges?.iter().map(|range| {
+    ranges.iter().map(|range| {
         let base = range.global.map(|id| MirMem::Global { id, offset: range.start })
             .unwrap_or_else(|| absolute_mem(range.start));
         Some(StorageObservation {
@@ -109,17 +109,33 @@ pub(in crate::mir6502) fn machine_storage_observations(
     routine: &MirRoutine,
     program: &MirProgram,
 ) -> Option<MachineStorageObservations> {
-    use crate::asm6502::InlineAsmRelocationKind as Kind;
-    use crate::mir6502::ir::MirInlineAsmTarget as Target;
     if routine.frame.callee_review.is_some() {
         let facts = reviewed_contract(program, routine)?;
-        // This inventory covers explicit operands. Numeric pointees are
-        // projected separately at the call that supplies the address.
-        return Some(MachineStorageObservations {
-            reads: reviewed_observations(facts.reads.as_deref())?,
-            writes: reviewed_observations(facts.writes.as_deref())?,
-        });
+        // An omitted direction still exposes the encoded addresses, just as
+        // it did before the review. Its call effect stays unknown.
+        let mut inventory = if facts.reads.is_none() || facts.writes.is_none() {
+            explicit_storage_observations(machine, routine, program)?
+        } else {
+            MachineStorageObservations::default()
+        };
+        if let Some(reads) = &facts.reads {
+            inventory.reads = reviewed_observations(reads)?;
+        }
+        if let Some(writes) = &facts.writes {
+            inventory.writes = reviewed_observations(writes)?;
+        }
+        return Some(inventory);
     }
+    explicit_storage_observations(machine, routine, program)
+}
+
+fn explicit_storage_observations(
+    machine: &MirMachineBlock,
+    routine: &MirRoutine,
+    program: &MirProgram,
+) -> Option<MachineStorageObservations> {
+    use crate::asm6502::InlineAsmRelocationKind as Kind;
+    use crate::mir6502::ir::MirInlineAsmTarget as Target;
     let mut addresses = BTreeMap::new();
     // Compact Action machine words can contain an opcode and its operand, or
     // straddle instruction boundaries. Their emitted little-endian bytes are

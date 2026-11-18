@@ -101,7 +101,7 @@ pub(in crate::mir6502) fn body_fingerprint(
             MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Absolute16,
                 target: MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 }),
-                addend: 0,
+                addend,
                 requires_zero_page: false,
                 ..
             } => {
@@ -126,6 +126,7 @@ pub(in crate::mir6502) fn body_fingerprint(
                 items.push(BodyItem::Global {
                     name: &global.name,
                     extent: global.storage_size,
+                    addend: *addend,
                 });
             }
             _ => return None,
@@ -252,6 +253,24 @@ mod tests {
         let missing = src.replace(";@actionc writes-only none", "");
         let p = crate::mir6502::lower_program(&lower(&missing).unwrap()).unwrap();
         assert_eq!(reviewed_contract(&p, &p.routines[0]).unwrap().writes, None);
+        let missing_reads = src.replace(";@actionc reads-only tab[0..3]", "");
+        let p = crate::mir6502::lower_program(&lower(&missing_reads).unwrap()).unwrap();
+        assert_eq!(reviewed_contract(&p, &p.routines[0]).unwrap().reads, None);
+        let inventory =
+            machine_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+        assert_eq!(inventory.reads.len(), 1);
+        assert_eq!(
+            inventory.reads[0].address.base,
+            MirMem::Global {
+                id: p.globals[0].id,
+                offset: 0
+            }
+        );
+        assert_eq!(
+            inventory.reads[0].extent,
+            super::super::observations::ObservationExtent::Bytes(256)
+        );
+        assert!(inventory.writes.is_empty());
         for stale in [
             src.replace("tax", "tay"),
             src.replace("BYTE ch", "CARD ch"),

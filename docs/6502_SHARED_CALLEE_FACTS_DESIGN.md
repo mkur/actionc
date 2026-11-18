@@ -73,9 +73,11 @@ itself. Deterministic checks run on each build and edits that invalidate a
 review require a fresh review before its facts can be used again.
 
 Direct calls to straight-line leaves such as `Ascii` and `Internal` can use
-complete table and scratch ranges. A separate review version admits bounded
-buffer declarations and local conditional branches. Each declaration names a
-pointer formal, a byte-count formal, its zero convention and the direction of
+complete table and scratch ranges. Full reviews can identify forward conditional
+branches to local instruction boundaries and table references with an in-bounds
+constant offset. A separate review version admits bounded buffer declarations
+and backward local branches. Each buffer declaration names a pointer formal,
+a byte-count formal, its zero convention and the direction of
 access. The review establishes the bound. MIR instantiates it with the current
 physical arguments or a coherent pointer interval and checks the resulting RAM
 range. A numeric caller-supplied pointer also contributes its possible span to
