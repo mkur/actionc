@@ -100,7 +100,7 @@ pub(crate) fn compile_runtime_unit(
     let source = EmbeddedSourceProvider
         .runtime_source(file_name)
         .ok_or_else(|| diagnostic(format!("embedded runtime source `{file_name}` is missing")))?;
-    let text = crate::source::decode_source(source.bytes);
+    let text = trim_runtime_error_tail(&crate::source::decode_source(source.bytes));
     let text = make_internal_named_module(&text, module_name, file_name)?;
     let origin = SourceOrigin::embedded(
         format!("runtime/internal/{file_name}"),
@@ -651,6 +651,14 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
     output.extend(var.entries.iter().map(|entry| entry.name.clone()));
 }
 
+/// The historical bytes after the jump to DOSVEC have no entry point.
+fn trim_runtime_error_tail(source: &str) -> String {
+    source.replace(
+        "PROC Error(BYTE err)[$6C$A$0$1113$8301]",
+        "PROC Error(BYTE err)[$6C$A$0]",
+    )
+}
+
 /// Correct verified interface defects in the historical standalone source
 /// without rewriting the preserved source corpus. The Action! 3.6 compiler
 /// accepts `PrintBDE(device,value)` and emits `LDA device; LDX value; JSR
@@ -666,7 +674,7 @@ fn collect_var_names(var: &VarDecl, output: &mut BTreeSet<String>) {
 /// the original compiler's global STRING representation; materialize explicit
 /// pointer arrays so the modern frontend preserves that machine-code contract.
 fn apply_runtime_source_errata(source: &str) -> String {
-    source
+    trim_runtime_error_tail(source)
         .replace("PROC PrintBDE=*(BYTE n)", "PROC PrintBDE=*(BYTE d,n)")
         .replace("PROC Error(BYTE err)", "PROC Error=*(BYTE err,x,y)")
         .replace("$A485$A586$4A9$A685$24A9", "$A285$A386$4A9$A685$24A9")
@@ -980,31 +988,25 @@ mod tests {
             ) && !param.pointer
         }));
 
-        let error = image
-            .semir
-            .modules
-            .iter()
-            .flat_map(|module| &module.items)
-            .find_map(|item| match item {
-                ir::SemItem::Routine(routine)
-                    if routine
-                        .symbol
-                        .qualified_name
-                        .rsplit(['.', ':'])
-                        .find(|part| !part.is_empty())
-                        .is_some_and(|name| name.eq_ignore_ascii_case("Error")) =>
-                {
-                    Some(routine)
-                }
+        let syslib = compile_runtime_unit("syslib.act", "ACTION.RUNTIME.SYSLIB").unwrap();
+        for (program, param_count) in [(&image.semir, 3), (&syslib, 1)] {
+            let error = program.modules.iter().flat_map(|m| &m.items).find_map(|item| match item {
+                ir::SemItem::Routine(r) if runtime_symbol_name(&r.symbol) == "ERROR" => Some(r),
                 _ => None,
-            })
-            .expect("resident Error");
-        assert_eq!(error.signature.params.len(), 3);
-        assert!(error.signature.params.iter().all(|param| {
-            matches!(
-                &param.base,
-                crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte)
-            ) && !param.pointer
-        }));
+            }).expect("standalone Error");
+            assert_eq!(error.signature.params.len(), param_count);
+            assert!(error.signature.params.iter().all(|param| {
+                matches!(&param.base, crate::semantic::ValueTypeBase::Fund(crate::ast::FundType::Byte))
+                    && !param.pointer
+            }));
+            let [ir::SemStmt::MachineBlock { items, .. }] = error.body.as_slice() else {
+                panic!("expected a machine-code Error entry");
+            };
+            let bytes: Vec<_> = items.iter().map(|item| match item {
+                crate::ast::MachineItem::Number(n) => u8::try_from(n.value.unwrap()).unwrap(),
+                _ => panic!("expected literal bytes in Error"),
+            }).collect();
+            assert_eq!(bytes, [0x6c, 0x0a, 0x00]);
+        }
     }
 }

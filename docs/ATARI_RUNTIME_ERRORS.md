@@ -86,8 +86,9 @@ The standalone source is preserved separately:
 `PROC Error(BYTE err)[$6C$A$0$1113$8301]`. Its executable entry is
 `JMP ($000A)`, i.e. DOSVEC; [SYS.DOC](../corpora/action-runtime/extracted/SYS.DOC)
 explicitly describes that behavior. No message formatting is performed there.
-The runtime loader's existing interface erratum makes it a raw three-byte
-entry, preserving A/X/Y without an argument-copying prologue.
+Both standalone linking paths omit the four bytes following the jump. The
+resident runtime adapter declares the raw A/X/Y entry so the DOS handler
+receives all three register arguments directly.
 
 There is **no historical divide-by-zero-specific code to reproduce**. actionc
 now uses **101**, replacing its earlier generic-100 fallback.
@@ -107,7 +108,7 @@ adapter; all fault helpers have no arguments/results and opaque handler effects.
 - Cartridge builds call the existing `$04CB` entry. The default handler prints
   `Error: <code>` and enters the Action! monitor; existing dispatch behavior stays
   intact.
-- Standalone builds link the original SYSLIB Error body and therefore transfer
+- Standalone builds link the SYSLIB Error jump and therefore transfer
   control through DOSVEC. They do **not** call an uninitialized `$04CB` entry,
   allocate a GR.0 screen, or promise that DOS will print the code.
   Error is recorded in the runtime-dependency map and existing standalone
