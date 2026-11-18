@@ -188,19 +188,15 @@ impl<'a> ResidenceCalls<'a> {
             return Err("unsupported residence callee");
         }
         self.check_inputs(call, true)?;
-        let writes = self
-            .known
-            .get(*target)
-            .ok_or("unknown residence callee writes")?
-            .writes();
+        let summary = self.known.get(*target).ok_or("unknown residence callee writes")?;
         let projected;
-        let writes = if writes.has_formal_writes() {
+        let writes = if self.acyclic.is_some() && summary.needs_write_arguments() {
             let (routine, site) = site.ok_or("unresolved residence pointer argument")?;
             let values = crate::mir6502::runtime_contracts::buffers::argument_values(self.program, routine)
                 .ok_or("unresolved residence pointer argument")?;
             projected = self.known.writes_at_site(self.program, routine, call, &values, site);
             &projected
-        } else { writes };
+        } else { summary.writes() };
         if writes.has_formal_writes() || matches!(writes, MirKnownMemoryWrites::Unknown) {
             return Err("unknown residence callee writes");
         }

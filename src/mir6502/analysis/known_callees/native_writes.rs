@@ -448,7 +448,14 @@ impl MirKnownCalleeSummaries {
         else {
             return None;
         };
-        let mut writes = self.get(*id)?.writes().clone();
+        let summary = self.get(*id)?;
+        if let Some(facts) = summary.reviewed_facts()
+            && facts.buffers.iter().any(|buffer| buffer.write)
+        {
+            let callee = program.routines.iter().find(|r| r.id == *id)?;
+            return super::reviewed_buffers::residence_writes(program, callee, facts, call, values, site);
+        }
+        let mut writes = summary.writes().clone();
         let MirKnownMemoryWrites::Pointee {
             formals, numeric, ..
         } = &mut writes

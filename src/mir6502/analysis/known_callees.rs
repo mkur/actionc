@@ -270,6 +270,10 @@ impl MirKnownCalleeExitSummary {
         &self.writes
     }
 
+    pub(in crate::mir6502) fn needs_write_arguments(&self) -> bool {
+        self.writes.has_formal_writes() || self.reviewed.as_ref().is_some_and(|f| f.buffers.iter().any(|b| b.write))
+    }
+
     pub(in crate::mir6502) fn reads(&self) -> &MirKnownMemoryReads {
         &self.reads
     }
@@ -848,7 +852,9 @@ fn summarize_routine_writes(
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
     let buffer_values = (normal.is_some() && routine.blocks.iter().flat_map(|b| &b.ops)
-        .any(|op| crate::mir6502::runtime_contracts::library::may_write_buffer(op)))
+        .any(|op| crate::mir6502::runtime_contracts::library::may_write_buffer(op)
+            || (callees.native_pointer_writes && matches!(op, MirOp::Call { target, .. }
+                if callees.for_target(target).is_some_and(|child| child.needs_write_arguments())))))
         .then(|| crate::mir6502::runtime_contracts::buffers::argument_values(program, routine)).flatten();
     for block in &routine.blocks {
         for (op_index, op) in block.ops.iter().enumerate() {
@@ -861,8 +867,8 @@ fn summarize_routine_writes(
                 }
             } else if let MirOp::Call { target, .. } = op
                 && callees.native_pointer_writes && let Some(child) = callees.for_target(target)
-                && child.writes().has_formal_writes() {
-                writes.merge(&callees.writes_at_site(program, routine, op, values,
+                && child.needs_write_arguments() {
+                writes.merge(&callees.writes_at_site(program, routine, op, buffer_values.as_ref().unwrap_or(values),
                     MirSite::Op { block: block.id, op_index }));
             } else if callees.native_pointer_writes && super::effects::writes_ordinary_pointee(op) {
                 let site = MirSite::Op { block: block.id, op_index };

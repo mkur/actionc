@@ -181,3 +181,10 @@ destination is the screen rectangle computed by `CalcAdr`. [Window and image rou
 home also has to survive outgoing argument stores and spill writes anywhere
 in the called routine's subtree. For example, the caller stages the fourth
 byte for `PutImage` in `$A3` before entering the reviewed body.
+
+For ZP home selection, a reviewed copy contributes its fixed writes and each
+destination span at the call site. In `RestorePos`, `MovePage(@zx,
+arenaRestoreCursor, 4)` writes `$005A–$005D` and uses `$A0–$A2` as scratch.
+The dynamic source contributes reads. An unknown destination, or a destination
+that can overwrite a fixed pointer or count carrier, keeps the write footprint
+unknown. Native wrappers also contribute their own staging and cursor writes.

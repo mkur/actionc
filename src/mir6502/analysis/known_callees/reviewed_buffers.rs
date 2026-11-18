@@ -3,7 +3,8 @@ use super::*;
 use crate::callee6502::{CallFacts, DataRange};
 use crate::mir6502::analysis::address_ranges::{AbiByte, CoherentWordRange};
 use crate::mir6502::analysis::record_bases::MirPhysicalMemory;
-use crate::mir6502::ir::MirParamLane;
+use crate::mir6502::ir::{MirParamLane, MirWidth};
+use crate::mir6502::runtime_contracts::buffers::{BufferAccess, BufferExtent, argument_values};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Buffer {
@@ -137,6 +138,97 @@ impl ReviewedBuffers {
     }
 }
 
+fn buffer_accesses(
+    routine: &MirRoutine,
+    facts: &CallFacts<crate::nir::SymbolId>,
+) -> Option<Vec<BufferAccess>> {
+    let params = routine.frame.direct_parameter_abi.as_ref()?;
+    let offset = |n: u16| {
+        crate::mir6502::abi::parameter_bytes(params.get(..usize::from(n.checked_sub(1)?))?)
+    };
+    facts
+        .buffers
+        .iter()
+        .map(|b| {
+            Some(BufferAccess {
+                pointer_byte: offset(b.pointer)?,
+                extent: BufferExtent::ByteCount {
+                    argument_byte: offset(b.count)?,
+                    zero_means_256: b.zero_means_256,
+                },
+                write: b.write,
+            })
+        })
+        .collect()
+}
+
+/// Expanded Action calls split pointer arguments into physical byte lanes.
+/// A retained call still supplies the whole pointer operand and its own count.
+fn project(
+    buffer: &BufferAccess,
+    program: &MirProgram,
+    call: &MirOp,
+    values: Option<(&MirMachineValueAvailability, MirSite)>,
+) -> (Option<u16>, u16) {
+    let staged = matches!(call, MirOp::Call { args, .. } if args.iter().all(|arg| arg.width == MirWidth::Byte));
+    buffer.project(program, call, values.filter(|_| staged))
+}
+
+/// A reviewed buffer has no unconditional exit footprint. Instantiate only
+/// its write direction here; a dynamic source remains a possible read.
+pub(super) fn residence_writes(
+    program: &MirProgram,
+    callee: &MirRoutine,
+    facts: &CallFacts<crate::nir::SymbolId>,
+    call: &MirOp,
+    values: &MirMachineValueAvailability,
+    site: MirSite,
+) -> Option<MirKnownMemoryWrites> {
+    let MirOp::Call { args, .. } = call else {
+        return None;
+    };
+    crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
+    crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
+    let fixed = reviewed_bytes(facts.writes.as_deref())?;
+    let mut numeric = Vec::new();
+    for buffer in buffer_accesses(callee, facts)?.iter().filter(|b| b.write) {
+        let (address, size) = project(buffer, program, call, Some((values, site)));
+        if size == 0 {
+            continue;
+        }
+        let address = address?;
+        // A write into a pointer or count carrier can redirect later loop
+        // iterations. Include read-only carriers (e.g. MovePage's $A3/$A4).
+        for range in facts.reads.as_ref()?.iter().chain(facts.writes.as_ref()?) {
+            let start = match range.global {
+                None => range.start,
+                Some(id) => fixed_storage_address(
+                    program,
+                    &MirMem::Global {
+                        id,
+                        offset: range.start,
+                    },
+                )?,
+            };
+            let end = start.checked_add(range.end.checked_sub(range.start)?)?;
+            if (start..=end).contains(&address) || start.wrapping_sub(address) < size {
+                return None;
+            }
+        }
+        numeric.push((address, size));
+    }
+    if numeric.is_empty() {
+        return Some(MirKnownMemoryWrites::Exact(fixed));
+    }
+    Some(MirKnownMemoryWrites::Pointee {
+        fixed,
+        numeric,
+        formals: BTreeSet::new(),
+        ordinary: false,
+        caller_dependent: false,
+    })
+}
+
 // Numeric pointers passed to a reviewed leaf expose their entire possible
 // span. An unknown pointee stays an invocation effect; it does not create a
 // literal-address reference to every unrelated routine's private storage.
@@ -144,7 +236,6 @@ pub(in crate::mir6502) fn numeric_buffer_observations(
     program: &MirProgram,
 ) -> Vec<(RoutineId, u16, u16, bool)> {
     use crate::mir6502::analysis::sites::MirSite;
-    use crate::mir6502::runtime_contracts::buffers::{BufferAccess, BufferExtent, argument_values};
     let mut accesses = BTreeMap::new();
     for r in &program.routines {
         if !r
@@ -158,27 +249,8 @@ pub(in crate::mir6502) fn numeric_buffer_observations(
         let Some(facts) = super::reviewed_contract(program, r) else {
             continue;
         };
-        let Some(params) = &r.frame.direct_parameter_abi else {
-            continue;
-        };
-        let offset = |n: u16| {
-            crate::mir6502::abi::parameter_bytes(params.get(..usize::from(n.checked_sub(1)?))?)
-        };
-        for b in &facts.buffers {
-            if let (Some(pointer_byte), Some(argument_byte)) = (offset(b.pointer), offset(b.count))
-            {
-                accesses
-                    .entry(r.id)
-                    .or_insert_with(Vec::new)
-                    .push(BufferAccess {
-                        pointer_byte,
-                        extent: BufferExtent::ByteCount {
-                            argument_byte,
-                            zero_means_256: b.zero_means_256,
-                        },
-                        write: b.write,
-                    });
-            }
+        if let Some(buffers) = buffer_accesses(r, facts) {
+            accesses.insert(r.id, buffers);
         }
     }
     let mut observations = Vec::new();
@@ -208,7 +280,7 @@ pub(in crate::mir6502) fn numeric_buffer_observations(
                     .as_ref();
                 for b in buffers {
                     if let (Some(address), size @ 1..) =
-                        b.project(program, call, values.map(|v| (v, site)))
+                        project(b, program, call, values.map(|v| (v, site)))
                     {
                         observations.push((r.id, address, size, b.write));
                     }
@@ -217,4 +289,81 @@ pub(in crate::mir6502) fn numeric_buffer_observations(
         }
     }
     observations
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copy_uses_each_calls_destination_and_count_on_normal_return() {
+        let source = concat!(
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/fixtures/runtime/bounded_call_pointer_retention.act"
+            )),
+            "\nBYTE pos=$5A CARD src\n",
+            "PROC Restore() CopyBytes(@pos,src,4) RETURN\n",
+            "PROC FullPage() CopyBytes($7000,src,0) RETURN\n",
+            "PROC Wrap() CopyBytes($FFFF,src,2) RETURN\n",
+            "PROC HitsCarrier() CopyBytes($A3,src,1) RETURN\n",
+            "PROC Unknown() CopyBytes(src,src,4) RETURN\n"
+        );
+        let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+        let model =
+            crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+                .unwrap();
+        let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+        let input = crate::mir6502::lower_program(&nir).unwrap();
+        let mut p = crate::mir6502::materialize_program(input, &Default::default()).unwrap();
+        let id = |name: &str| p.routines.iter().find(|r| r.name == name).unwrap().id;
+        let restore = id("Restore");
+        let copy = id("CopyBytes");
+        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p);
+        for (name, start, size) in [
+            ("Restore", 0x5a, 4),
+            ("FullPage", 0x7000, 256),
+            ("Wrap", 0xffff, 2),
+        ] {
+            let writes = known.get(id(name)).unwrap().writes();
+            assert!(
+                matches!(writes, MirKnownMemoryWrites::Pointee { numeric, .. } if numeric == &[(start, size)]),
+                "{name}: {writes:?}"
+            );
+            // Fixed writes in the leaf and outgoing ZP lanes in the wrapper.
+            for slot in 0xa0..=0xa4 {
+                assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(slot), known.fixed_storage()));
+            }
+        }
+        for name in ["CopyBytes", "HitsCarrier", "Unknown"] {
+            assert_eq!(
+                known.get(id(name)).unwrap().writes(),
+                &MirKnownMemoryWrites::Unknown,
+                "{name}"
+            );
+        }
+        assert_eq!(
+            MirKnownCalleeSummaries::analyze_for_rewriting(&p)
+                .get(restore)
+                .unwrap()
+                .writes(),
+            &MirKnownMemoryWrites::Unknown
+        );
+        p.routines
+            .iter_mut()
+            .find(|r| r.id == copy)
+            .unwrap()
+            .frame
+            .callee_review
+            .as_mut()
+            .unwrap()
+            .fingerprint ^= 1;
+        assert_eq!(
+            MirKnownCalleeSummaries::analyze_for_source_homes(&p)
+                .get(restore)
+                .unwrap()
+                .writes(),
+            &MirKnownMemoryWrites::Unknown
+        );
+    }
 }
