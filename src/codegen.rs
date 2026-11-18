@@ -350,6 +350,8 @@ pub use storage::{
 };
 
 mod model;
+mod reviewed;
+use reviewed::ClassicCalleeReviews;
 use model::*;
 
 mod temp;
@@ -1268,6 +1270,7 @@ struct Generator {
     native_real: native_real::ClassicNativeRealFacts,
     record_copies: record_copy::ClassicRecordCopyFacts,
     compound_operations: compound::ClassicCompoundFacts,
+    callee_reviews: ClassicCalleeReviews,
     static_initializers: ClassicStaticInitializerFacts,
     native_real_literal_pool: BTreeMap<[u8; 6], (String, Span)>,
     current_native_real_scope: Option<String>,

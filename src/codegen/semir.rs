@@ -31,6 +31,7 @@ pub(crate) struct ClassicProjection {
     pub(crate) native_real: ClassicNativeRealFacts,
     pub(crate) record_copies: ClassicRecordCopyFacts,
     pub(crate) compound_operations: super::compound::ClassicCompoundFacts,
+    pub(super) callee_reviews: super::ClassicCalleeReviews,
     pub(crate) static_initializers: ClassicStaticInitializerFacts,
     pub(super) record_layouts: super::storage::RecordLayouts,
     pub(crate) storage_display_names: BTreeMap<(String, String), String>,
@@ -59,6 +60,7 @@ pub(crate) fn semir_to_projection(
         aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
+    let callee_reviews = super::ClassicCalleeReviews::collect(program);
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
@@ -66,6 +68,7 @@ pub(crate) fn semir_to_projection(
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
             compound_operations: lowerer.compound_operations,
+            callee_reviews,
             static_initializers: lowerer.static_initializers,
             record_layouts,
             storage_display_names,
@@ -99,6 +102,7 @@ pub(crate) fn semir_to_cart_projection(
         aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
+    let callee_reviews = super::ClassicCalleeReviews::collect(program);
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {
@@ -106,6 +110,7 @@ pub(crate) fn semir_to_cart_projection(
             native_real: lowerer.native_real,
             record_copies: lowerer.record_copies,
             compound_operations: lowerer.compound_operations,
+            callee_reviews,
             static_initializers: lowerer.static_initializers,
             record_layouts,
             storage_display_names,
