@@ -1,6 +1,7 @@
 //! Identity of a reviewed direct-call entry. The review is an assertion about
 //! caller obligations. It does not modify the instruction-level input summary.
 use super::*;
+use crate::callee6502::ReviewDependencies;
 use crate::asm6502::InlineAsmRelocationKind;
 use crate::mir6502::ir::{MirDirectParamAbi, MirDirectResultAbi, MirInlineAsmTarget};
 
@@ -15,6 +16,11 @@ pub(in crate::mir6502) fn reviewed_contract<'a>(
     program: &MirProgram,
     routine: &'a MirRoutine,
 ) -> Option<&'a crate::callee6502::CallFacts<crate::nir::SymbolId>> {
+    reviewed_match(program, routine, &mut ReviewDependencies::new()).map(|r| &r.facts)
+}
+
+fn reviewed_match<'a>(program: &MirProgram, routine: &'a MirRoutine, dependencies: &mut ReviewDependencies<RoutineId>)
+    -> Option<&'a crate::callee6502::Review<crate::nir::SymbolId>> {
     let review = routine.frame.callee_review.as_ref()?;
     let params = routine.frame.direct_parameter_abi.as_ref()?;
     if !review.valid_buffer_signature(&params.iter().map(|p| p.width().bytes()).collect::<Vec<_>>())
@@ -28,13 +34,13 @@ pub(in crate::mir6502) fn reviewed_contract<'a>(
         return None;
     };
     let machine = program.machine_blocks.iter().find(|m| m.id == *id)?;
-    if body_fingerprint(program, routine, review.version()) != Some(review.fingerprint)
+    if machine_fingerprint(program, routine, review.version(), dependencies) != Some(review.fingerprint)
         || !review.dependencies_match(|id| {
             if !machine.items.iter().any(|item| matches!(item, MirMachineItem::Relocation {
                 target: MirInlineAsmTarget::Memory(MirMem::Global { id: seen, offset: 0 }), .. } if seen == id)) { return None; }
             Some(program.globals.iter().find(|g| g.id == *id)?.storage_size)
         }) { return None; }
-    Some(&review.facts)
+    Some(review)
 }
 
 pub(in crate::mir6502) fn body_fingerprint(
@@ -42,6 +48,11 @@ pub(in crate::mir6502) fn body_fingerprint(
     routine: &MirRoutine,
     version: &[u8],
 ) -> Option<u64> {
+    machine_fingerprint(program, routine, version, &mut ReviewDependencies::new())
+}
+
+fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8],
+    dependencies: &mut ReviewDependencies<RoutineId>) -> Option<u64> {
     let [block] = routine.blocks.as_slice() else {
         return None;
     };
@@ -52,9 +63,7 @@ pub(in crate::mir6502) fn body_fingerprint(
         || !routine.frame.contains_source_asm
         || block.terminator != MirTerminator::Unreachable
         || effects.opaque
-        || effects.may_call_os
         || routine.effects.opaque
-        || routine.effects.may_call_os
         || !crate::mir6502::abi::direct_parameter_frame_matches(routine)
     {
         return None;
@@ -99,6 +108,19 @@ pub(in crate::mir6502) fn body_fingerprint(
                 }
             }
             MirMachineItem::Relocation {
+                kind: InlineAsmRelocationKind::Absolute16, target: MirInlineAsmTarget::Routine(id),
+                addend: 0, requires_zero_page: false, ..
+            } => {
+                let callee = program.routines.iter().find(|r| r.id == *id)?;
+                if program.routines.iter().any(|r| r.id != *id && r.name.eq_ignore_ascii_case(&callee.name)) { return None; }
+                let contract = dependencies.resolve(*id, |deps| {
+                    reviewed_match(program, callee, deps)?.dependency_hash(|id| {
+                        program.globals.iter().find(|g| g.id == *id).map(|g| g.name.clone())
+                    })
+                })?;
+                items.push(BodyItem::Call { name: &callee.name, contract });
+            }
+            MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Absolute16,
                 target: MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 }),
                 addend,
@@ -132,6 +154,9 @@ pub(in crate::mir6502) fn body_fingerprint(
             _ => return None,
         }
     }
+    if (effects.may_call_os || routine.effects.may_call_os) && !items.iter().any(|i| matches!(i, BodyItem::Call { .. })) {
+        return None;
+    }
     fingerprint(&params, result, &items, version)
 }
 
@@ -148,6 +173,53 @@ mod tests {
         Ok(crate::nir::lower_program(
             &crate::semantic::ir::lower_program(&ast, &model),
         ))
+    }
+    #[test]
+    fn typed_jsr_binds_both_backends_to_current_child_guarantees() {
+        let source = ";@actionc reviewed-6502 1111111111111111
+;@actionc writes-only none
+PROC Child=*()
+ASM
+rts
+ENDASM
+;@actionc reviewed-6502 2222222222222222
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+PROC Parent=*(BYTE n)
+ASM
+pha
+jsr Child
+pla
+beq done
+rts
+done:
+rts
+ENDASM
+PROC Main() Parent(1) RETURN";
+        let fingerprint = |src: &str, index| {
+            let mir = crate::mir6502::lower_program(&lower(src).unwrap()).unwrap();
+            body_fingerprint(&mir, &mir.routines[index], crate::callee6502::CONTRACT_VERSION).unwrap()
+        };
+        let src = source.replace("1111111111111111", &format!("{:016x}", fingerprint(source, 0)));
+        let src = src.replace("2222222222222222", &format!("{:016x}", fingerprint(&src, 1)));
+        for (src, valid) in [
+            (src.clone(), true),
+            (src.replace("writes-only none", "writes-only $A0"), false),
+            (src.replacen("ASM
+rts", "ASM
+nop
+rts", 1), false),
+            (src.replace("jsr Child", "jsr $3456"), false),
+            (src.replace("jsr Child", "jsr Parent"), false),
+        ] {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&src).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+            let sem = crate::semantic::ir::lower_program(&ast, &model);
+            let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+            assert_eq!(crate::codegen::projected_review_for_test(&sem, "Parent").is_some(), valid, "{src}");
+            assert_eq!(reviewed_contract(&mir, &mir.routines[1]).is_some(), valid, "{src}");
+            assert_eq!(MirCalleeEntryFact::analyze(&mir, mir.routines[1].id, MirCalleeEntryStage::ActualEntry).is_some(), valid);
+        }
     }
     #[test]
     fn native_direct_call_producers_publish_their_own_generated_facts() {

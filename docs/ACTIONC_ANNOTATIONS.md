@@ -41,8 +41,16 @@ respective direction. Use space-separated absolute addresses, absolute ranges,
 or global array slices such as `asciiMap[0..3]` with inclusive byte offsets.
 Use `none` for an empty set. Omitting a direction leaves it unknown.
 `preserves` names registers and numeric zero-page ranges that survive a normal
-return. `returns A=$A0` describes the returned byte. Both backends match the
-review to the selected leaf, ABI and referenced table before using it.
+return. `returns A=$A0` describes the returned byte. Both backends match the review to the selected implementation, ABI and referenced
+tables before using it.
+
+A composed assembly review can call other reviewed routines by symbolic
+`JSR`. Its fingerprint includes each target's name, validated implementation
+fingerprint and declared guarantees. A stale child disables its callers'
+reviews transitively. The reviewer checks each internal calling convention,
+all return paths and stack balance. These bodies can use local loops,
+multiple `RTS` exits and balanced `PHA`/`PLA`. Numeric calls, jumps out of
+the routine and recursive review dependencies cannot supply a contract.
 
 Registers are conservative by default: unless a routine explicitly says it
 preserves `A`, `X`, or `Y`, the state tracker invalidates those registers across

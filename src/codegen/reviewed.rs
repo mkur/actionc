@@ -1,7 +1,7 @@
 //! Project the identity of an unwrapped classic assembly routine before callers
 //! are emitted. Only ordinary, statically sized global backing is supported.
 use super::*;
-use crate::callee6502::{BodyItem, ENTRY_VERSION, fingerprint};
+use crate::callee6502::{BodyItem, ENTRY_VERSION, ReviewDependencies, fingerprint};
 use crate::foreign::{ForeignCodeMode, ForeignRelocationEncoding};
 use crate::semantic::ir::*;
 use crate::target::ByteSize;
@@ -26,12 +26,7 @@ impl ClassicCalleeReviews {
                 .get(&routine.symbol.id)
                 .unwrap_or(&routine.symbol.name);
             if let Some(review) = &routine.callee_review {
-                if classic_fingerprint(program, routine, review.version()) == Some(review.fingerprint)
-                    && review.dependencies_match(|id| {
-                        let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else { return None };
-                        if !asm.relocations.iter().any(|rel| matches!(&rel.target, SemInlineAsmTarget::Symbol(s) if s.id == *id)) { return None; }
-                        u16::try_from(program.layout.array_for_symbol(*id)?.storage_size?).ok()
-                    }) {
+                if classic_matches(program, routine, &mut ReviewDependencies::new()).is_some() {
                     facts.contracts.insert(normalize_name(name), review.facts.clone());
                 }
                 continue;
@@ -86,7 +81,24 @@ pub(super) fn classic_call_effects<Id>(facts: &crate::callee6502::CallFacts<Id>)
     effects
 }
 
+fn classic_matches<'a>(program: &SemProgram, routine: &'a SemRoutine,
+    dependencies: &mut ReviewDependencies<crate::semantic::SymbolId>,
+) -> Option<&'a crate::callee6502::Review<crate::semantic::SymbolId>> {
+    let review = routine.callee_review.as_ref()?;
+    let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else { return None };
+    (classic_body(program, routine, review.version(), dependencies)? == review.fingerprint
+        && review.dependencies_match(|id| {
+            if !asm.relocations.iter().any(|rel| matches!(&rel.target, SemInlineAsmTarget::Symbol(s) if s.id == *id)) { return None; }
+            u16::try_from(program.layout.array_for_symbol(*id)?.storage_size?).ok()
+        })).then_some(review)
+}
+
 fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8]) -> Option<u64> {
+    classic_body(program, routine, version, &mut ReviewDependencies::new())
+}
+
+fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
+    dependencies: &mut ReviewDependencies<crate::semantic::SymbolId>) -> Option<u64> {
     let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else {
         return None;
     };
@@ -154,6 +166,21 @@ fn classic_fingerprint(program: &SemProgram, routine: &SemRoutine, version: &[u8
                 ForeignRelocationEncoding::Address { width: w },
                 None,
             ) if w.get() == 2 => {
+                if let Some(callee) = program.modules.iter().flat_map(|m| &m.items).find_map(|item| match item {
+                    SemItem::Routine(r) if r.symbol.id == symbol.id => Some(r), _ => None,
+                }) {
+                    if rel.addend != 0 || program.modules.iter().flat_map(|m| &m.items).any(|i|
+                        matches!(i, SemItem::Routine(r) if r.symbol.id != symbol.id && r.symbol.name.eq_ignore_ascii_case(&symbol.name))) { return None; }
+                    let contract = dependencies.resolve(symbol.id, |deps| {
+                        classic_matches(program, callee, deps)?.dependency_hash(|id| {
+                            program.modules.iter().flat_map(|m| &m.items).find_map(|item| match item {
+                                SemItem::Declaration(d) if d.symbol.id == *id => Some(d.symbol.name.clone()), _ => None,
+                            })
+                        })
+                    })?;
+                    items.push(BodyItem::Call { name: &callee.symbol.name, contract });
+                    continue;
+                }
                 let decl =
                     program
                         .modules

@@ -1,9 +1,10 @@
-//! Implementation identity for reviewed 6502 leaf contracts. A successful
+//! Implementation identity for reviewed 6502 contracts. A successful
 //! match certifies the recorded claims, independently of instruction effects.
 use crate::codegen::{AddressingMode, decode_6502_opcode};
 
 pub(crate) enum BodyItem<'a> {
     Byte(u8),
+    Call { name: &'a str, contract: u64 },
     Global {
         name: &'a str,
         extent: u16,
@@ -23,6 +24,11 @@ pub(crate) fn fingerprint(
             hash = (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
         }
     };
+    let calls = items.iter().any(|item| matches!(item, BodyItem::Call { .. }));
+    if calls {
+        if version == ENTRY_VERSION { return None; }
+        add(b"actionc-6502-reviewed-calls-v1");
+    }
     add(version);
     add(params);
     add(&[0, result]);
@@ -30,7 +36,8 @@ pub(crate) fn fingerprint(
     let mut targets = Vec::new();
     let mut pc = 0usize;
     let mut iter = items.iter().peekable();
-    while let Some(BodyItem::Byte(opcode)) = iter.next() {
+    while let Some(item) = iter.next() {
+        let BodyItem::Byte(opcode) = item else { return None };
         let (op, mode, len) = decode_6502_opcode(*opcode)?;
         if version != ENTRY_VERSION {
             starts.push(pc);
@@ -38,6 +45,7 @@ pub(crate) fn fingerprint(
         pc = pc.checked_add(len)?;
         add(&[0, *opcode]);
         if op == "RTS" {
+            if calls && iter.peek().is_some() { continue; }
             return (iter.peek().is_none()
                 && targets.iter().all(|t| starts.binary_search(t).is_ok()))
             .then_some(hash);
@@ -47,11 +55,21 @@ pub(crate) fn fingerprint(
                 return None;
             };
             let displacement = *delta as i8;
-            if version == ENTRY_VERSION || (version == CONTRACT_VERSION && displacement < 0) {
+            if version == ENTRY_VERSION || (!calls && version == CONTRACT_VERSION && displacement < 0) {
                 return None;
             }
             targets.push(pc.checked_add_signed(isize::from(displacement))?);
         }
+        if op == "JSR" && calls {
+            let BodyItem::Call { name, contract } = iter.next()? else { return None };
+            let name = name.to_ascii_uppercase();
+            add(&[3]);
+            add(&u32::try_from(name.len()).ok()?.to_le_bytes());
+            add(name.as_bytes());
+            add(&contract.to_le_bytes());
+            continue;
+        }
+        if matches!(op, "PHA" | "PLA") && calls { continue; }
         if matches!(
             op,
             "JSR" | "JMP" | "BRK" | "RTI" | "PHA" | "PLA" | "PHP" | "PLP" | "TXS" | "TSX"
@@ -89,6 +107,23 @@ pub(crate) fn fingerprint(
         }
     }
     None
+}
+
+/// Resolve each reviewed dependency once per root. The pending None also
+/// rejects recursive assembly call graphs.
+#[derive(Default)]
+pub(crate) struct ReviewDependencies<Id>(std::collections::BTreeMap<Id, Option<u64>>);
+
+impl<Id: Ord + Copy> ReviewDependencies<Id> {
+    pub fn new() -> Self { Self(std::collections::BTreeMap::new()) }
+
+    pub fn resolve(&mut self, id: Id, compute: impl FnOnce(&mut Self) -> Option<u64>) -> Option<u64> {
+        if let Some(known) = self.0.get(&id) { return *known; }
+        self.0.insert(id, None);
+        let result = compute(self);
+        self.0.insert(id, result);
+        result
+    }
 }
 
 pub(crate) const ENTRY_VERSION: &[u8] = b"actionc-6502-abi-inputs-v1";
@@ -178,6 +213,36 @@ impl<Id> Review<Id> {
                     self.facts.reads.is_some()
                 })
         })
+    }
+
+    /// Bind a calling assembly review to the selected implementation and every
+    /// published guarantee. Symbol IDs differ between backends; use reviewed names.
+    pub(crate) fn dependency_hash(&self, name: impl FnMut(&Id) -> Option<String>) -> Option<u64> {
+        let f = self.map_ids(name)?.facts;
+        let mut hash = self.fingerprint;
+        let mut add = |bytes: &[u8]| for byte in bytes {
+            hash = (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
+        };
+        add(&[f.abi_inputs_only as u8, f.physical_abi_inputs as u8, f.returns_a_equals_a0 as u8,
+            f.preserves_regs.a as u8, f.preserves_regs.x as u8, f.preserves_regs.y as u8]);
+        add(&(f.preserves_zp.len() as u64).to_le_bytes());
+        for r in f.preserves_zp { add(&[r.start, r.end]); }
+        add(&(f.buffers.len() as u64).to_le_bytes());
+        for b in f.buffers {
+            add(&b.pointer.to_le_bytes()); add(&b.count.to_le_bytes());
+            add(&[b.write as u8, b.zero_means_256 as u8]);
+        }
+        for ranges in [f.reads, f.writes] {
+            add(&[ranges.is_some() as u8]);
+            let ranges = ranges.unwrap_or_default();
+            add(&(ranges.len() as u64).to_le_bytes());
+            for r in ranges {
+                add(&r.start.to_le_bytes()); add(&r.end.to_le_bytes());
+                let name = r.global.unwrap_or_default().to_ascii_uppercase();
+                add(&(name.len() as u64).to_le_bytes()); add(name.as_bytes());
+            }
+        }
+        Some(hash)
     }
 
     pub(crate) fn dependencies_match(&self, mut extent: impl FnMut(&Id) -> Option<u16>) -> bool {

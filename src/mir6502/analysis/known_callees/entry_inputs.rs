@@ -68,7 +68,8 @@ impl MirCalleeEntryFact {
                     _ => continue,
                 };
                 if !effects.may_call_os { continue; }
-                let returning = crate::mir6502::runtime_contracts::invocation(program, routine, op).is_some()
+                let returning = matches!(op, MirOp::MachineBlock { .. }) && super::reviewed_contract(program, routine).is_some()
+                    || crate::mir6502::runtime_contracts::invocation(program, routine, op).is_some()
                     || matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. }
                         if dependencies.as_ref().is_some_and(|d| d.contains_key(id)));
                 if !returning { return None; }
