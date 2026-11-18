@@ -78,12 +78,12 @@ impl super::invocation::InvocationSummary {
             }
         }
         if has_pointee {
-            MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric, ordinary: false, caller_dependent: true }
+            MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric, formals: BTreeSet::new(), ordinary: false, caller_dependent: true }
         } else { MirKnownMemoryWrites::Exact(self.writes.clone()) }
     }
 }
 
-fn argument_word(program: &MirProgram, call: &MirOp, offset: u16,
+pub(in crate::mir6502) fn argument_word(program: &MirProgram, call: &MirOp, offset: u16,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u16> {
     Some(u16::from(argument_byte_value(program, call, offset, values)?)
