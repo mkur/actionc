@@ -459,9 +459,9 @@ mod record_copy;
 pub(crate) mod tracked_emitter;
 
 fn ranges_overlap(left_address: u16, left_size: u16, right_address: u16, right_size: u16) -> bool {
-    let left_end = left_address.saturating_add(left_size.max(1));
-    let right_end = right_address.saturating_add(right_size.max(1));
-    left_address < right_end && right_address < left_end
+    let left = u32::from(left_address);
+    let right = u32::from(right_address);
+    left < right + u32::from(right_size.max(1)) && right < left + u32::from(left_size.max(1))
 }
 
 fn slot_overlaps_zero_page(slot: StorageSlot, zero_page: ZeroPage, size: u16) -> bool {
@@ -649,7 +649,7 @@ impl Generator {
                 }
                 ActioncAnnotation::ReturnsAEqualsA0 | ActioncAnnotation::DebugProfileCompat
                 | ActioncAnnotation::AbiInputsOnly { .. } | ActioncAnnotation::Reviewed6502 { .. }
-                | ActioncAnnotation::PhysicalAbiInputs | ActioncAnnotation::Buffer(_) | ActioncAnnotation::OrdinaryAbiInputs | ActioncAnnotation::ReadsOnly(_) | ActioncAnnotation::WritesOnly(_) => {}
+                | ActioncAnnotation::IndirectWriteRange(_) | ActioncAnnotation::PhysicalAbiInputs | ActioncAnnotation::Buffer(_) | ActioncAnnotation::OrdinaryAbiInputs | ActioncAnnotation::ReadsOnly(_) | ActioncAnnotation::WritesOnly(_) => {}
             }
         }
         effects

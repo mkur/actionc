@@ -90,6 +90,10 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
         match item {
             MirMachineItem::Byte(b) => items.push(BodyItem::Byte(*b)),
             MirMachineItem::Relocation {
+                kind: InlineAsmRelocationKind::Byte8, target: MirInlineAsmTarget::Absolute(value),
+                addend: 0, requires_zero_page: false, ..
+            } => items.push(BodyItem::Byte(u8::try_from(*value).ok()?)),
+            MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Low8 | InlineAsmRelocationKind::Byte8,
                 target: MirInlineAsmTarget::Absolute(address),
                 addend: 0,
@@ -157,7 +161,10 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
     if (effects.may_call_os || routine.effects.may_call_os) && !items.iter().any(|i| matches!(i, BodyItem::Call { .. })) {
         return None;
     }
-    fingerprint(&params, result, &items, version)
+    let hash = fingerprint(&params, result, &items, version)?;
+    if version == crate::callee6502::RANGE_VERSION {
+        Some(routine.frame.callee_review.as_ref()?.bind_precondition(hash))
+    } else { Some(hash) }
 }
 
 #[cfg(test)]

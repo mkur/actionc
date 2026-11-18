@@ -78,7 +78,7 @@ impl super::invocation::InvocationSummary {
             }
         }
         if has_pointee {
-            MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric }
+            MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric, caller_dependent: true }
         } else { MirKnownMemoryWrites::Exact(self.writes.clone()) }
     }
 }

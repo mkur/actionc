@@ -58,6 +58,13 @@ pub(super) fn classic_call_effects<Id>(facts: &crate::callee6502::CallFacts<Id>)
         && !facts.buffers.iter().any(|b| b.write)
     {
         let mut effects = RoutineEffects::known_empty();
+        if let Some(range) = facts.indirect_writes {
+            if let Some(size) = (range.end - range.start).checked_add(1) {
+                effects.record_absolute_write(range.start, size);
+            } else {
+                effects = RoutineEffects::all_writable();
+            }
+        }
         for range in writes {
             if range.global.is_some() || (range.start == 0 && range.end == u16::MAX) {
                 // At this point a symbolic range may still alias absolute storage.
@@ -86,7 +93,7 @@ fn classic_matches<'a>(program: &SemProgram, routine: &'a SemRoutine,
 ) -> Option<&'a crate::callee6502::Review<crate::semantic::SymbolId>> {
     let review = routine.callee_review.as_ref()?;
     let [SemStmt::InlineAsm { program: asm, .. }] = routine.body.as_slice() else { return None };
-    (classic_body(program, routine, review.version(), dependencies)? == review.fingerprint
+    (review.bind_precondition(classic_body(program, routine, review.version(), dependencies)?) == review.fingerprint
         && review.dependencies_match(|id| {
             if !asm.relocations.iter().any(|rel| matches!(&rel.target, SemInlineAsmTarget::Symbol(s) if s.id == *id)) { return None; }
             u16::try_from(program.layout.array_for_symbol(*id)?.storage_size?).ok()
@@ -144,6 +151,8 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
         let width = usize::try_from(rel.encoding.width().get()).ok()?;
         cursor = start.checked_add(width)?;
         match (&rel.target, rel.encoding, rel.required_address_bits) {
+            (SemInlineAsmTarget::Absolute(value), ForeignRelocationEncoding::Unsigned { width: ByteSize::ONE }, None)
+                if rel.addend == 0 => items.push(BodyItem::Byte(u8::try_from(*value).ok()?)),
             (
                 SemInlineAsmTarget::Absolute(addr),
                 ForeignRelocationEncoding::Address { width: w },
@@ -229,6 +238,17 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn reviewed_indirect_bounds_preserve_other_zp_bytes_and_cover_the_last_address() {
+        let mut facts: crate::callee6502::CallFacts<()> = Default::default();
+        facts.writes = Some(vec![crate::callee6502::DataRange { global: None, start: 0xa0, end: 0xa2 }]);
+        facts.indirect_writes = Some(crate::ast::AnnotationAddressRange { start: 0x100, end: 0xffff });
+        let effects = super::classic_call_effects(&facts);
+        assert!(effects.writes_zero_page(super::ZeroPage::new(0xa2)));
+        assert!(!effects.writes_zero_page(super::ZeroPage::new(0xac)));
+        assert!(effects.writes_absolute_range(0xffff, 1));
+    }
 
     #[test]
     fn reviewed_abi_inputs_match_classic_and_mir() {

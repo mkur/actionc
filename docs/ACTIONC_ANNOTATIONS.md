@@ -127,3 +127,15 @@ The optional `entry-reads abi` certifies that the implementation physically
 observes only incoming argument lanes as entry requirements. A review can
 certify ordinary argument sufficiency with `abi-inputs-only` even if an
 instruction observes an incoming flag whose value cannot affect the outcome.
+
+### Reviewed indirect destinations
+
+`requires indirect-writes $0100-$FFFF` is a caller precondition. Every byte
+written indirectly on a normal call must fall in the inclusive range,
+including indexed, multi-row and wrapped addresses. The caller can establish
+it as an API invariant. No runtime guard is emitted. The accompanying
+`writes-only` clause supplies the complete additional direct and scratch
+writes, including those of reviewed callees. Omitting or changing the
+precondition invalidates the fingerprint. The range also participates in
+transitive review identity. Code that calls the routine outside this domain
+cannot rely on the contractual guarantees.

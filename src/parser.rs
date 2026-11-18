@@ -3581,6 +3581,9 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
                 pointer, count, zero_means_256, write: *direction == "WRITES-BUFFER",
             }))
         }
+        _ if normalized.starts_with("REQUIRES INDIRECT-WRITES ") => {
+            parse_annotation_address_range(normalized.strip_prefix("REQUIRES INDIRECT-WRITES ")?).map(ActioncAnnotation::IndirectWriteRange)
+        }
         "ENTRY-READS ABI" => Some(ActioncAnnotation::PhysicalAbiInputs),
         "ABI-INPUTS-ONLY" => Some(ActioncAnnotation::OrdinaryAbiInputs),
         _ if normalized.starts_with("REVIEWED-6502 ") => {

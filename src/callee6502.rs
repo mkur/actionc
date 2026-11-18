@@ -160,6 +160,7 @@ pub struct DataRange<Id> {
 pub struct CallFacts<Id> {
     pub abi_inputs_only: bool,
     pub physical_abi_inputs: bool,
+    pub indirect_writes: Option<crate::ast::AnnotationAddressRange>,
     pub buffers: Vec<ArgumentBuffer>,
     pub reads: Option<Vec<DataRange<Id>>>,
     pub writes: Option<Vec<DataRange<Id>>>,
@@ -173,6 +174,7 @@ impl<Id> Default for CallFacts<Id> {
         Self {
             abi_inputs_only: false,
             physical_abi_inputs: false,
+            indirect_writes: None,
             buffers: Vec::new(),
             reads: None,
             writes: None,
@@ -191,11 +193,19 @@ pub struct Review<Id> {
 
 impl<Id> Review<Id> {
     pub(crate) fn version(&self) -> &'static [u8] {
-        if self.facts.buffers.is_empty() {
+        if self.facts.indirect_writes.is_some() {
+            RANGE_VERSION
+        } else if self.facts.buffers.is_empty() {
             CONTRACT_VERSION
         } else {
             BUFFER_VERSION
         }
+    }
+
+    pub(crate) fn bind_precondition(&self, hash: u64) -> u64 {
+        let Some(range) = self.facts.indirect_writes else { return hash };
+        range.start.to_le_bytes().into_iter().chain(range.end.to_le_bytes()).fold(hash,
+            |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3))
     }
 
     pub(crate) fn valid_buffer_signature(&self, widths: &[u16]) -> bool {
@@ -204,6 +214,10 @@ impl<Id> Review<Id> {
                 .and_then(|i| widths.get(usize::from(i)))
                 .copied()
         };
+        if let Some(range) = self.facts.indirect_writes
+            && (range.start > range.end || self.facts.writes.is_none() || !self.facts.buffers.is_empty()) {
+            return false;
+        }
         self.facts.buffers.iter().all(|b| {
             width(b.pointer) == Some(2)
                 && width(b.count) == Some(1)
@@ -225,6 +239,9 @@ impl<Id> Review<Id> {
         };
         add(&[f.abi_inputs_only as u8, f.physical_abi_inputs as u8, f.returns_a_equals_a0 as u8,
             f.preserves_regs.a as u8, f.preserves_regs.x as u8, f.preserves_regs.y as u8]);
+        if let Some(r) = f.indirect_writes {
+            add(b"indirect-writes"); add(&r.start.to_le_bytes()); add(&r.end.to_le_bytes());
+        }
         add(&(f.preserves_zp.len() as u64).to_le_bytes());
         for r in f.preserves_zp { add(&[r.start, r.end]); }
         add(&(f.buffers.len() as u64).to_le_bytes());
@@ -284,6 +301,7 @@ impl<Id> Review<Id> {
             fingerprint: self.fingerprint,
             facts: CallFacts {
                 physical_abi_inputs: f.physical_abi_inputs,
+                indirect_writes: f.indirect_writes,
                 buffers: f.buffers.clone(),
                 abi_inputs_only: f.abi_inputs_only,
                 preserves_zp: f.preserves_zp.clone(),
@@ -302,6 +320,7 @@ impl<Id> Review<Id> {
     }
 }
 
+pub(crate) const RANGE_VERSION: &[u8] = b"actionc-6502-indirect-destination-v1";
 const BUFFER_VERSION: &[u8] = b"actionc-6502-buffers-v1";
 pub(crate) const CONTRACT_VERSION: &[u8] = b"actionc-6502-callee-v1";
 
@@ -319,6 +338,9 @@ pub(crate) fn declaration(
                 }
             }
             Buffer(buffer) => facts.buffers.push(*buffer),
+            IndirectWriteRange(r) => {
+                if facts.indirect_writes.replace(*r).is_some() { return Err("duplicate indirect write precondition"); }
+            }
             PhysicalAbiInputs => facts.physical_abi_inputs = true,
             OrdinaryAbiInputs => facts.abi_inputs_only = true,
             ReadsOnly(items) if facts.reads.is_none() => facts.reads = Some(items.clone()),
@@ -352,6 +374,9 @@ pub(crate) fn declaration(
         {
             return Err("reviewed-6502 preservation requires numeric zero-page ranges");
         }
+        if facts.indirect_writes.is_some() && (facts.writes.is_none() || !facts.buffers.is_empty()) {
+            return Err("reviewed indirect writes require writes-only and a single destination model");
+        }
         if facts.buffers.iter().any(|b| {
             if b.write {
                 facts.writes.is_none()
@@ -363,7 +388,7 @@ pub(crate) fn declaration(
         }
         return Ok(Some(Review { fingerprint, facts }));
     }
-    if facts.physical_abi_inputs
+    if facts.indirect_writes.is_some() || facts.physical_abi_inputs
         || !facts.buffers.is_empty()
         || facts.abi_inputs_only
         || facts.reads.is_some()

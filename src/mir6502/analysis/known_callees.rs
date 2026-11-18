@@ -46,9 +46,10 @@ fn scalar_entry_ignores_flags(routine: &MirRoutine) -> bool {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirKnownMemoryWrites {
     Exact(Vec<MirMem>),
-    /// Residence-only projection: ordinary pointees plus fixed scratch and
-    /// explicit numeric buffer bounds. Other consumers treat this as unknown.
-    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)> },
+    /// Indirect destinations plus direct/scratch writes. Caller-dependent
+    /// pointees require a separate private-object proof. A reviewed complete
+    /// numeric bound alone can prove disjointness for any fixed ZP byte.
+    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)>, caller_dependent: bool },
     #[default]
     Unknown,
 }
@@ -56,27 +57,27 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
 impl MirKnownMemoryWrites {
     pub(in crate::mir6502) fn preserves_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
         match self {
-            Self::Exact(writes) => writes.iter().all(|write| {
-                // Resident callee homes are normalized to FixedZeroPage in
-                // their owner's frame before composition. Retain the existing
-                // inline-home exclusion; this slice repairs fixed globals.
-                matches!(write, MirMem::Local { .. } | MirMem::Param { .. }
-                    | MirMem::Spill { .. } | MirMem::Static { .. })
-                    || !fixed.may_overlap(write, &MirMem::FixedZeroPage(slot))
-            }),
-            Self::Pointee { .. } | Self::Unknown => false,
+            Self::Unknown | Self::Pointee { caller_dependent: true, .. } => false,
+            _ => self.preserves_private_fixed_byte(slot, fixed),
         }
     }
 
-    /// Requires the existing ObjectAddressControl proof for the caller object.
-    /// This permission never removes explicit numeric or scratch interference.
+    /// A caller-private byte also has the ObjectAddressControl disjointness proof.
     pub(in crate::mir6502) fn preserves_private_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
-        match self {
-            Self::Pointee { fixed: writes, numeric } =>
-                Self::Exact(writes.clone()).preserves_fixed_byte(slot, fixed)
-                    && numeric.iter().all(|(start, size)| u16::from(slot.0).wrapping_sub(*start) >= *size),
-            _ => self.preserves_fixed_byte(slot, fixed),
-        }
+        let writes = match self {
+            Self::Exact(writes) => writes,
+            Self::Pointee { fixed: writes, numeric, .. } => {
+                if numeric.iter().any(|(start, size)| u16::from(slot.0).wrapping_sub(*start) < *size) {
+                    return false;
+                }
+                writes
+            }
+            Self::Unknown => return false,
+        };
+        writes.iter().all(|write| {
+            matches!(write, MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. } | MirMem::Static { .. })
+                || !fixed.may_overlap(write, &MirMem::FixedZeroPage(slot))
+        })
     }
 
     pub(in crate::mir6502) fn preserves_fixed_pair(&self, lo: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
@@ -115,11 +116,12 @@ impl MirKnownMemoryWrites {
     fn merge(&mut self, other: &Self) {
         let other = match other {
             Self::Exact(other) => other,
-            Self::Pointee { fixed, numeric } => {
+            Self::Pointee { fixed, numeric, caller_dependent } => {
                 if let Self::Exact(bytes) = self {
-                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new() };
+                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new(), caller_dependent: false };
                 }
-                if let Self::Pointee { numeric: ranges, .. } = self {
+                if let Self::Pointee { numeric: ranges, caller_dependent: dep, .. } = self {
+                    *dep |= caller_dependent;
                     for range in numeric { if !ranges.contains(range) { ranges.push(*range); } }
                 }
                 fixed
@@ -837,7 +839,7 @@ fn summarize_routine_writes(
     // caller's private objects (a caller could supply an explicit numeric base).
     // Keep the existing conservative boundary instead of losing that obligation.
     if normal.is_some() && !routine.frame.params.is_empty()
-        && matches!(writes, MirKnownMemoryWrites::Pointee { .. }) {
+        && matches!(writes, MirKnownMemoryWrites::Pointee { caller_dependent: true, .. }) {
         MirKnownMemoryWrites::Unknown
     } else { writes }
 }
@@ -995,7 +997,10 @@ fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeEx
         reads: if f.buffers.iter().any(|b| !b.write) { MirKnownMemoryReads::Unknown }
             else { reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default() },
         writes: if f.buffers.iter().any(|b| b.write) { MirKnownMemoryWrites::Unknown }
-            else { reviewed_bytes(f.writes.as_deref()).map(MirKnownMemoryWrites::Exact).unwrap_or_default() },
+            else { reviewed_bytes(f.writes.as_deref()).and_then(|fixed| match f.indirect_writes {
+                Some(r) => Some(MirKnownMemoryWrites::Pointee { fixed, numeric: vec![(r.start, r.end.checked_sub(r.start)?.checked_add(1)?)], caller_dependent: false }),
+                None => Some(MirKnownMemoryWrites::Exact(fixed)),
+            }).unwrap_or_default() },
         reviewed: Some(f.clone()),
     }
 }
