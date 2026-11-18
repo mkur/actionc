@@ -23,7 +23,7 @@ use crate::mir6502::analysis::effects::{MirHomeByte, classify_op};
 use crate::mir6502::analysis::machine_values::{MirMachineValue, MirMachineValueAvailability};
 use crate::mir6502::analysis::sites::MirSite;
 use crate::mir6502::ir::{
-    MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMachineAtom, MirMachineBlock,
+    MirAddr, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMachineAtom, MirMachineBlock,
     MirMachineByteSelector, MirMachineItem, MirMem, MirMemoryEffect, MirMemoryRegion,
     MirMemoryRegionKind, MirOp,
     MirProgram, MirReg, MirRegisterSet, MirRoutine, MirStorageBase, MirTerminator, RoutineId,
@@ -437,6 +437,19 @@ impl MirKnownCalleeSummaries {
     }
 }
 
+fn closed_storage_loop(routine: &MirRoutine, cfg: &MirCfg, program: &MirProgram) -> bool {
+    if cfg.entry().is_none() || !cfg.exits().is_empty() { return false; }
+    routine.blocks.iter().filter(|b| cfg.reachable().contains(&b.id)).all(|b| b.ops.iter().all(|op| match op {
+        MirOp::LoadImm { .. } | MirOp::Move { .. } => true,
+        MirOp::Load { src: MirAddr::Direct(mem), .. } | MirOp::Store { dst: MirAddr::Direct(mem), .. } => match mem {
+            MirMem::Local { .. } | MirMem::Param { .. } | MirMem::Spill { .. } => true,
+            MirMem::Global { id, .. } => program.globals.iter().any(|g| g.id == *id && matches!(g.backing, MirGlobalBacking::Ordinary { .. })),
+            _ => false,
+        },
+        _ => false,
+    }))
+}
+
 fn summarize_mir_routine(
     routine: &MirRoutine,
     callees: &MirKnownCalleeSummaries,
@@ -446,6 +459,11 @@ fn summarize_mir_routine(
     let Ok(cfg) = MirCfg::from_routine(routine) else {
         return MirKnownCalleeExitSummary::default();
     };
+    // Writes in a terminal native loop remain visible to general observation
+    // consumers. Only a caller waiting for a normal return can discard them.
+    if normal.is_some() && closed_storage_loop(routine, &cfg, program) {
+        return MirKnownCalleeExitSummary { writes: MirKnownMemoryWrites::exact(), ..Default::default() };
+    }
     let values = MirMachineValueAvailability::analyze_with_known_callees(routine, &cfg, callees);
     let preservation = analyze_register_preservation(routine, &cfg, callees);
     let mut accumulator = None;

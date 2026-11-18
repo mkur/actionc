@@ -86,3 +86,20 @@ fn callee_contract_compatibility_retains_published_entry_flags() {
     let new = MirKnownCalleeSummaries::analyze_for_rewriting(&after);
     assert!(old.contracts_preserved_by(&after, &new).is_err());
 }
+
+#[test]
+fn terminal_native_writes_remain_visible_to_rewrites_and_returning_paths() {
+    let source = "BYTE fault=[0] PROC Stop(BYTE code) fault=code DO OD RETURN PROC Main() Stop(1) RETURN";
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model = crate::semantic::analyze(&ast).unwrap();
+    let sem = crate::semantic::ir::lower_program(&ast, &model);
+    let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+    let mut mir = crate::mir6502::materialize_program(mir, &Default::default()).unwrap();
+    let id = mir.routines[0].id;
+    let empty = |summaries: MirKnownCalleeSummaries| matches!(summaries.get(id).unwrap().writes(), MirKnownMemoryWrites::Exact(bytes) if bytes.is_empty());
+    assert!(empty(MirKnownCalleeSummaries::analyze_for_residence(&mir)));
+    assert!(!empty(MirKnownCalleeSummaries::analyze_for_rewriting(&mir)));
+    // End the reachable entry block; source RETURN after DO OD is unreachable.
+    mir.routines[0].blocks[0].terminator = MirTerminator::Return;
+    assert!(!empty(MirKnownCalleeSummaries::analyze_for_residence(&mir)));
+}
