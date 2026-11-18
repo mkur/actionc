@@ -1,17 +1,16 @@
 # Implementation plan for shared 6502 callee facts
 
-**Proposed.** Deliver one call contract that classic codegen and MIR6502 can
+**Implemented.** The shared 6502 component provides one call contract that classic codegen and MIR6502 can
 both query. For handwritten assembly, review the routine once, with LLM
 assistance, and check the facts into source. The compiler verifies that the
 review matches the selected body. For native Action! routines, each backend
 publishes what it can establish about its own generated code. Start with the
 direct calls to TN's `Ascii` and `Internal`. [Design and ownership](6502_SHARED_CALLEE_FACTS_DESIGN.md)
 
-The first caller to qualify is TN's `FormatDirectoryRow`. It should keep its
+The first qualification target was TN's `FormatDirectoryRow`. It should keep its
 row pointer in `$AC/$AD` across `JSR Internal` and store the result directly
-from A. Today's MIR home allocator can use an entry review for `Ascii`,
-but pointer retention asks for
-exact reads and writes and loses the bound on the indexed table read.
+from A. The baseline MIR home allocator could use an entry review for `Ascii`,
+but pointer retention requested exact reads and writes and lost the bound on the indexed table read.
 Capture the current listings for `Convert`, `FormatDirectoryRow` and `SetWin`,
 plus TN image sizes, in both optimized classic and MIR6502 with ActionCart at
 `$3000`. Compare each build to its own baseline. [TN library](../samples/tn/modern/LIB.ACT) · [TN callers](../samples/tn/modern/TN.ACT)
@@ -131,3 +130,66 @@ cargo test nir_fixtures_match_snapshots
 cargo run --bin actionc-nir-sweep -- fixtures/nir
 cargo test
 ```
+
+
+## Qualification
+
+The copy-loop extension adds argument-relative buffer footprints and a separate
+physical-entry claim. The same checked-in review covers the byte-identical
+reverse-copy loops in TN and the runtime fixtures. A zero byte count covers
+256 bytes. MIR can retain a caller pointer across the copy when it establishes
+the actual spans and their disjointness. The counted-copy fixture saves 10
+bytes and 14 cycles per proven call. The unknown destination retains the
+original code. [Review syntax](ACTIONC_ANNOTATIONS.md) · [Copy-loop fixture](../fixtures/runtime/bounded_call_pointer_retention.act)
+
+The following sizes are bytes in the TN ActionCart build at `$3000`. Routine
+sizes are listing ranges. The image row is the packaged XEX size. Both sides
+used the same working-tree Action! versions of `Position` and `Relpos`. For
+classic, the comparison moved TN's source origin and both library location
+counters from `$2C00` to `$3000` in the measurement copies.
+
+| TN artifact | MIR before | MIR after | Classic before | Classic after |
+| --- | ---: | ---: | ---: | ---: |
+| Ascii | 17 | 17 | 17 | 17 |
+| Internal | 17 | 17 | 17 | 17 |
+| Convert | 126 | 126 | 173 | 173 |
+| FormatDirectoryRow | 333 | 288 | 344 | 344 |
+| SetWin | 636 | 612 | 804 | 804 |
+| XEX | 9,902 | 9,837 | 10,650 | 10,659 |
+
+At the first `Internal` call in MIR's `FormatDirectoryRow`, the caller saves
+18 instruction bytes. It drops two absolute spill stores, two absolute loads
+and two zero-page stores to restore the pointer, and the load from `$A0`.
+MIR emits the following instructions at that site.
+
+```asm
+        JSR.A proc_Internal
+        LDY #$01
+        STA ($AC),Y
+```
+
+The loop over columns 2 through 9 and the conversion in `SetWin` also store
+directly from A. The two later conversions with different source and
+destination offsets still restore a saved pointer. `Convert.s` remains in
+`$E2/$E3`. Classic already used A for the directory-row store. Five classic routines gained one
+two-byte load each. `Tag` gained a two-byte return-slot load and lost a
+three-byte local load. Together these changes account for the nine-byte
+increase. [TN call sites](../samples/tn/modern/TN.ACT)
+
+The caller regression checks an omitted read clause, a read of the actual
+spill address and a stale body. The shared matcher tests compare every
+published field across the two modes and exercise a generated Action! callee.
+The TN VM exercises both leaves in both modes over 256 inputs and both
+incoming carry values. It checks fetches, stack accesses, data accesses,
+return values and preserved pairs, and runs the directory-row oracle through
+the complete application. [Caller regression](../tests/mir6502_cross_call_homes.rs) · [TN VM](../tools/vm-runtime-tests/tests/tn_dispatch.rs)
+
+
+The NIR sweep verified and optimized all 52 fixtures. The `enum_values`
+snapshot still differs from its expected text. The full Rust test command
+stops at five existing library failures in constructor storage, scalar
+capture and parameter handoff. Focused integration and VM runs also reproduce
+existing assertions in cross-call homes, parameter handoff, register-copy
+forwarding and directional callee facts. The same failures were checked
+against the pre-change compiler. The counted-copy MADS relocation check
+passed with LF and CRLF listings.

@@ -168,15 +168,25 @@ fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
     trace
 }
 
-fn check_ascii(compiled: &CompiledProgram, ascii: u16) {
+fn check_conversion_leaf(compiled: &CompiledProgram, listing: &str, name: &str, map: &str, values: [u8; 4]) {
+    use actionc_vm::{AddressRange, BusAccess};
+    let leaf = routine_address(listing, name);
+    let table = global_address(listing, map);
     let mut vm = machine::load(compiled);
-    let [lo, hi] = ascii.to_le_bytes();
+    vm.bus_mut().add_watch_range(AddressRange { start: 0, end: u16::MAX });
+    let [lo, hi] = leaf.to_le_bytes();
     for (carry, set_carry) in [(false, 0x18), (true, 0x38)] {
-        // CLC/SEC, LDA #ch, JSR Ascii. LDA preserves the chosen carry.
         vm.bus_mut().ram_mut().map(ENTRY, &[set_carry, 0xa9, 0, 0x20, lo, hi, 0xea]).unwrap();
         for ch in 0..=255u8 {
-            vm.bus_mut().ram_mut().write(ENTRY + 2, ch);
+            let index = (ch >> 5) & 3;
+            let expected = (ch & 0x9f) | values[usize::from(index)];
+            let saved = [ch, !ch, 0x42, 0x81];
+            let ram = vm.bus_mut().ram_mut();
+            ram.write(ENTRY + 2, ch);
+            ram.write(0xa0, !expected);
+            ram.map(0xac, &saved).unwrap();
             vm.set_pc(ENTRY);
+            vm.bus_mut().clear_events();
             let sp = vm.cpu().registers().sp;
             let stop = ENTRY + 6;
             let run = VmRunner::new(vm).run(RunRequest {
@@ -184,9 +194,31 @@ fn check_ascii(compiled: &CompiledProgram, ascii: u16) {
             });
             assert_eq!(run.stop_reason(), StopReason::PcReached { pc: stop });
             vm = run.into_vm();
-            let expected = (ch & 0x9f) | [0x20, 0x40, 0, 0x60][usize::from((ch >> 5) & 3)];
-            assert_eq!((vm.cpu().registers().a, vm.bus().ram().read(0xa0), vm.cpu().registers().sp),
-                (expected, expected, sp), "Ascii({ch}) carry={carry}");
+            let stack = [0x100 + u16::from(sp), 0x100 + u16::from(sp.wrapping_sub(1))];
+            let mut fetches = Vec::new();
+            let mut stack_accesses = Vec::new();
+            let mut data = Vec::new();
+            for e in vm.bus().events() {
+                if e.access == BusAccess::Read && ((ENTRY..=stop).contains(&e.address)
+                    || (leaf..leaf + 17).contains(&e.address)) {
+                    fetches.push(e.address);
+                } else if stack.contains(&e.address) {
+                    stack_accesses.push((e.access, e.address));
+                } else {
+                    data.push((e.access, e.address));
+                }
+            }
+            // The runner stops after executing the NOP at the return address.
+            assert!(fetches.into_iter().eq((ENTRY..stop).chain(leaf..leaf + 17).chain([stop])));
+            assert_eq!(stack_accesses, [
+                (BusAccess::Write, stack[0]), (BusAccess::Write, stack[1]),
+                (BusAccess::Read, stack[1]), (BusAccess::Read, stack[0]),
+            ]);
+            assert_eq!(data, [(BusAccess::Read, table + u16::from(index)), (BusAccess::Write, 0xa0)],
+                "{name}({ch}) carry={carry}");
+            assert_eq!(vm.cpu().registers().sp, sp);
+            assert_eq!((vm.cpu().registers().a, vm.bus().ram().read(0xa0)), (expected, expected));
+            assert_eq!(machine::bytes(&vm, 0xac, 4), saved);
         }
     }
 }
@@ -228,7 +260,10 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                     .and_then(|hex| u16::from_str_radix(hex, 16).ok())
                     .expect("missing Convert.s home in the selected TN image");
                 assert!(home < 0xff, "Convert.s needs two zero-page bytes");
-                check_ascii(&compiled, routine_address(&listing, "Ascii"));
+            }
+            if !debug {
+                check_conversion_leaf(&compiled, &listing, "Ascii", "asciiMap", [0x20, 0x40, 0, 0x60]);
+                check_conversion_leaf(&compiled, &listing, "Internal", "internalMap", [0x40, 0, 0x20, 0x60]);
             }
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");

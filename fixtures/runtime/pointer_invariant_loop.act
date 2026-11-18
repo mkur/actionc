@@ -1,8 +1,8 @@
 BYTE ARRAY buffer(512)
 BYTE observed
 
+; This fixture isolates pointer retention across the call.
 ;@actionc reviewed-6502 ba2968aab09c5a80
-;@actionc abi-inputs-only
 ;@actionc preserves A Y
 ;@actionc reads-only none
 ;@actionc writes-only none

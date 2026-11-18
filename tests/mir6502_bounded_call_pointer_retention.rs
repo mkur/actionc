@@ -179,3 +179,31 @@ fn bounded_call_pointer_retention_keeps_unknown_tn_destinations_unchanged() {
         }
     }
 }
+
+#[test]
+fn reviewed_buffers_require_typed_formals_and_a_complete_fixed_direction() {
+    let lf = include_str!("../fixtures/runtime/bounded_call_pointer_retention.act").replace("\r\n", "\n");
+    let lower = |source: &str| {
+        let tokens = actionc::lexer::tokenize(source).unwrap();
+        let ast = actionc::parser::parse(&tokens).ok()?;
+        let model = actionc::semantic::analyze_with_options(&ast, actionc::semantic::SemanticOptions::modern()).ok()?;
+        Some(actionc::nir::lower_program(&actionc::semantic::ir::lower_program(&ast, &model)))
+    };
+    for src in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let mut nir = lower(&src).unwrap();
+        actionc::nir::verify_program(&nir).unwrap();
+        let review = nir.routines[0].entry.callee_review.as_mut().unwrap();
+        assert_eq!(review.facts.buffers.len(), 2);
+        review.facts.buffers[0].pointer = 3;
+        assert!(actionc::nir::verify_program(&nir).is_err());
+        for bad in [
+            src.replace("2 3 zero=256", "0 3 zero=256"),
+            src.replace("2 3 zero=256", "3 2 zero=256"),
+            src.replace("2 3 zero=256", "4 3 zero=256"),
+            src.replace("2 3 zero=256", "2 3 zero=1"),
+            src.replace(";@actionc writes-only $A0-$A2", ""),
+        ] {
+            assert!(lower(&bad).is_none(), "{bad}");
+        }
+    }
+}
