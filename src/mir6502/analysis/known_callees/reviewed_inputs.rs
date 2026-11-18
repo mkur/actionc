@@ -168,6 +168,9 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
 }
 
 #[cfg(test)]
+mod tn_reviews;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     const SOURCE: &str = "BYTE ARRAY tab(4)=[1 2 3 4]\n;@actionc reviewed-6502 0000000000000000\n;@actionc abi-inputs-only\n;@actionc reads-only tab[0..3]\n;@actionc writes-only none\nBYTE FUNC Leaf=*(BYTE ch)\nASM\ntax\nlda tab,x\nrts\nENDASM\nPROC Main() RETURN";

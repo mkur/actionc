@@ -17,7 +17,8 @@ CONST BYTE CIO_OPEN=3, CIO_GET_RECORD=5, CIO_GET_CHARS=7,
 CONST BYTE OPEN_READ=4, OPEN_DIRECTORY=6, OPEN_WRITE=8
 CONST BYTE IO_SUCCESS=1, IO_EOF=136
 
-BYTE i=$E0,j=$E1,r0=$70
+CONST BYTE FILL_BYTE_ADDR=$70
+BYTE i=$E0,j=$E1,r0=FILL_BYTE_ADDR
 CONST BYTE CURSOR_X_ADDR=$FF,CURSOR_Y_ADDR=$FE
 BYTE kx=CURSOR_X_ADDR,ky=CURSOR_Y_ADDR
 
@@ -25,7 +26,8 @@ BYTE zx=$5A,zy=zx+1,zdx=zx+2,zdy=zx+3
 
 ; Place screen/scl/sch at $E6/$E7 and allocp at $E8/$E9.
 ; Keep these allocator controls for both compiler backends.
-CONST BYTE SCREEN_LO_ADDR=$E6,SCREEN_HI_ADDR=SCREEN_LO_ADDR+1
+CONST CARD SCREEN_LO_ADDR=$E6
+CONST BYTE SCREEN_HI_ADDR=SCREEN_LO_ADDR+1
 SET $E=SCREEN_LO_ADDR
 SET $F=$00
 SET $491=SCREEN_LO_ADDR
@@ -80,6 +82,20 @@ loop:
 ENDASM
 
 
+; The arena checks in Push and Alloc cover every byte passed to this entry.
+; MovePage also serves unrestricted destinations elsewhere in TN.
+;@actionc reviewed-6502 6f204a03de8c356c
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc requires indirect-writes $2000-$27FF
+;@actionc writes-only $A0-$A2
+PROC MoveToArena=*(CARD dst, src BYTE len)
+ASM
+  jsr MovePage
+  rts
+ENDASM
+
+
 PROC ArenaStop(BYTE reason)
 
   ArenaFault=reason
@@ -128,7 +144,7 @@ PROC Push(CARD data)
   pushedWord=data
   captured=CARD POINTER(ArenaCursor())
   IF WINDOW_ARENA_END-captured<2 THEN ArenaStop(ARENA_EXHAUSTED) FI
-  captured^=pushedWord
+  MoveToArena(captured, @pushedWord, 2)
   allocp=captured+2
 RETURN
 
@@ -301,9 +317,13 @@ PROC PrintE(CHAR ARRAY s)
 RETURN
 
 
+; The selected screen rectangle must stay outside ZP. FILL takes its byte from r0.
+;@actionc reviewed-6502 43892f6cb3176414
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc requires indirect-writes $0100-$FFFF
+;@actionc writes-only $70 $A0 $E6-$E7
 ;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y r0 $A0 scl/sch
-;@actionc writes $0100-$FFFF
 PROC Block=*(BYTE mode, dx, dy)
 ASM
   pha
@@ -318,20 +338,20 @@ ASM
   beq fill_row
   lda #$00
 mode_ready:
-  sta.z r0
+  sta.z FILL_BYTE_ADDR
 fill_row:
   ldy $A0
-  lda.z r0
+  lda.z FILL_BYTE_ADDR
 fill_column:
-  sta (screen),y
+  sta (SCREEN_LO_ADDR),y
   dey
   bpl fill_column
   clc
-  lda.z scl
+  lda.z SCREEN_LO_ADDR
   adc #SCREEN_COLS
-  sta.z scl
+  sta.z SCREEN_LO_ADDR
   bcc fill_next
-  inc.z sch
+  inc.z SCREEN_HI_ADDR
 fill_next:
   dex
   bpl fill_row
@@ -339,17 +359,17 @@ fill_next:
 invert_mode:
   ldy $A0
 invert_column:
-  lda (screen),y
+  lda (SCREEN_LO_ADDR),y
   eor #$80
-  sta (screen),y
+  sta (SCREEN_LO_ADDR),y
   dey
   bpl invert_column
   clc
-  lda.z scl
+  lda.z SCREEN_LO_ADDR
   adc #SCREEN_COLS
-  sta.z scl
+  sta.z SCREEN_LO_ADDR
   bcc invert_next
-  inc.z sch
+  inc.z SCREEN_HI_ADDR
 invert_next:
   dex
   bpl invert_mode
@@ -357,17 +377,19 @@ invert_next:
 ENDASM
 
 
+; Internal entry. The image routines supply both pointers and the row width at $A4.
+;@actionc reviewed-6502 d71ab3d94ade6478
+;@actionc reads-only $A0/$A1 $A4 $E6-$E7
+;@actionc writes-only $A0/$A1 $E6-$E7
 ;@actionc preserves X Y $AC/$AD $AE/$AF
-;@actionc clobbers A $A0/$A1 scl/sch
-; X is the remaining row count; preserve it through the shared advance.
 PROC _ImageAdvance=*()
 ASM
   clc
-  lda.z scl
+  lda.z SCREEN_LO_ADDR
   adc #SCREEN_COLS
-  sta.z scl
+  sta.z SCREEN_LO_ADDR
   bcc screen_ready
-  inc.z sch
+  inc.z SCREEN_HI_ADDR
   clc
 screen_ready:
   lda $A0
@@ -379,9 +401,13 @@ buffer_ready:
   rts
 ENDASM
 
+; The entire destination buffer, including every indexed row, must stay outside ZP.
+;@actionc reviewed-6502 05cbfaa7cea07083
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc requires indirect-writes $0100-$FFFF
+;@actionc writes-only $A0-$A2 $A4 $E6-$E7
 ;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A0-$A4 scl/sch
-;@actionc writes $0100-$FFFF
 PROC GetImage=*(CARD adr BYTE dx, dy)
 ASM
   sta $A0
@@ -394,7 +420,7 @@ ASM
 get_row:
   ldy $A2
 get_column:
-  lda (screen),y
+  lda (SCREEN_LO_ADDR),y
   sta ($A0),y
   dey
   bpl get_column
@@ -405,9 +431,13 @@ get_column:
 ENDASM
 
 
+; The selected screen rectangle must stay outside ZP. adr supplies the source.
+;@actionc reviewed-6502 8e660a41415a18c3
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc requires indirect-writes $0100-$FFFF
+;@actionc writes-only $A0-$A2 $A4 $E6-$E7
 ;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A0-$A4 scl/sch
-;@actionc writes $0100-$FFFF
 PROC PutImage=*(CARD adr BYTE dx, dy)
 ASM
   sta $A0
@@ -421,7 +451,7 @@ put_row:
   ldy $A2
 put_column:
   lda ($A0),y
-  sta (screen),y
+  sta (SCREEN_LO_ADDR),y
   dey
   bpl put_column
   jsr _ImageAdvance
@@ -660,7 +690,7 @@ PROC SavePos()
  CARD adr
   
   adr = Alloc(4)
-  MovePage(adr, @zx, 4)
+  MoveToArena(adr, @zx, 4)
 RETURN
 
 

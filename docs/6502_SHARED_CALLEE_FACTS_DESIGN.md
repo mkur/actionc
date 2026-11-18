@@ -102,3 +102,27 @@ preservation is known. [TN callers](../samples/tn/modern/TN.ACT)
 
 The [implementation plan](6502_SHARED_CALLEE_FACTS_IMPLEMENTATION_PLAN.md) sequences
 the shared entry check, reviewed memory facts, caller changes and TN qualification.
+
+
+## Reviewed calls and indirect destinations
+
+A reviewed assembly body can delegate to another reviewed implementation using
+a typed direct call. Each call operand binds the target identity, its current
+implementation and its declared facts. A change invalidates enclosing reviews
+in both backends. An unresolved call or a recursive dependency cannot supply
+a review. Stack balance and the agreement between each caller and callee are
+part of the review.
+
+A caller may undertake a numeric bound on every indirect destination of an
+invocation. Fixed writes remain explicit and compose with the indirect range.
+The range covers the complete footprint, even for a strided copy or a wrapping
+index. A review with those obligations can protect disjoint ZP bytes without
+asserting that ordinary memory is unchanged. A normal-return summary for a
+native wrapper additionally includes its own generated scratch writes. Native
+storage-only loops without a returning path keep their terminal effects in
+general rewrite and observation queries.
+
+TN uses this contract for screen and image destinations. Its checked arena
+copy entry restricts the shared copy implementation to arena destinations
+inside Push and SavePos. The unrestricted MovePage entry retains its original
+argument-relative buffer contract.
