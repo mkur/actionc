@@ -69,8 +69,9 @@ fn captured_divmod_pairs_materialize_emit_and_execute_both_result_homes() {
                 crate::runtime::Runtime::ActionCart,
                 crate::runtime::Runtime::Standalone,
             ] {
+                let retained = pair_program(signed, reverse);
                 let program = crate::mir6502::materialize_program_with_origin_and_runtime(
-                    pair_program(signed, reverse),
+                    retained.clone(),
                     &Mir6502Config::default(),
                     0x3000,
                     runtime,
@@ -82,6 +83,17 @@ fn captured_divmod_pairs_materialize_emit_and_execute_both_result_homes() {
                     MirRuntimeHelper::UDivMod
                 };
                 assert!(program.runtime_helpers.iter().any(|h| h.helper == helper));
+                let view = arithmetic_homes::plan(
+                    &retained.routines[0], &program.routines[0], &program,
+                    &Mir6502Config::default(), &MaterializeLayout::new(&retained, 0x3000),
+                ).expect("home planning must account for the fused invocation");
+                assert_eq!(view.setup_writes, [0x84, 0x85].into());
+                let calls: Vec<_> = view.routine.blocks.iter().flat_map(|b| &b.ops)
+                    .filter_map(|op| match op {
+                        MirOp::RuntimeHelper { helper, .. } => Some(*helper),
+                        _ => None,
+                    }).collect();
+                assert_eq!(calls, [helper]);
                 crate::mir6502::verify::verify_program(
                     &program,
                     crate::mir6502::MirPhase::PreEmission,
