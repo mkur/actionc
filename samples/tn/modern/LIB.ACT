@@ -215,6 +215,8 @@ ASM
   rts
 ENDASM
 
+; Four ROLs shift incoming carry into bit 3. AND #$03 discards it.
+;@actionc abi-inputs-only 8ecfa3be2a747397
 ;@actionc preserves $AC/$AD $AE/$AF
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0

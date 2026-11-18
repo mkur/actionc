@@ -344,6 +344,10 @@ crowding the active reference set.
   with handwritten tagged records, measured costs and existing optimization coverage.
 - [ACTIONC_ANNOTATIONS.md](ACTIONC_ANNOTATIONS.md) - supported `;@actionc`
   annotations.
+- [Shared 6502 callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md) covers reviewed
+  assembly and caller-side optimization in classic codegen and MIR6502. The
+  [implementation plan](6502_SHARED_CALLEE_FACTS_IMPLEMENTATION_PLAN.md) starts
+  with TN's `Ascii` and `Internal`.
 - [ACTION_SYMBOL_TABLE.md](ACTION_SYMBOL_TABLE.md) - Action! symbol table notes.
 - [ATASCII_ESCAPES.md](ATASCII_ESCAPES.md) - textual ATASCII and ANTIC
   screen-code escape formats.

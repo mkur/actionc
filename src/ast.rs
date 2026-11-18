@@ -374,6 +374,7 @@ pub struct Routine {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActioncAnnotation {
     ReturnsAEqualsA0,
+    AbiInputsOnly { fingerprint: u64 },
     DebugProfileCompat,
     Preserves {
         registers: AnnotationRegisterSet,

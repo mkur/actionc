@@ -597,6 +597,9 @@ pub struct NirRoutine {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NirRoutineEntry {
+    /// Source review of the foreign implementation. Only the consuming target
+    /// can match this fingerprint to its current entry ABI and machine body.
+    pub abi_inputs_only_review: Option<u64>,
     /// Debug location of the source routine; absent for generated entries.
     /// This does not participate in ABI or placement decisions.
     pub source_span: Option<Span>,
@@ -610,6 +613,7 @@ pub struct NirRoutineEntry {
 impl Default for NirRoutineEntry {
     fn default() -> Self {
         Self {
+            abi_inputs_only_review: None,
             source_span: None,
             program: false,
             external: false,

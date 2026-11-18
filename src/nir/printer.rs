@@ -621,12 +621,16 @@ fn routine_entry_summary(entry: NirRoutineEntry) -> String {
         NirRoutinePlacement::CurrentLocation => "current-location".to_string(),
         NirRoutinePlacement::Absolute(address) => format!("${address:04X}"),
     };
-    match (entry.program, entry.external) {
+    let mut summary = match (entry.program, entry.external) {
         (false, false) => placement,
         (true, false) => format!("program+{placement}"),
         (false, true) => format!("external+{placement}"),
         (true, true) => format!("program+external+{placement}"),
+    };
+    if let Some(fingerprint) = entry.abi_inputs_only_review {
+        summary.push_str(&format!(" abi-inputs-only {fingerprint:016x}"));
     }
+    summary
 }
 
 fn real_op_summary(op: &NirRealOp) -> String {

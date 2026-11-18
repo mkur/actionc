@@ -168,6 +168,29 @@ fn expected_trace(commands: &[Option<&'static str>]) -> Vec<&'static str> {
     trace
 }
 
+fn check_ascii(compiled: &CompiledProgram, ascii: u16) {
+    let mut vm = machine::load(compiled);
+    let [lo, hi] = ascii.to_le_bytes();
+    for (carry, set_carry) in [(false, 0x18), (true, 0x38)] {
+        // CLC/SEC, LDA #ch, JSR Ascii. LDA preserves the chosen carry.
+        vm.bus_mut().ram_mut().map(ENTRY, &[set_carry, 0xa9, 0, 0x20, lo, hi, 0xea]).unwrap();
+        for ch in 0..=255u8 {
+            vm.bus_mut().ram_mut().write(ENTRY + 2, ch);
+            vm.set_pc(ENTRY);
+            let sp = vm.cpu().registers().sp;
+            let stop = ENTRY + 6;
+            let run = VmRunner::new(vm).run(RunRequest {
+                max_steps: 32, stop_after_pc: Some(stop), history_len: 0,
+            });
+            assert_eq!(run.stop_reason(), StopReason::PcReached { pc: stop });
+            vm = run.into_vm();
+            let expected = (ch & 0x9f) | [0x20, 0x40, 0, 0x60][usize::from((ch >> 5) & 3)];
+            assert_eq!((vm.cpu().registers().a, vm.bus().ram().read(0xa0), vm.cpu().registers().sp),
+                (expected, expected, sp), "Ascii({ch}) carry={carry}");
+        }
+    }
+}
+
 #[test]
 fn tn_dispatch_and_panel_state_preserve_behavior() {
     // The maintained programs advertise cartridge builds in these two modes.
@@ -200,6 +223,13 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 }
             }
             let listing = compiled.source_listing();
+            if mode == CompileMode::Mir6502 && !debug {
+                let home = listing.lines().find_map(|line| line.strip_prefix("param_Convert_s = $"))
+                    .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+                    .expect("missing Convert.s home in the selected TN image");
+                assert!(home < 0xff, "Convert.s needs two zero-page bytes");
+                check_ascii(&compiled, routine_address(&listing, "Ascii"));
+            }
             let handle = routine_address(&listing, "Handle");
             let files_address = global_address(&listing, "active");
             let mut entries = BTreeMap::new();

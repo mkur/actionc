@@ -1,9 +1,8 @@
 use super::*;
 use crate::mir6502::analysis::known_callees::MirKnownMemoryReads;
 
-fn program(body: &str, dead: bool) -> MirProgram {
-    let source = format!(";@actionc clobbers $AC/$AD\nPROC Touch=*(BYTE value)\nASM\n{body}\nENDASM\nCARD FUNC Hold(CARD keep) Touch(7) RETURN(keep)\nPROC Main() RETURN");
-    let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+fn lower_with_home(source: &str) -> MirProgram {
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
             .unwrap();
@@ -23,12 +22,23 @@ fn program(body: &str, dead: bool) -> MirProgram {
         .frame
         .fixed_zero_page
         .extend([MirFixedZpSlot(0xe4), MirFixedZpSlot(0xe5)]);
-    let mut p = crate::mir6502::materialize_program(p, &Default::default()).unwrap();
+    p
+}
+
+fn program(body: &str, dead: bool) -> MirProgram {
+    let source = format!(
+        ";@actionc clobbers $AC/$AD\nPROC Touch=*(BYTE value)\nASM\n{body}\nENDASM\nCARD FUNC Hold(CARD keep) Touch(7) RETURN(keep)\nPROC Main() RETURN"
+    );
+    let mut p =
+        crate::mir6502::materialize_program(lower_with_home(&source), &Default::default()).unwrap();
     if dead {
         // Keep a real resident object, then start a new logical value lifetime
         // after the call. Applying this after materialization avoids optimizing
         // away the entire constant-valued home and making the check vacuous.
         let caller = p.routines.iter_mut().find(|r| r.name == "Hold").unwrap();
+        let MirStorageBase::Param(param) = caller.frame.params[0].base else {
+            panic!()
+        };
         let block = caller
             .blocks
             .iter_mut()
@@ -77,6 +87,72 @@ fn replace_machine(p: &mut MirProgram, bytes: &[u8]) {
 }
 
 #[test]
+fn reviewed_abi_inputs_apply_only_to_the_current_direct_call_and_body() {
+    let source = "BYTE ARRAY table(4)=[1 2 3 4]\nPROC Touch=*(BYTE ch)\nASM\nrol a\nand #0\ntax\nora table,x\nsta $A0\nrts\nENDASM\nCARD FUNC Hold(CARD keep) Touch(7) RETURN(keep)\nPROC Main() RETURN";
+    let base = lower_with_home(source);
+    let callee = &base.routines[0];
+    let hash = abi_inputs_review_fingerprint(&base, callee).unwrap();
+    assert!(crate::mir6502::materialize_program(base.clone(), &Default::default()).is_err());
+    let annotated = source.replace(
+        "PROC Touch",
+        &format!(";@actionc abi-inputs-only {hash:016x}\nPROC Touch"),
+    );
+    for source in [annotated.clone(), annotated.replace('\n', "\r\n")] {
+        let p = crate::mir6502::materialize_program(lower_with_home(&source), &Default::default())
+            .unwrap();
+        assert_eq!(p.routines[0].frame.abi_inputs_only_review, Some(hash));
+        assert!(verify(&p).is_empty());
+        assert!(
+            MirCalleeEntryFact::analyze(&p, callee.id, MirCalleeEntryStage::ActualEntry).is_none()
+        );
+        assert!(
+            ResidenceCalls::new(&p, MirCalleeEntryStage::ActualEntry)
+                .inputs(call(&p))
+                .is_err()
+        );
+        let mut bad_call = call(&p).clone();
+        let MirOp::Call { args, .. } = &mut bad_call else {
+            unreachable!()
+        };
+        args.clear();
+        assert!(
+            ResidenceCalls::with_acyclic(&p, MirCalleeEntryStage::ActualEntry)
+                .inputs(&bad_call)
+                .is_err()
+        );
+    }
+    // Each edit recompiles through the normal lowering path with the original review.
+    for changed in [
+        annotated.replace("and #0", "and #1"),
+        annotated.replace("table", "replacement"),
+        annotated.replace("table(4)", "table(5)"),
+        annotated.replace("BYTE ch", "CARD ch"),
+    ] {
+        let p = lower_with_home(&changed);
+        assert_ne!(
+            abi_inputs_review_fingerprint(&p, &p.routines[0]),
+            Some(hash)
+        );
+        assert!(crate::mir6502::materialize_program(p, &Default::default()).is_err());
+    }
+    let mut overlapping = lower_with_home(&annotated.replace("sta $A0", "sta $E5"));
+    let current = abi_inputs_review_fingerprint(&overlapping, &overlapping.routines[0]).unwrap();
+    overlapping.routines[0].frame.abi_inputs_only_review = Some(current);
+    assert!(
+        ResidenceCalls::with_acyclic(&overlapping, MirCalleeEntryStage::ActualEntry)
+            .inputs(call(&overlapping))
+            .is_ok()
+    );
+    assert!(
+        crate::mir6502::materialize_program(overlapping, &Default::default()).is_err(),
+        "live high byte overwritten"
+    );
+    let mut hidden_call = base;
+    replace_machine(&mut hidden_call, &[0x20, 0, 6, 0x60]);
+    assert!(abi_inputs_review_fingerprint(&hidden_call, &hidden_call.routines[0]).is_none());
+}
+
+#[test]
 fn certified_machine_residence_uses_current_writes_and_retains_scoped_admission() {
     let p = program("sta $AC\nldx #$5A\nstx $AD\nrts", false);
     assert!(verify(&p).is_empty());
@@ -116,10 +192,12 @@ fn certified_machine_residence_uses_current_writes_and_retains_scoped_admission(
                 ResidenceCalls::with_acyclic(&changed, MirCalleeEntryStage::ActualEntry);
             assert!(facts.inputs(call(&changed)).is_ok());
             let fixed = facts.fixed_storage();
-            assert!(!facts
-                .writes(call(&changed))
-                .unwrap()
-                .preserves_fixed_byte(MirFixedZpSlot(byte), &fixed));
+            assert!(
+                !facts
+                    .writes(call(&changed))
+                    .unwrap()
+                    .preserves_fixed_byte(MirFixedZpSlot(byte), &fixed)
+            );
             assert!(!verify(&changed).is_empty(), "{byte:x} {absolute}");
         }
     }

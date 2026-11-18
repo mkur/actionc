@@ -3571,6 +3571,11 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         .to_ascii_uppercase();
     match normalized.as_str() {
         "RETURNS A=$A0" => Some(ActioncAnnotation::ReturnsAEqualsA0),
+        _ if normalized.starts_with("ABI-INPUTS-ONLY ") => {
+            let hex = normalized.strip_prefix("ABI-INPUTS-ONLY ")?;
+            (hex.len() == 16 && hex.bytes().all(|b| b.is_ascii_hexdigit())).then_some(())?;
+            Some(ActioncAnnotation::AbiInputsOnly { fingerprint: u64::from_str_radix(hex, 16).ok()? })
+        }
         "PROFILE COMPAT" | "PROFILE LEGACY" => Some(ActioncAnnotation::DebugProfileCompat),
         _ if normalized.starts_with("WRITES ") => parse_writes_annotation(&normalized),
         _ => parse_effect_annotation(&normalized),

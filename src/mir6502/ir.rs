@@ -351,6 +351,9 @@ impl MirDirectParamAbi {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MirFrame {
+    /// Optional reviewed caller obligation. Validate against the current body
+    /// and ABI before using it in source-home selection or verification.
+    pub abi_inputs_only_review: Option<u64>,
     /// Complete non-variadic integer or pointer parameter ABI from
     /// verified NIR, independent of result support. None is an unknown contract.
     /// This is distinct from the integer-only logical scalar_signature.

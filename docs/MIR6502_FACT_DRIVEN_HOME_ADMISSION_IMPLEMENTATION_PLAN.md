@@ -249,3 +249,22 @@ and follow the repository's mandatory shared-contract checks.
   Traces preserve all images, the test-only audit hook is removed, and TN VM
   execution is reused because its complete image is byte-identical. The
   diagnostic priority for `Main` is clarified above; it remains ineligible.
+
+## Follow-up — reviewed assembly entry for TN
+
+1. Review the existing `Ascii` body once and record that the ordinary Action!
+   ABI inputs suffice. Bind that assertion to its implementation, signature
+   and table dependency. Keep the original four rotates.
+2. Use the matched review at direct calls in source-home discovery and
+   expanded verification. Check the actual call lanes and result ABI, then use
+   the existing returning-write and physical-overlap checks for live homes.
+3. Compare the same TN with and without the review. Check the selected home
+   of `Convert.s`, the emitted `Ascii` body and the complete image size.
+   Exercise all 256 input bytes with both incoming carries and real filename
+   conversion. Check stale reviews and overlapping returning writes.
+
+With optimized MIR6502 and ActionCart at `$3000`, enabling the review moves
+`Convert.s` from `$33AF/$33B0` to `$E2/$E3`. `Convert` shrinks from 135
+to 126 code bytes and frees its two inline parameter bytes. The complete
+image shrinks from 9,913 to 9,902 bytes. All 17 emitted bytes of `Ascii`
+match across the two builds.

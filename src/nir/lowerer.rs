@@ -220,6 +220,10 @@ impl NirLowerer {
                             None => NirRoutinePlacement::Relocatable,
                         };
                         let entry = NirRoutineEntry {
+                            abi_inputs_only_review: routine.annotations.iter().find_map(|a| match a {
+                                crate::ast::ActioncAnnotation::AbiInputsOnly { fingerprint } => Some(*fingerprint),
+                                _ => None,
+                            }),
                             source_span: Some(routine.span),
                             program: program_entry == Some(routine.symbol.id),
                             external: routine.is_external,

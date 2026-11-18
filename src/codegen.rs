@@ -645,7 +645,8 @@ impl Generator {
                         );
                     }
                 }
-                ActioncAnnotation::ReturnsAEqualsA0 | ActioncAnnotation::DebugProfileCompat => {}
+                ActioncAnnotation::ReturnsAEqualsA0 | ActioncAnnotation::DebugProfileCompat
+                | ActioncAnnotation::AbiInputsOnly { .. } => {}
             }
         }
         effects

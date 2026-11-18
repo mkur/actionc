@@ -22,6 +22,13 @@ with these NIR locations after final layout; foreign-code locations travel
 with their machine-block payloads. Generated entries have no source location.
 These are routine and machine-block mappings, not statement-level provenance.
 
+`NirRoutineEntry::abi_inputs_only_review` carries an optional source review
+fingerprint from SemIR. NIR prints it as entry metadata and preserves it
+through optimization. MIR6502 owns matching the body and ABI to the review
+and applying the resulting caller obligation to direct-call source homes.
+Instruction effects, read footprints and physical entry liveness retain
+their own proofs.
+
 Routine `inline` metadata carries a typed `Auto` / `Prefer` optimization
 preference keyed by the routine's stable ID. AST and SemIR own declaration
 validation and preserve the diagnostic source span through imports and classic

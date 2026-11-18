@@ -3,6 +3,7 @@
 use super::*;
 use crate::mir6502::analysis::known_callees::{
     MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirKnownCalleeSummaries, MirKnownMemoryWrites,
+    abi_inputs_review_fingerprint,
 };
 use std::collections::BTreeMap;
 
@@ -10,6 +11,7 @@ pub(in crate::mir6502) struct ResidenceCalls<'a> {
     program: &'a MirProgram,
     known: MirKnownCalleeSummaries,
     entries: BTreeMap<RoutineId, Option<Arc<MirCalleeEntryFact>>>,
+    reviewed_fingerprints: BTreeMap<RoutineId, Option<u64>>,
     acyclic: Option<MirAcyclicEntryAnalysis<'a>>,
     stage: MirCalleeEntryStage,
 }
@@ -20,6 +22,7 @@ impl<'a> ResidenceCalls<'a> {
             program,
             known: MirKnownCalleeSummaries::analyze_for_residence(program),
             entries: BTreeMap::new(),
+            reviewed_fingerprints: BTreeMap::new(),
             acyclic: None,
             stage,
         }
@@ -42,6 +45,12 @@ impl<'a> ResidenceCalls<'a> {
     /// Diagnostics read already established facts; tracing does not run analysis.
     pub fn entry_description(&self, call: &MirOp) -> Option<String> {
         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
+        if let Some(current) = self.reviewed_fingerprints.get(target) {
+            return Some(match current {
+                Some(hash) => format!("abi-inputs-only current fingerprint {hash:016x}"),
+                None => "body outside abi-inputs-only review scope".into(),
+            });
+        }
         if let Some(analysis) = &self.acyclic {
             if let Some((id, site, reason)) = analysis.failure(*target) {
                 let name = self.program.routines.iter().find(|r| r.id == id).map(|r| r.name.as_str());
@@ -55,6 +64,10 @@ impl<'a> ResidenceCalls<'a> {
     /// Validate the ordinary call boundary even when no resident value survives
     /// invocation. This grants no preservation or entry facts to other consumers.
     pub fn inputs(&mut self, call: &MirOp) -> Result<(), &'static str> {
+        self.check_inputs(call, false)
+    }
+
+    fn check_inputs(&mut self, call: &MirOp, require_entry: bool) -> Result<(), &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
         }
@@ -82,13 +95,18 @@ impl<'a> ResidenceCalls<'a> {
         }
         let outgoing = super::super::abi::canonical_call_lanes(callee, args)?;
         super::super::abi::validate_direct_call_result(callee, call)?;
+        if machine && self.acyclic.is_some() && let Some(expected) = callee.frame.abi_inputs_only_review {
+            let current = self.reviewed_fingerprints.entry(*target)
+                .or_insert_with(|| abi_inputs_review_fingerprint(self.program, callee));
+            if *current == Some(expected) { return Ok(()); }
+        }
         let observable = callee.abi == MirRoutineAbi::ActionObservable;
         match self.entry(*target) {
             Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,
             // Observable and machine entries require an actual certificate,
             // including at dead boundaries. The absence of MIR call edges cannot
             // exclude hidden calls or implicit inputs in a machine payload.
-            None if observable || machine =>
+            None if require_entry || observable || machine =>
                 return Err("unknown residence callee entry"),
             None => {},
         }
@@ -142,9 +160,7 @@ impl<'a> ResidenceCalls<'a> {
         {
             return Err("unsupported residence callee");
         }
-        self.inputs(call)?;
-        self.entry(*target)
-            .ok_or("unknown residence callee entry")?;
+        self.check_inputs(call, true)?;
         let writes = self
             .known
             .get(*target)
