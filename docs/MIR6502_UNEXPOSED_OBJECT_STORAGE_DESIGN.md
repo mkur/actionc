@@ -231,7 +231,8 @@ through the screen pointer. The screen store should allow a disjoint private
 home for `Print.i` or `Print.s` to reach the usual cost and layout checks.
 A candidate overlapping `$A0` must fail at that same call. This uses the
 existing assembly reviews and requires no screen-address bound.
-[TN source](../samples/tn/modern/LIB.ACT)
+[TN source](../samples/tn/modern/LIB.ACT) ·
+[Implementation plan](MIR6502_CROSS_CALL_POINTER_WRITES_IMPLEMENTATION_PLAN.md)
 
 Qualify the rule with a native writer called directly and through a wrapper.
 Check the stored byte and the surviving caller value on cartridge and
