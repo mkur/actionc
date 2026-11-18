@@ -1081,6 +1081,19 @@ PROC Main() RETURN");
     }
 }
 
+struct NoHooks;
+impl VmRunHooks for NoHooks { type Error = String; }
+
+fn arithmetic_output(source: &str, runtime: Runtime) -> actionc::codegen::CodegenOutput {
+    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
+    let model = actionc::semantic::analyze_with_options(&ast,
+        actionc::semantic::SemanticOptions::modern()).unwrap();
+    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
+        &actionc::semantic::ir::lower_program(&ast, &model))).unwrap();
+    mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
+        &Mir6502Config { enable_small_leaf_inlining: false, ..Mir6502Config::optimized() }, runtime).unwrap()
+}
+
 #[test]
 fn scalar_helper_calls_preserve_a_live_word_and_compute_the_result() {
     let source = "CARD w=$700,out=$704 BYTE a=$710,b=$711
@@ -1088,16 +1101,8 @@ fn scalar_helper_calls_preserve_a_live_word_and_compute_the_result() {
         CARD FUNC Quotient(CARD keep) out=w/b RETURN(keep+1)
         CARD FUNC Shift(CARD keep) out=w RSH b RETURN(keep+1)
         PROC Main() RETURN";
-    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
-    let model = actionc::semantic::analyze_with_options(&ast,
-        actionc::semantic::SemanticOptions::modern()).unwrap();
-    let nir = actionc::nir::optimize_program(&actionc::nir::lower_program(
-        &actionc::semantic::ir::lower_program(&ast, &model))).unwrap();
-    struct NoHooks;
-    impl VmRunHooks for NoHooks { type Error = String; }
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-        let output = mir6502::generate_output_with_config_and_runtime(&nir, 0x3000,
-            &Mir6502Config::optimized(), runtime).unwrap();
+        let output = arithmetic_output(source, runtime);
         let (mut vm, profile) = support::vm_for(runtime);
         vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
         for (keep, word, a, b) in [(0xfeffu16, 0x8123u16, 243u8, 7u8), (0xffff, 0xbabe, 255, 16)] {
@@ -1116,6 +1121,37 @@ fn scalar_helper_calls_preserve_a_live_word_and_compute_the_result() {
                 assert_eq!(machine::bytes(&vm, 0x704, 2), expected.to_le_bytes(), "{runtime:?} {name}");
                 assert_eq!(machine::bytes(&vm, 0xa0, 2), keep.wrapping_add(1).to_le_bytes());
             }
+        }
+    }
+}
+
+#[test]
+fn inline_arithmetic_preserves_a_live_home_across_native_expansions() {
+    let source = "CARD w=$700,p=$702,q=$704,r=$706,l=$708,h=$70a,z=$70c
+        INT signed=$710,negated=$712 BYTE b=$714,bout=$715
+        PROC Touch() b==+1 RETURN
+        CARD FUNC Native(CARD keep) Touch() p=w*8 q=w/8 r=w MOD 8
+          l=w LSH 9 h=w RSH 9 z=w LSH 16 bout=b RSH 9 negated=-signed RETURN(keep+1)
+        PROC Main() RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = arithmetic_output(source, runtime);
+        let home = output.map.storage_symbols.iter().find(|s| s.name == "keep").unwrap();
+        assert!(home.address < 256, "{runtime:?} {home:?}");
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Native").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for w in [0x8041u16, 0xffff] {
+            for address in [0x700, 0x710] {
+                for (i, lane) in w.to_le_bytes().into_iter().enumerate() {
+                    vm.bus_mut().ram_mut().write(address+i as u16, lane);
+                }
+            }
+            vm = machine::call(vm, &mut NoHooks, entry, &0x5affu16.to_le_bytes());
+            for (address,value) in [(0x702, w.wrapping_mul(8)), (0x704, w/8), (0x706, w%8),
+                (0x708, w<<9), (0x70a, w>>9), (0x70c, 0), (0x712, w.wrapping_neg()), (0xa0, 0x5b00)] {
+                assert_eq!(machine::bytes(&vm, address, 2), value.to_le_bytes(), "{runtime:?} {address:x}");
+            }
+            assert_eq!(machine::bytes(&vm, 0x715, 1), [0]);
         }
     }
 }

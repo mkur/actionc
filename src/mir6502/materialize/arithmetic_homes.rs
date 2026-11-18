@@ -29,6 +29,39 @@ impl ArithmeticHomes {
     }
 }
 
+/// Use emission's power-of-two reductions before testing their primitive ops.
+/// Leave pointer-cell reads and carry-dependent inputs to the original path.
+pub(in crate::mir6502) fn reduced_constants(
+    retained: &MirRoutine,
+    layout: &MaterializeLayout,
+) -> Option<MirRoutine> {
+    let mut candidate = false;
+    for op in retained.blocks.iter().flat_map(|b| &b.ops) {
+        if let MirOp::Binary {
+            op: MirBinaryOp::Mul | MirBinaryOp::UDiv | MirBinaryOp::UMod,
+            left,
+            right,
+            carry_in,
+            carry_out,
+            ..
+        } = op
+        {
+            if carry_in.is_some() || *carry_out != MirCarryOut::Ignore {
+                return None;
+            }
+            candidate |= constant_value_u16(right).is_some() || constant_value_u16(left).is_some();
+        }
+    }
+    if !candidate {
+        return None;
+    }
+    let mut routine = retained.clone();
+    let mut stats = MirPeepholeStats::default();
+    strength_reduce_constant_multiplications(&mut routine, layout, &BTreeSet::new(), &mut stats);
+    strength_reduce_constant_unsigned_divmod(&mut routine, &mut stats);
+    Some(routine)
+}
+
 pub(in crate::mir6502) fn plan(
     retained: &MirRoutine,
     selected: &MirRoutine,
@@ -62,11 +95,11 @@ pub(in crate::mir6502) fn plan(
             linked.push(*helper);
         }
     }
-    if linked.is_empty() {
-        return None;
-    }
-
-    let mut routine = retained.clone();
+    let mut routine = match reduced_constants(retained, layout) {
+        Some(reduced) => reduced,
+        None if linked.is_empty() => return None,
+        None => retained.clone(),
+    };
     runtime::expose_zero_extended_binary_inputs(&mut routine);
     runtime::fuse_adjacent_divmod(&mut routine, config, layout, &mut linked);
     let widths = collect_routine_temp_widths(&routine);

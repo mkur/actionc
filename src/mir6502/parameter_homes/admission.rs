@@ -87,7 +87,9 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
             || matches!(op, MirOp::LeaAddr { target: MirMem::Global { .. } | MirMem::Static { .. }, width: MirWidth::Word, .. })
             || crate::mir6502::materialize::word_shift_supports_source_homes(op)
             || matches!(op, MirOp::Binary { op: MirBinaryOp::Lsh | MirBinaryOp::Rsh, width: MirWidth::Byte,
-                right: MirValue::ConstU8(0..=8) | MirValue::ConstU16(0..=8), .. })
+                right: MirValue::ConstU8(_) | MirValue::ConstU16(0..=255), .. })
+            || matches!(op, MirOp::Unary { op: MirUnaryOp::Neg, dst: MirDef::VTemp(_), .. }
+                | MirOp::Unary { op: MirUnaryOp::BitNot | MirUnaryOp::SignMask, width: MirWidth::Byte, .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
                 | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. } if native_address(src));
         if !supported { return Err(reject(Reason::Operation)); }

@@ -336,7 +336,7 @@ fn object_storage_admission_keeps_shift_and_helper_boundaries() {
     for op in ["LSH", "RSH"] {
         for count in 0..=9 {
             let p = source(&format!("BYTE FUNC Shift(BYTE x,keep) x=x {op} {count} RETURN(x XOR keep)"));
-            assert_eq!(super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false, false), count <= 8);
+            assert!(super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false, false));
         }
     }
     for text in [

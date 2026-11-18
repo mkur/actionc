@@ -11,14 +11,14 @@ fn word_shift_admission_uses_the_native_recipe_boundary() {
             let p = mir::lower_program(&n).unwrap();
             let r = p.routines.iter().find(|r| r.name == "Shift").unwrap();
             let supported =
-                matches!(count, "0" | "1" | "4") || (direction == "RSH" && count == "8");
+                matches!(count, "0" | "1" | "4" | "8" | "9" | "16");
             assert_eq!(
                 check(&ObjectAddressControl::new(&p), r, false, true, None).is_ok(),
                 supported,
                 "{direction} {count}"
             );
             if supported {
-                let proposal = super::super::propose(&p, true).unwrap();
+                let proposal = super::super::propose(&p, true, 0x3000).unwrap();
                 let r = proposal
                     .routines
                     .iter()

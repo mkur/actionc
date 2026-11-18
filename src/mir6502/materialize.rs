@@ -2193,9 +2193,7 @@ fn native_word_shift(op: &MirOp) -> Option<NativeWordShift> {
 }
 
 pub(super) fn word_shift_supports_source_homes(op: &MirOp) -> bool {
-    matches!(native_word_shift(op),
-        Some(NativeWordShift::Identity | NativeWordShift::Small(_)
-            | NativeWordShift::Projection { direction: MirBinaryOp::Rsh, remaining: 0, .. }))
+    native_word_shift(op).is_some()
 }
 
 fn lower_constant_word_shift_projections(

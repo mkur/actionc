@@ -205,21 +205,15 @@ Replace the indirect-write veto in both
 for objects satisfying the shared contract. Check those objects even when MIR
 bindings are supplied directly rather than produced by automatic selection.
 
-Qualified operations include existing native byte/word indexed reads and
-writes, constant BYTE Lsh/Rsh counts 0 through 8, constant WORD Lsh/Rsh
-counts 0 through 4, and the WORD Rsh-by-8 high-byte extraction. Home selection
-uses the same word-shift recipes as materialization. Admitted recipes require
-unused carry input and output. Nonzero counts require a splittable destination
-and a source without pointer-cell reads. Zero keeps its whole-word move behavior.
-The actual expanded recipes must account for both bytes and every physical
-resource used, including overlapping homes and live siblings. A zero shift
-need not define flags; this grants no new entry/exit flag facts. For a directly loaded word shifted by a constant and stored as a word or
-truncated byte, cross-call planning can use the selected shift helper and its
-argument staging. The expanded placement must pass the existing invocation
-and lifetime checks. Other helper-producing arithmetic and variable shifts
-retain their existing admission rules.
-[Helper-backed word shifts](MIR6502_HELPER_BACKED_HOME_ADMISSION_IMPLEMENTATION_PLAN.md#qualification)
-Do not broaden a caller merely because an operation is labelled nonopaque.
+Qualified operations include native byte/word indexed reads and writes,
+immediate BYTE shifts, and the materializer's native WORD shift recipes.
+The latter cover identity, small shifts, lane projection and a zero result.
+They require unused carry input and output. Lane selection preserves complete
+pointer-cell reads. When an operation selects a helper, its typed invocation
+and caller staging must agree with the selected executable. Expanded residence
+verification checks the physical writes against every live sibling.
+See the [parameter-home design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers).
+
 An array parameter with a verified scalar word ABI lane is a pointer cell and
 may receive a home. This does not promote inline array objects or reinterpret
 array storage that has no scalar lane.

@@ -48,7 +48,7 @@ pub(super) fn select_output(
         input: Arc::new(resume.core.checkpoint.input.program.clone()),
         executable: baseline,
     };
-    if let Some(proposal) = propose(&selected.input, config.enable_zp_home_lifetimes) {
+    if let Some(proposal) = propose(&selected.input, config.enable_zp_home_lifetimes, origin) {
         selected = try_proposal(
             nir,
             selected,
@@ -86,13 +86,17 @@ pub(super) fn select_output(
     selected.executable
 }
 
-fn propose(input: &MirProgram, mixed: bool) -> Option<MirProgram> {
+fn propose(input: &MirProgram, mixed: bool, origin: u16) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::new(input);
     let observations = physical::observations_complete(input);
     let mut proposal = input.clone();
     let mut changed = false;
+    let layout = std::cell::LazyCell::new(|| super::materialize::MaterializeLayout::new(input, origin));
     for routine in &mut proposal.routines {
-        if !eligible_with_calls(&addresses, routine, false, mixed)
+        let admitted = eligible_with_calls(&addresses, routine, false, mixed)
+            || super::materialize::arithmetic_homes::reduced_constants(routine, &layout)
+                .is_some_and(|view| eligible_with_calls(&addresses, &view, false, mixed));
+        if !admitted
             || (!observations && physical::has_pointee_writes(input, routine)) {
             continue;
         }
@@ -810,7 +814,7 @@ mod tests {
                 executable: baseline,
             };
             if leaf_path != 0 {
-                let mut proposal = propose(&selected.input, false).expect("leaf controls qualify");
+                let mut proposal = propose(&selected.input, false, 0x3000).expect("leaf controls qualify");
                 if leaf_path == 2 {
                     proposal.routines[0].frame.parameter_homes = Some(vec![]);
                 }
