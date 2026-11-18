@@ -71,7 +71,10 @@ impl<'a> ResidenceCalls<'a> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
         }
-        if crate::mir6502::runtime_contracts::library_invocation(self.program, call).is_some() { return Ok(()); }
+        if MirAtariFppService::from_canonical_call(call).is_some()
+            || crate::mir6502::runtime_contracts::library_invocation(self.program, call).is_some() {
+            return Ok(());
+        }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
                 .map(|_| ()).ok_or("unsupported residence helper contract");
@@ -134,6 +137,10 @@ impl<'a> ResidenceCalls<'a> {
     ) -> Result<MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence writes require expanded callee facts");
+        }
+        if MirAtariFppService::from_canonical_call(call).is_some() {
+            return Ok(MirKnownMemoryWrites::Exact(MirAtariFppService::workspace()
+                .map(|byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte))).collect()));
         }
         if let Some(s) = crate::mir6502::runtime_contracts::library_invocation(self.program, call) {
             let values = site.and_then(|(routine, site)| {

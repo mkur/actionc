@@ -1155,3 +1155,29 @@ fn inline_arithmetic_preserves_a_live_home_across_native_expansions() {
         }
     }
 }
+
+#[test]
+fn fpp_products_preserve_homes_outside_the_package_workspace() {
+    let source = "REAL a=$700,b=$706,out=$70c
+        CARD FUNC Product(CARD keep) out=a*b RETURN(keep+1) PROC Main() RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = arithmetic_output(source, runtime);
+        let home = output.map.storage_symbols.iter().find(|s| s.name == "keep").unwrap();
+        assert!(home.address + 1 < 0xd4, "{runtime:?} {home:?}");
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Product").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        if runtime == Runtime::Standalone {
+            vm.load_image_bytes(actionc_vm::ImageKind::Rom, "altirraos-xl.rom", actionc_vm::OS_ROM_BASE,
+                std::fs::read(root().join("roms/altirraos-xl.rom")).unwrap()).unwrap();
+        }
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for (address, value) in [(0x700, 2), (0x706, 3)] {
+            for (offset, byte) in [0x40, value, 0, 0, 0, 0].into_iter().enumerate() {
+                vm.bus_mut().ram_mut().write(address + offset as u16, byte);
+            }
+        }
+        vm = machine::call(vm, &mut NoHooks, entry, &0x91ffu16.to_le_bytes());
+        assert_eq!(machine::bytes(&vm, 0x70c, 6), [0x40, 6, 0, 0, 0, 0]);
+        assert_eq!(machine::bytes(&vm, 0xa0, 2), [0, 0x92]);
+    }
+}

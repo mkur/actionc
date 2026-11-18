@@ -1576,6 +1576,12 @@ including when the source dies at the call. The successful-return footprint
 constrains homes live across the call. The trial replays the original routine
 with its proposed bindings and checks its expanded code and complete image.
 
+Direct packed-REAL copies expose their six-byte accesses. A typed Atari FPP
+call uses the service's audited workspace contract. The planner reserves the
+workspace throughout a routine that calls the service, including the intervals
+when FR0 and FR1 hold operands or results. See the
+[object-storage design](MIR6502_UNEXPOSED_OBJECT_STORAGE_DESIGN.md#placement-and-verification).
+
 Spill discovery excludes resident source bytes across all routines and numeric
 observations available before layout. Final verification resolves the old and
 new spill locations against the complete source-storage inventory.

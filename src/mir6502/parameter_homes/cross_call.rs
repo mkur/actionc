@@ -154,6 +154,7 @@ pub(super) fn propose_configured(
                     }
                     if let Some(chains) = &chains
                         && matches!(call, MirOp::Call { .. })
+                        && MirAtariFppService::from_canonical_call(call).is_none()
                         && super::super::runtime_contracts::library_invocation(selected, call).is_none() {
                         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
                             return Err("unknown planning dependency");

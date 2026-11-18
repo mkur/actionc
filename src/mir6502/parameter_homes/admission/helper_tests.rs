@@ -118,3 +118,24 @@ fn check_collisions(source: &str, starts: &[u8]) {
     assert_eq!(session.manifest()["work"]["cross_call_home_trials"],2);
     assert_eq!(session.events().iter().filter(|e|e.kind=="cross-call-home-result"&&e.data["reason"]=="invalid-trial").count(),2);
 }
+
+#[test]
+fn fpp_residence_requires_the_typed_entry_and_complete_workspace() {
+    let (input, selected) = programs("REAL a,b,out CARD FUNC Hold(CARD keep) out=a*b RETURN(keep+1)");
+    let mut calls = ResidenceCalls::new(&selected, MirCalleeEntryStage::ActualEntry);
+    let fixed = calls.fixed_storage();
+    let call = hold(&input).blocks.iter().flat_map(|b| &b.ops)
+        .find(|op| matches!(op, MirOp::Call { target: MirCallTarget::AtariFpp(_), .. })).unwrap();
+    assert!(calls.inputs(call).is_ok());
+    let writes = calls.writes(call).unwrap();
+    for (byte, preserved) in [(0xa0, true), (0xd3, true), (0xd4, false), (0xff, false)] {
+        assert_eq!(writes.preserves_private_fixed_byte(MirFixedZpSlot(byte), &fixed), preserved);
+    }
+    for wrong_target in [false, true] {
+        let mut stale = call.clone();
+        let MirOp::Call { target, effects, .. } = &mut stale else { unreachable!() };
+        if wrong_target { *target = MirCallTarget::Builtin { name: "FMULT".into(), address: Some(MirAtariFppService::Multiply.address()) }; }
+        else { effects.memory_writes = MirMemoryEffect::None; }
+        assert!(calls.inputs(&stale).is_err() && calls.writes(&stale).is_err());
+    }
+}

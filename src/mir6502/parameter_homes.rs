@@ -340,14 +340,24 @@ fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> 
         .map(|b| b as u8)
         .collect();
     for block in &routine.blocks {
-        for memory in block
-            .ops
-            .iter()
-            .map(|op| classify_op(op).memory)
-            .chain(std::iter::once(
-                classify_terminator(&block.terminator).memory,
-            ))
-        {
+        for op in &block.ops {
+            match op {
+                // FR0/FR1 contain implicit operands and results between calls.
+                MirOp::Call { target: MirCallTarget::AtariFpp(_), .. } =>
+                    owned.extend(MirAtariFppService::workspace()),
+                MirOp::PackedRealCopy { .. } => {
+                    let memory = classify_op(op).memory;
+                    for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
+                        if let MirMem::FixedZeroPage(slot) = range.base {
+                            owned.extend((0..range.bytes).map(|i| slot.0.wrapping_add(i as u8)));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        for memory in block.ops.iter().map(|op| classify_op(op).memory)
+            .chain(std::iter::once(classify_terminator(&block.terminator).memory)) {
             for range in memory.direct_reads.iter().chain(&memory.direct_writes) {
                 if let MirMem::Absolute(address) = range.base {
                     for offset in 0..range.bytes {

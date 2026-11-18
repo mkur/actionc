@@ -22,8 +22,8 @@ use super::classify::{
 };
 use super::diagnostics::MirDiagnostic;
 use super::ir::{
-    MirAddr, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam, MirCallAbi,
-    MirCallTarget, MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataBacking, MirDataImage,
+    MirAddr, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam,
+    MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataBacking, MirDataImage,
     MirDataRelocation, MirDataRelocationKind, MirDataRelocationTarget, MirDef, MirEdge, MirEdgeArg,
     MirEffects, MirFixedZpSlot, MirFlagTest, MirFrame, MirGlobal, MirGlobalBacking, MirGlobalInit,
     MirInlineAsmTarget, MirMachineAtom, MirMachineBlock, MirMachineBlockId, MirMachineByteSelector,
@@ -2522,7 +2522,7 @@ fn lower_real_op(
                 &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR1)),
                 lowered,
             );
-            lowered.push(atari_fpp_call(service));
+            lowered.push(service.call());
             push_staged_real_copy(
                 &MirAddr::Direct(MirMem::FixedZeroPage(ATARI_FPP_FR0)),
                 &destination,
@@ -3151,7 +3151,7 @@ fn push_integer_to_real(
         src: magnitude,
         width: MirWidth::Word,
     });
-    lowered.push(atari_fpp_call(MirAtariFppService::IntegerToFloat));
+    lowered.push(MirAtariFppService::IntegerToFloat.call());
     if let Some(sign_scratch) = sign_scratch {
         let sign_bit = generated_temp(next_generated_temp, generated_temps);
         lowered.push(MirOp::Load {
@@ -3236,7 +3236,7 @@ fn push_real_to_integer(
         src: temp_value(sign),
         width: MirWidth::Byte,
     });
-    lowered.push(atari_fpp_call(MirAtariFppService::FloatToInteger));
+    lowered.push(MirAtariFppService::FloatToInteger.call());
     let sign_after_call = generated_temp(next_generated_temp, generated_temps);
     lowered.push(MirOp::Load {
         dst: MirDef::VTemp(sign_after_call),
@@ -3382,26 +3382,6 @@ fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8
     crate::atari_real::AtariReal::from_decimal(&decimal)
         .ok()
         .map(|value| value.to_bytes())
-}
-
-fn atari_fpp_call(service: MirAtariFppService) -> MirOp {
-    let effects = service.effects();
-    let clobbers = effects.clobbers;
-    MirOp::Call {
-        additional_results: Vec::new(),
-        target: MirCallTarget::AtariFpp(service),
-        abi: MirCallAbi {
-            library: None,
-            additional_results: Vec::new(),
-            params: Vec::new(),
-            result: None,
-            clobbers,
-            preserves: MirRegisterSet::default(),
-        },
-        args: Vec::new(),
-        result: None,
-        effects,
-    }
 }
 
 fn volatile_memory_barrier() -> MirOp {

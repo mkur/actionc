@@ -1305,6 +1305,36 @@ impl MirAtariFppService {
     /// Size of the complete package-owned zero-page workspace ($D4-$FF).
     pub const WORKSPACE_SIZE: u16 = 0x002C;
 
+    pub(super) fn call(self) -> MirOp {
+        let effects = self.effects();
+        let clobbers = effects.clobbers;
+        MirOp::Call {
+            additional_results: Vec::new(),
+            target: MirCallTarget::AtariFpp(self),
+            abi: MirCallAbi {
+                library: None,
+                additional_results: Vec::new(),
+                params: Vec::new(),
+                result: None,
+                clobbers,
+                preserves: MirRegisterSet::default(),
+            },
+            args: Vec::new(),
+            result: None,
+            effects,
+        }
+    }
+
+    /// The workspace holds both implicit operands and scratch between FPP calls.
+    pub(super) fn workspace() -> impl Iterator<Item = u8> {
+        (Self::WORKSPACE_START..Self::WORKSPACE_START + Self::WORKSPACE_SIZE).map(|byte| byte as u8)
+    }
+
+    pub(super) fn from_canonical_call(op: &MirOp) -> Option<Self> {
+        let MirOp::Call { target: MirCallTarget::AtariFpp(service), .. } = op else { return None };
+        (op == &service.call()).then_some(*service)
+    }
+
     pub const fn address(self) -> u16 {
         match self {
             Self::IntegerToFloat => 0xD9AA,

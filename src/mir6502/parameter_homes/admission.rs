@@ -90,6 +90,8 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
                 right: MirValue::ConstU8(_) | MirValue::ConstU16(0..=255), .. })
             || matches!(op, MirOp::Unary { op: MirUnaryOp::Neg, dst: MirDef::VTemp(_), .. }
                 | MirOp::Unary { op: MirUnaryOp::BitNot | MirUnaryOp::SignMask, width: MirWidth::Byte, .. })
+            || matches!(op, MirOp::PackedRealCopy {
+                source: MirAddr::Direct(_), destination: MirAddr::Direct(_), .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
                 | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. } if native_address(src));
         if !supported { return Err(reject(Reason::Operation)); }
