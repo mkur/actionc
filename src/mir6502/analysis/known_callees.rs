@@ -225,6 +225,7 @@ pub(in crate::mir6502) struct MirKnownCalleeExitSummary {
 impl MirKnownCalleeExitSummary {
     /// Facts that can be expressed in the common direct-call contract.
     /// Unrepresentable frame-private or indirect accesses keep their direction unknown.
+    #[cfg(test)]
     pub(in crate::mir6502) fn call_facts(&self) -> crate::callee6502::CallFacts<crate::nir::SymbolId> {
         if let Some(facts) = &self.reviewed { return facts.clone(); }
         let ranges = |bytes: &[MirMem]| bytes.iter().map(|mem| {

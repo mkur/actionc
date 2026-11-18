@@ -246,7 +246,7 @@ pub(in crate::mir6502) fn select_costed_traced(
                     .is_some_and(|(p, _, _)| p == proposed);
             let final_callees = MirKnownCalleeSummaries::analyze_for_rewriting(&proposed);
             let good = replay
-                && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+                && super::super::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
                 && baseline
                     .routines
                     .iter()

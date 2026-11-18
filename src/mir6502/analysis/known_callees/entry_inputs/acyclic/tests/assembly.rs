@@ -117,3 +117,65 @@ fn machine_leaf_certification_retains_unsupported_and_mixed_body_boundaries() {
         );
     }
 }
+
+fn reviewed_leaf(bytes: &[u8], reads: Option<Vec<crate::callee6502::DataRange<crate::nir::SymbolId>>>,
+    result: MirDirectResultAbi, mirror: bool) -> MirProgram {
+    let mut p = machine_program(bytes);
+    let routine = &mut p.routines[0];
+    routine.direct_result_abi = Some(result);
+    routine.frame.contains_source_asm = true;
+    let mut review = crate::callee6502::Review {
+        fingerprint: 0,
+        facts: crate::callee6502::CallFacts {
+            abi_inputs_only: true, returns_a_equals_a0: mirror, reads,
+            writes: Some(vec![crate::callee6502::DataRange { global: None, start: 0xa0, end: 0xa0 }]),
+            ..Default::default()
+        },
+    };
+    review.fingerprint = crate::mir6502::analysis::known_callees::body_fingerprint(
+        &p, &p.routines[0], review.version()).unwrap();
+    p.routines[0].frame.callee_review = Some(review);
+    p
+}
+
+#[test]
+fn normal_return_value_composes_without_claiming_a_physical_write() {
+    let byte = MirDirectResultAbi::Scalar(MirAbiIntegerWidth::Byte);
+    let mut p = reviewed_leaf(&[0xa9, 7, 0x85, 0xa0, 0x60], Some(vec![]), byte, true);
+    // Forward the slot through a wrapper. Its caller consumes the slot.
+    p.routines[1].blocks[0].ops = vec![call(0)];
+    p.routines[3].blocks[0].ops = vec![call(1), read(0xa0)];
+    let mut analysis = MirAcyclicEntryAnalysis::new(&p);
+    for id in [0, 1, 3] {
+        let f = analysis.analyze(RoutineId(id)).unwrap();
+        assert!(f.defined_results.is_empty(), "r{id}");
+        assert!(f.home_results.slots.contains(&0xa0), "r{id}");
+        assert!(!f.inputs.fixed.contains(&0xa0), "r{id}");
+    }
+    // Reading the mirror right after the leaf call requires no incoming A.
+    p.routines[1].blocks[0].ops.push(store(0xe8));
+    assert!(!MirAcyclicEntryAnalysis::new(&p).analyze(RoutineId(1)).unwrap().inputs.registers.a);
+    // A path around the call still carries the incoming slot to the use.
+    p.routines[1].blocks = vec![
+        block(0, vec![], branch(1, 2)),
+        block(1, vec![call(0)], MirTerminator::Return),
+        block(2, vec![], MirTerminator::Return),
+    ];
+    assert!(fact(&p).inputs.fixed.contains(&0xa0));
+}
+
+#[test]
+fn reviewed_result_preserves_possible_reads_and_only_supplies_certified_lanes() {
+    let word = MirDirectResultAbi::Scalar(MirAbiIntegerWidth::Word);
+    let old = crate::callee6502::DataRange { global: None, start: 0xa0, end: 0xa0 };
+    for reads in [Some(vec![old]), None] {
+        let mut p = reviewed_leaf(&[0xa5, 0xa0, 0x60], reads, word, true);
+        p.routines[1].blocks[0].ops = vec![call(0), read(0xa1)];
+        let mut analysis = MirAcyclicEntryAnalysis::new(&p);
+        let entry = analysis.analyze(RoutineId(1)).unwrap();
+        assert_eq!(entry.inputs.fixed, BTreeSet::from([0xa0, 0xa1]));
+        assert!(entry.defined_results.is_empty());
+    }
+    let p = reviewed_leaf(&[0xa9, 7, 0x85, 0xa0, 0x60], Some(vec![]), MirDirectResultAbi::Void, false);
+    assert!(fact(&p).inputs.fixed.contains(&0xa0));
+}

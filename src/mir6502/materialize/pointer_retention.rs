@@ -712,7 +712,7 @@ fn select_traced(
             .is_some_and(|(p, _, _)| p == proposed);
     let accepted = exits
         && replay
-        && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+        && crate::mir6502::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
         && baseline
             .routines
             .iter()

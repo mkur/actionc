@@ -45,8 +45,11 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                     return vec![MirDiagnostic::routine(&routine.name, "missing residence call facts")];
                 };
                 if call_dead {
-                    if let Err(reason) = facts.inputs(op) {
-                        return vec![MirDiagnostic::routine(&routine.name, reason)];
+                    match facts.inputs(op) {
+                        Ok(inputs) if resident.iter().any(|(_, slot)| inputs.contains(&slot.0)) =>
+                            return vec![MirDiagnostic::routine(&routine.name, "resident home overlaps a callee entry input")],
+                        Err(reason) => return vec![MirDiagnostic::routine(&routine.name, reason)],
+                        _ => {}
                     }
                     None
                 } else {

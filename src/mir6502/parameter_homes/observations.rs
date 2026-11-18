@@ -21,12 +21,12 @@ impl<'a> InvocationHomes<'a> {
     }
 
     #[cfg(test)]
-    pub fn new(source: &'a MirProgram) -> Self { Self::with_call_scope(source, false) }
+    pub fn new(source: &'a MirProgram) -> Self { Self::with_call_scope(source, false, 0) }
 
-    fn with_call_scope(source: &'a MirProgram, acyclic: bool) -> Self {
+    fn with_call_scope(source: &'a MirProgram, acyclic: bool, origin: u16) -> Self {
         let addresses = ObjectAddressControl::new(source);
         let mut objects = BTreeMap::new();
-        let mut calls = if acyclic { ResidenceCalls::with_acyclic(source, MirCalleeEntryStage::ActualEntry) }
+        let mut calls = if acyclic { ResidenceCalls::at_origin(source, MirCalleeEntryStage::ActualEntry, origin) }
             else { ResidenceCalls::new(source, MirCalleeEntryStage::ActualEntry) };
         let mut abi: BTreeSet<_> = action_return_home_uses().iter().filter_map(|h| {
             if let MirHomeByte::FixedZeroPage(s) = h { Some(s) } else { None }
@@ -89,11 +89,11 @@ impl<'a> InvocationHomes<'a> {
 
     #[cfg(test)]
     pub fn with_references(source: &'a MirProgram, references: &[&MirProgram]) -> Self {
-        Self::with_references_and_calls(source, references, false)
+        Self::with_references_and_calls(source, references, false, 0)
     }
 
-    pub fn with_references_and_calls(source: &'a MirProgram, references: &[&MirProgram], acyclic: bool) -> Self {
-        let mut facts = Self::with_call_scope(source, acyclic);
+    pub fn with_references_and_calls(source: &'a MirProgram, references: &[&MirProgram], acyclic: bool, origin: u16) -> Self {
+        let mut facts = Self::with_call_scope(source, acyclic, origin);
         let references: Vec<_> = references.iter().map(|p| ObjectAddressControl::new(p)).collect();
         for (id, objects) in &mut facts.objects {
             objects.retain(|(base, _)| {

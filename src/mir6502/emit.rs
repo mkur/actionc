@@ -137,7 +137,7 @@ pub(super) fn emit_program_with_reference_programs_traced(
     trace.count("emission_invocations", 1);
 
     let result = (|| {
-        verify::verify_program(mir, MirPhase::PreEmission)?;
+        verify::verify_program_at_origin(mir, MirPhase::PreEmission, origin)?;
         let mut layout_diagnostics = Vec::new();
         let inline_probe = MirObjectLayout::new(mir, origin, Some(origin), &mut layout_diagnostics);
         let mut deferred_base = inline_probe.storage_end;

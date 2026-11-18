@@ -457,7 +457,7 @@ pub(in crate::mir6502) fn select_costed_traced(
                 replay == proposed
             });
         let final_ok = replayed
-            && super::super::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && super::super::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
             && baseline
                 .routines
                 .iter()

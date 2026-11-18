@@ -66,7 +66,7 @@ pub(in crate::mir6502) fn select_costed_traced(
             .is_some_and(|(replay, _, _)| replay == proposed);
         let accepted = exits_preserved
             && replayed
-            && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && crate::mir6502::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
             && proposed
                 .routines
                 .iter()

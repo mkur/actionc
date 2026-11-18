@@ -29,9 +29,14 @@ impl<'a> ResidenceCalls<'a> {
 
     /// Explicit opt-in for source-home discovery and validation of supplied
     /// bindings. Spill discovery and planned handoff retain the leaf contract.
+    #[cfg(test)]
     pub fn with_acyclic(program: &'a MirProgram, stage: MirCalleeEntryStage) -> Self {
+        Self::at_origin(program, stage, 0)
+    }
+
+    pub fn at_origin(program: &'a MirProgram, stage: MirCalleeEntryStage, origin: u16) -> Self {
         let mut facts = Self::new(program, stage);
-        facts.acyclic = Some(MirAcyclicEntryAnalysis::new(program));
+        facts.acyclic = Some(MirAcyclicEntryAnalysis::at_origin(program, origin));
         facts
     }
 
@@ -62,21 +67,21 @@ impl<'a> ResidenceCalls<'a> {
 
     /// Validate the ordinary call boundary even when no resident value survives
     /// invocation. This grants no preservation or entry facts to other consumers.
-    pub fn inputs(&mut self, call: &MirOp) -> Result<(), &'static str> {
+    pub fn inputs(&mut self, call: &MirOp) -> Result<BTreeSet<u8>, &'static str> {
         self.check_inputs(call, false)
     }
 
-    fn check_inputs(&mut self, call: &MirOp, require_entry: bool) -> Result<(), &'static str> {
+    fn check_inputs(&mut self, call: &MirOp, require_entry: bool) -> Result<BTreeSet<u8>, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
         }
         if MirAtariFppService::from_canonical_call(call).is_some()
             || crate::mir6502::runtime_contracts::library_invocation(self.program, call).is_some() {
-            return Ok(());
+            return Ok(BTreeSet::new());
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
-                .map(|_| ()).ok_or("unsupported residence helper contract");
+                .map(|_| BTreeSet::new()).ok_or("unsupported residence helper contract");
         }
         let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = call else {
             return Err("unknown or indirect residence call");
@@ -99,6 +104,13 @@ impl<'a> ResidenceCalls<'a> {
         super::super::abi::validate_direct_call_result(callee, call)?;
         let observable = callee.abi == MirRoutineAbi::ActionObservable;
         match self.entry(*target) {
+            // An ordinary native call already admits an unknown entry when all
+            // resident values die. If the summary identifies fixed inputs, keep
+            // those bytes out of the caller's storage even at this dead boundary.
+            Some(entry) if !require_entry && !observable && !machine && self.acyclic.is_some() => {
+                handoff::register_inputs_supplied(&entry, &outgoing)?;
+                return Ok(handoff::extra_fixed_inputs(&entry, &outgoing).collect());
+            }
             Some(entry) => handoff::inputs_supplied(&entry, &outgoing)?,
             None if callee.frame.callee_review.is_some() => {
                 let review = callee.frame.callee_review.as_ref().unwrap();
@@ -118,7 +130,7 @@ impl<'a> ResidenceCalls<'a> {
                 return Err("unknown residence callee entry"),
             None => {},
         }
-        Ok(())
+        Ok(BTreeSet::new())
     }
 
     pub fn fixed_storage(&self) -> Arc<crate::mir6502::analysis::known_callees::MirFixedStorage> {
@@ -245,6 +257,21 @@ mod tests {
                 dst: MirAddr::Direct(MirMem::Param { id: param, offset: 0 }),
                 src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte });
             assert!(!verify_chain(&moved).is_empty());
+        }
+    }
+
+    #[test]
+    fn dead_native_boundary_excludes_the_callees_extra_input_bytes() {
+        for (dead, extra, allowed) in [(true, 0xe6, true), (true, 0xe5, false), (false, 0xe6, false)] {
+            let mut p = chain_program(false, true, dead);
+            let middle = p.routines.iter_mut().find(|r| r.name == "Middle").unwrap();
+            middle.blocks[0].ops.insert(0, MirOp::Load {
+                dst: MirDef::Reg(MirReg::Y),
+                src: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(extra))),
+                width: MirWidth::Byte,
+            });
+            let diagnostics = verify_chain(&p);
+            assert_eq!(diagnostics.is_empty(), allowed, "dead={dead} extra={extra:x} {diagnostics:?}");
         }
     }
 

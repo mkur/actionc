@@ -171,6 +171,21 @@ pub(super) fn inputs_supplied(
     callee: &MirCalleeEntryFact,
     outgoing: &[MirParamLane],
 ) -> Result<(), &'static str> {
+    register_inputs_supplied(callee, outgoing)?;
+    if extra_fixed_inputs(callee, outgoing).next().is_some() {
+        return Err("extra-entry-fixed-byte");
+    }
+    Ok(())
+}
+
+pub(super) fn extra_fixed_inputs<'a>(callee: &'a MirCalleeEntryFact, outgoing: &'a [MirParamLane])
+    -> impl Iterator<Item = u8> + 'a {
+    callee.inputs.fixed.iter().copied().filter(|b|
+        !outgoing.contains(&MirParamLane::ZeroPage(MirFixedZpSlot(*b))))
+}
+
+pub(super) fn register_inputs_supplied(callee: &MirCalleeEntryFact, outgoing: &[MirParamLane])
+    -> Result<(), &'static str> {
     let inputs = &callee.inputs;
     if inputs.flags.any() || inputs.registers.sp {
         return Err("extra-entry-flags-or-stack");
@@ -183,13 +198,6 @@ pub(super) fn inputs_supplied(
         if read && !outgoing.contains(&MirParamLane::Reg(reg)) {
             return Err("extra-entry-register");
         }
-    }
-    if inputs
-        .fixed
-        .iter()
-        .any(|b| !outgoing.contains(&MirParamLane::ZeroPage(MirFixedZpSlot(*b))))
-    {
-        return Err("extra-entry-fixed-byte");
     }
     Ok(())
 }

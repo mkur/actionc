@@ -105,6 +105,11 @@ fn internal_review_composes_through_native_print_callers() {
     let leaf = home.analyze(internal).unwrap();
     assert!(leaf.inputs.registers.a && !leaf.inputs.registers.x && !leaf.inputs.registers.y);
     assert!(!leaf.inputs.flags.any() && leaf.inputs.fixed.is_empty());
+    // With no placement evidence the table might overlap $A0. At TN's
+    // origin the checked inline array lies entirely above the zero page.
+    assert!(home.analyze(id("Putchar")).unwrap().inputs.fixed.contains(&0xa0));
+    let mut placed = MirAcyclicEntryAnalysis::at_origin(&p, 0x2c00);
+    assert!(!placed.analyze(id("Putchar")).unwrap().inputs.fixed.contains(&0xa0));
     for name in ["Putchar", "Print"] {
         let wrapper = home.analyze(id(name)).unwrap();
         assert!(!wrapper.inputs.flags.c);

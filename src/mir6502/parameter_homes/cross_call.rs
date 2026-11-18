@@ -112,7 +112,7 @@ pub(super) fn propose_configured(
         .unwrap_or_else(|| candidates.iter().map(|(_, r, _)| r.id).collect());
     let mut candidates: BTreeMap<_, _> = candidates.into_iter().map(|c| (c.1.id, c)).collect();
     let mut planned = BTreeMap::new();
-    let mut facts = if acyclic { ResidenceCalls::with_acyclic(selected, MirCalleeEntryStage::ActualEntry) }
+    let mut facts = if acyclic { ResidenceCalls::at_origin(selected, MirCalleeEntryStage::ActualEntry, origin) }
         else { ResidenceCalls::new(selected, MirCalleeEntryStage::ActualEntry) };
     let fixed = facts.fixed_storage();
     let mut proposal = None;
@@ -125,14 +125,20 @@ pub(super) fn propose_configured(
             Some(logical)
         } else { None };
         let mut call_writes = Vec::new();
+        let mut fixed_inputs = BTreeSet::new();
         for (call_index, (site, call)) in calls.iter().enumerate() {
-            if lifetimes && let Err(reason) = facts.inputs(call) {
-                trace.event("cross-call-candidate", || serde_json::json!({
-                    "routine": routine.name, "reason": reason,
-                    "entry": facts.entry_description(call),
-                    "call_count": calls.len(), "call_index": call_index,
-                }));
-                continue 'caller;
+            if lifetimes {
+                match facts.inputs(call) {
+                    Ok(inputs) => fixed_inputs.extend(inputs),
+                    Err(reason) => {
+                        trace.event("cross-call-candidate", || serde_json::json!({
+                            "routine": routine.name, "reason": reason,
+                            "entry": facts.entry_description(call),
+                            "call_count": calls.len(), "call_index": call_index,
+                        }));
+                        continue 'caller;
+                    }
+                }
             }
             // Candidate objects are checked individually below by the existing
             // ownership-aware binding selectors. Explicit ranges remain here.
@@ -198,6 +204,7 @@ pub(super) fn propose_configured(
             let mut forbidden = if physical::has_pointee_writes(input, retained) {
                 observed_zp.clone()
             } else { BTreeSet::new() };
+            forbidden.extend(&fixed_inputs);
             if let Some(plan) = views.get(&id) {
                 forbidden.extend(&plan.setup_writes);
             }

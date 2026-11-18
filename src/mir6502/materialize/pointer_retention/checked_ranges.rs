@@ -152,7 +152,7 @@ pub(in crate::mir6502) fn select_costed_traced(
             .is_some_and(|(p, a)| p == proposed && a == affected);
         let accepted = exits
             && replay
-            && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+            && crate::mir6502::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
             && baseline
                 .routines
                 .iter()

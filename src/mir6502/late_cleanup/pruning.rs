@@ -277,7 +277,7 @@ pub(super) fn select(
             if !only_declarations(&baseline, &proposed, &removed) {
                 return Err(Rejection::InvalidChange);
             }
-            if super::super::verify_program(&proposed, MirPhase::PreEmission).is_err() {
+            if super::super::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_err() {
                 return Err(Rejection::Verification);
             }
             if !callee_contracts_preserved(&baseline, &proposed) {

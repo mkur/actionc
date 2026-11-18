@@ -110,6 +110,11 @@ pub fn verify_program(program: &MirProgram, phase: MirPhase) -> Result<(), Vec<M
     verify::verify_program(program, phase)
 }
 
+/// Check origin-dependent home proofs against the layout used for emission.
+pub fn verify_program_at_origin(program: &MirProgram, phase: MirPhase, origin: u16) -> Result<(), Vec<MirDiagnostic>> {
+    verify::verify_program_at_origin(program, phase, origin)
+}
+
 pub fn materialize_program(
     program: MirProgram,
     config: &Mir6502Config,
@@ -507,11 +512,11 @@ fn materialize_resolved_program_without_captured_compare_costing_traced(
             program, config, origin, report, trace,
         )
         .map_err(|diagnostics| phase_diagnostics("materialization", diagnostics))?;
-        verify::verify_before_helper_resolution(&materialized, MirPhase::PostMaterialization)
+        verify::verify_before_helper_resolution(&materialized, MirPhase::PostMaterialization, origin)
             .map_err(|diagnostics| phase_diagnostics("post-materialization", diagnostics))?;
         runtime::resolve_helpers(&mut materialized, runtime)
             .map_err(|diagnostics| phase_diagnostics("runtime resolution", diagnostics))?;
-        verify::verify_program(&materialized, MirPhase::PostMaterialization)
+        verify::verify_program_at_origin(&materialized, MirPhase::PostMaterialization, origin)
             .map_err(|diagnostics| phase_diagnostics("resolved residence", diagnostics))?;
         trace.snapshot("helper-resolution", &materialized);
         Ok(preparation::PreparedProgram::new(materialized, input))
@@ -620,7 +625,7 @@ fn finish_emission_preparation(
         trace.skipped("late-private-store-cleanup", "disabled");
         mir
     };
-    verify::verify_program(&mir, MirPhase::PreEmission)
+    verify::verify_program_at_origin(&mir, MirPhase::PreEmission, origin)
         .map_err(|diagnostics| phase_diagnostics("pre-emission", diagnostics))?;
     Ok(mir)
 }

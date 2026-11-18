@@ -416,7 +416,7 @@ pub(in crate::mir6502) fn select_costed_traced(
             let good = replay
                 && (!config.enable_precise_callee_entry_flags
                     || old_exits.entry_inputs_preserved_by(&proposed, &exits))
-                && crate::mir6502::verify_program(&proposed, MirPhase::PreEmission).is_ok()
+                && crate::mir6502::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_ok()
                 && baseline
                     .routines
                     .iter()

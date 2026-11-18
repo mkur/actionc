@@ -19,20 +19,25 @@ pub(super) fn verify_program(
     program: &MirProgram,
     phase: MirPhase,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    verify_with_binding_phase(program, phase, true)
+    verify_program_at_origin(program, phase, 0)
+}
+
+pub(super) fn verify_program_at_origin(program: &MirProgram, phase: MirPhase, origin: u16) -> Result<(), Vec<MirDiagnostic>> {
+    verify_with_binding_phase(program, phase, true, origin)
 }
 
 /// Internal core boundary only: structural/storage checks still run here.
 /// Call-dependent residence is mandatory again immediately after resolution.
-pub(super) fn verify_before_helper_resolution(program: &MirProgram, phase: MirPhase) -> Result<(), Vec<MirDiagnostic>> {
-    verify_with_binding_phase(program, phase, false)
+pub(super) fn verify_before_helper_resolution(program: &MirProgram, phase: MirPhase, origin: u16) -> Result<(), Vec<MirDiagnostic>> {
+    verify_with_binding_phase(program, phase, false, origin)
 }
 
-fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_ready: bool) -> Result<(), Vec<MirDiagnostic>> {
+fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_ready: bool, origin: u16) -> Result<(), Vec<MirDiagnostic>> {
     let mut verifier = MirVerifier {
         diagnostics: Vec::new(),
         phase,
         bindings_ready,
+        origin,
         global_ids: BTreeSet::new(),
         static_ids: BTreeSet::new(),
         routine_ids: BTreeSet::new(),
@@ -52,6 +57,7 @@ struct MirVerifier {
     diagnostics: Vec<MirDiagnostic>,
     phase: MirPhase,
     bindings_ready: bool,
+    origin: u16,
     global_ids: BTreeSet<SymbolId>,
     static_ids: BTreeSet<SymbolId>,
     routine_ids: BTreeSet<RoutineId>,
@@ -285,7 +291,7 @@ impl MirVerifier {
             let needs_calls = self.phase != MirPhase::PreMaterialization && program.routines.iter().any(|r|
                 (r.frame.parameter_homes.is_some() || r.frame.local_homes.is_some()) && r.frame.parameter_handoff.is_none()
                 && r.blocks.iter().flat_map(|b| &b.ops).any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })));
-            let mut calls = needs_calls.then(|| super::parameter_homes::ResidenceCalls::with_acyclic(program, stage));
+            let mut calls = needs_calls.then(|| super::parameter_homes::ResidenceCalls::at_origin(program, stage, self.origin));
             let addresses = super::analysis::storage_ownership::ObjectAddressControl::new(program);
             for routine in &program.routines {
                 self.diagnostics.extend(super::parameter_homes::verify_storage_with_address_control(program, routine, stage, &addresses));

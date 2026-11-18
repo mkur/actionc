@@ -30,6 +30,18 @@ pub(in crate::mir6502) struct MirEntryRequirements {
     pub flags: MirFlagSet,
     pub fixed: BTreeSet<u8>,
 }
+/// ABI values available on normal return to the home-placement caller.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct HomeResults {
+    slots: BTreeSet<u8>,
+    // A checked A=$A0 relation also supplies A. Track a possible observation
+    // of the old slot separately from the ABI arguments needed at entry.
+    accumulator: Option<ReviewedAccumulator>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReviewedAccumulator { Independent, MayReadOldSlot }
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirCalleeEntryFact {
     pub source: Arc<MirRoutine>,
@@ -42,6 +54,8 @@ pub(in crate::mir6502) struct MirCalleeEntryFact {
     dependencies: BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>,
     /// Declared result bytes definitely defined on every normal-return path.
     pub defined_results: BTreeSet<u8>,
+    home_results: HomeResults,
+    ordinary_globals_above_zp: bool,
 }
 impl MirCalleeEntryFact {
     pub fn analyze(
@@ -49,11 +63,12 @@ impl MirCalleeEntryFact {
         target: RoutineId,
         stage: MirCalleeEntryStage,
     ) -> Option<Self> {
-        Self::analyze_with_dependencies(program, target, stage, None)
+        Self::analyze_with_dependencies(program, target, stage, None, false)
     }
     fn analyze_with_dependencies(
         program: &MirProgram, target: RoutineId, stage: MirCalleeEntryStage,
         dependencies: Option<BTreeMap<RoutineId, Arc<Self>>>,
+        ordinary_globals_above_zp: bool,
     ) -> Option<Self> {
         let routine = program.routines.iter().find(|r| r.id == target)?;
         if routine.effects.opaque { return None; }
@@ -91,11 +106,17 @@ impl MirCalleeEntryFact {
             })
             .map(|id| program.machine_blocks.iter().find(|m| m.id == id).cloned())
             .collect::<Option<_>>()?;
-        let (inputs, defined_results) = if !machines.is_empty() {
+        let (inputs, defined_results, home_results) = if !machines.is_empty() {
             // Only the acyclic home analysis supplies a dependency map.
             let home_placement = dependencies.is_some();
+            let mut results = HomeResults::default();
             let inputs = if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
                 let certified = if let Some(review) = super::reviewed_contract(program, routine) {
+                    if home_placement && review.returns_a_equals_a0
+                        && crate::mir6502::abi::direct_result_slots(routine.direct_result_abi?).contains(&0xa0) {
+                        results.slots.insert(0xa0);
+                        results.accumulator = Some(reviewed_accumulator(program, review, ordinary_globals_above_zp));
+                    }
                     if home_placement { review.abi_inputs_only || review.physical_abi_inputs }
                     else { review.physical_abi_inputs }
                 } else {
@@ -117,7 +138,7 @@ impl MirCalleeEntryFact {
                 }
                 inputs
             } else { BoundedMachine::analyze(routine, program)?.entry_inputs(program)? };
-            (inputs, BTreeSet::new())
+            (inputs, BTreeSet::new(), results)
         } else {
             scalar_inputs(program, routine, stage, dependencies.as_ref())?
         };
@@ -137,17 +158,23 @@ impl MirCalleeEntryFact {
             inputs,
             dependencies: dependencies.unwrap_or_default(),
             defined_results,
+            home_results,
+            ordinary_globals_above_zp,
         })
     }
     pub fn is_current(&self, program: &MirProgram, stage: MirCalleeEntryStage) -> bool {
-        self.stage == stage
+        self.is_current_for_layout(program, stage, false)
+    }
+
+    fn is_current_for_layout(&self, program: &MirProgram, stage: MirCalleeEntryStage, ordinary_globals_above_zp: bool) -> bool {
+        self.stage == stage && self.ordinary_globals_above_zp == ordinary_globals_above_zp
             && (self.source.frame.callee_review.is_none() || super::reviewed_contract(program, &self.source).is_some())
             && self.library_bindings.iter().all(|b| b.implementation.as_ref()
                 .is_none_or(|i| i.is_current(program, &i.target)))
             && self.helper_bindings == program.runtime_helpers
             && self.helper_bindings.iter().all(|d| d.binding.as_ref()
                 .is_none_or(|b| b.is_current(program, &d.target)))
-            && self.dependencies.values().all(|d| d.is_current(program, stage))
+            && self.dependencies.values().all(|d| d.is_current_for_layout(program, stage, ordinary_globals_above_zp))
             && program.routines.iter().any(|r| r == self.source.as_ref())
             && self
                 .machines
@@ -162,12 +189,33 @@ impl MirCalleeEntryFact {
     }
 }
 
+fn reviewed_accumulator(
+    program: &MirProgram,
+    facts: &crate::callee6502::CallFacts<crate::nir::SymbolId>,
+    ordinary_globals_above_zp: bool,
+) -> ReviewedAccumulator {
+    // A physical entry certificate bounds observations of incoming machine
+    // bytes. $A0 is a return slot, never an incoming direct argument lane.
+    // The invocation may still read it after definition or read through a
+    // pointer. Its complete program-data read footprint stays independent.
+    if facts.physical_abi_inputs { return ReviewedAccumulator::Independent; }
+    let disjoint = facts.reads.as_ref().is_some_and(|ranges| ranges.iter().all(|r| {
+        let Some(id) = r.global else { return !(r.start..=r.end).contains(&0xa0); };
+        // The review matcher binds the full range to an in-bounds, inline
+        // array. Successful layouts place its entire payload at/above origin.
+        ordinary_globals_above_zp && program.globals.iter().any(|g| g.id == id
+            && matches!(g.backing, MirGlobalBacking::Ordinary { .. }) && r.end < g.storage_size)
+    }));
+    if disjoint && !facts.buffers.iter().any(|b| !b.write) { ReviewedAccumulator::Independent }
+    else { ReviewedAccumulator::MayReadOldSlot }
+}
+
 fn scalar_inputs(
     program: &MirProgram,
     routine: &MirRoutine,
     stage: MirCalleeEntryStage,
     dependencies: Option<&BTreeMap<RoutineId, Arc<MirCalleeEntryFact>>>,
-) -> Option<(MirEntryRequirements, BTreeSet<u8>)> {
+) -> Option<(MirEntryRequirements, BTreeSet<u8>, HomeResults)> {
     // An observable native entry still uses the Action ABI. Its actual body
     // can supply a contract without granting permission to invent capture or
     // move its own storage. Planned capture remains compiler-owned only.
@@ -262,6 +310,7 @@ fn scalar_inputs(
         Some(result)
     };
     let mut transfers = BTreeMap::new();
+    let mut returned_calls = Vec::new();
     for block in &routine.blocks {
         let mut ops = Vec::new();
         for op in &block.ops {
@@ -279,6 +328,12 @@ fn scalar_inputs(
                 reads.extend(lanes.iter().filter_map(|lane| match lane {
                     MirParamLane::ZeroPage(s) => Some(MirHomeByte::FixedZeroPage(*s)), _ => None,
                 }));
+                if fact.home_results.accumulator == Some(ReviewedAccumulator::MayReadOldSlot) {
+                    reads.insert(MirHomeByte::FixedZeroPage(MirFixedZpSlot(0xa0)));
+                }
+                if fact.home_results.slots != fact.defined_results {
+                    returned_calls.push((block.id, ops.len(), &fact.home_results.slots));
+                }
                 ops.push(MirHomeTransfer {
                     reads,
                     writes: fact.defined_results.iter().map(|s|
@@ -317,15 +372,27 @@ fn scalar_inputs(
     // A typed ABI result is a definite definition only when every returning
     // path really defines it. Never infer this from a possible write footprint.
     let defined_results = if stage == MirCalleeEntryStage::ActualEntry {
-        acyclic::defined_results(routine, &cfg, &transfers)
+        acyclic::result_slots_on_all_returns(routine, &cfg, &transfers)
     } else { BTreeSet::new() };
+    // Physical must-writes are established above. Apply the additional ABI
+    // values only in the caller view, then compose them over the same CFG.
+    let slots = if returned_calls.is_empty() {
+        defined_results.clone()
+    } else {
+        for (block, index, slots) in returned_calls {
+            transfers.get_mut(&block)?.ops[index].writes.extend(slots.iter()
+                .map(|s| MirHomeByte::FixedZeroPage(MirFixedZpSlot(*s))));
+        }
+        acyclic::result_slots_on_all_returns(routine, &cfg, &transfers)
+    };
     let homes = MirHomeLiveness::analyze_transfers(routine, &cfg, transfers);
     let live = MirMachineLiveness::entry_inputs_with_calls(routine, &cfg, &|op| {
         if let Some(invocation) = crate::mir6502::runtime_contracts::invocation(program, routine, op) {
             return Some(invocation.machine_transfer());
         }
         let MirOp::Call { target: MirCallTarget::Routine(target), args, .. } = op else { return None; };
-        let inputs = &dependencies.unwrap()[target].inputs;
+        let fact = &dependencies?[target];
+        let inputs = &fact.inputs;
         let mut registers = inputs.registers;
         for arg in args {
             for lane in crate::mir6502::abi::physical_lanes(&arg.home, arg.width).unwrap() {
@@ -337,7 +404,9 @@ fn scalar_inputs(
                 }
             }
         }
-        Some((MirMachineLiveSet { registers, flags: inputs.flags }, MirMachineLiveSet::default()))
+        let mut supplied = MirMachineLiveSet::default();
+        supplied.registers.a = fact.home_results.accumulator.is_some();
+        Some((MirMachineLiveSet { registers, flags: inputs.flags }, supplied))
     })?;
     // A retained lane has no memory capture. Conservatively require its
     // canonical register even if this body happens not to observe it.
@@ -380,7 +449,7 @@ fn scalar_inputs(
                 }
             })
             .collect(),
-    }, defined_results))
+    }, defined_results, HomeResults { slots, accumulator: None }))
 }
 
 /// Only typed global accesses establish a program-state role. Literal machine

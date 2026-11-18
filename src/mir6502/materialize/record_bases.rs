@@ -94,7 +94,7 @@ pub(in crate::mir6502) fn select_costed_traced(
             }
             return Ok(baseline);
         };
-        if crate::mir6502::verify::verify_program(&proposed, MirPhase::PreEmission).is_err() {
+        if crate::mir6502::verify::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin).is_err() {
             return Ok(baseline);
         };
         let (Some(old), Some(new), Some(final_map)) = (

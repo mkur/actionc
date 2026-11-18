@@ -523,7 +523,7 @@ fn select_definitions(
             && baseline.routines.iter().any(|r| !r.frame.resident_bytes().is_empty()))
             .then(|| {
                 trace.count("storage_observation_snapshot_builds", 1);
-                InvocationHomes::with_references_and_calls(&baseline, &references, config.acyclic_call_homes_enabled())
+                InvocationHomes::with_references_and_calls(&baseline, &references, config.acyclic_call_homes_enabled(), origin)
             });
         let old = measure(&baseline, &references, origin, runtime, trace)?;
         let CleanupCandidate { program: proposed, deletions, reuse } = match apply_traced(&baseline, Some(&old.memory), remove_producers, reuse_registers, trace, "physical-deletion", facts.as_ref()) {
@@ -536,7 +536,7 @@ fn select_definitions(
             .filter_map(|(a, b)| (a != b).then_some(a.id)).collect();
         let checked = (|| {
             if !only_cleanup_deletions_with_observations(&baseline, &deletions, remove_producers, Some(&old.memory), facts.as_ref()) { return Err(Declined::InvalidChange); }
-            if let Err(diagnostics) = super::verify_program(&proposed, MirPhase::PreEmission) {
+            if let Err(diagnostics) = super::verify::verify_program_at_origin(&proposed, MirPhase::PreEmission, origin) {
                 trace.event("late-cleanup-verification", || serde_json::json!({"diagnostics": format!("{diagnostics:?}")}));
                 return Err(Declined::Verification);
             }

@@ -1462,7 +1462,7 @@ fn materialize_core(
                 verify_materialization_stage(
                     &program,
                     MirPhase::PreMaterialization,
-                    "tiny constant fill selection",
+                    "tiny constant fill selection", object_origin,
                 )?;
             }
         }
@@ -1956,7 +1956,7 @@ fn finish_core_callee_tail(
         run_analyzed_dead_private_scratch_stores(routine, peephole_stats)?;
         spills::prune_unused_spills_traced(routine, trace);
     }
-    verify_materialization_stage(program, MirPhase::PostHome, "post-home boundary")?;
+    verify_materialization_stage(program, MirPhase::PostHome, "post-home boundary", object_origin)?;
     trace.snapshot("core-post-home", program);
     // Check private pointer-byte definitions before replacing their virtual
     // identities with fixed physical pairs for emission.
@@ -2745,8 +2745,9 @@ fn verify_materialization_stage(
     program: &MirProgram,
     phase: MirPhase,
     stage: &str,
+    origin: u16,
 ) -> Result<(), Vec<MirDiagnostic>> {
-    super::verify::verify_before_helper_resolution(program, phase).map_err(|diagnostics| {
+    super::verify::verify_before_helper_resolution(program, phase, origin).map_err(|diagnostics| {
         diagnostics
             .into_iter()
             .map(|mut diagnostic| {

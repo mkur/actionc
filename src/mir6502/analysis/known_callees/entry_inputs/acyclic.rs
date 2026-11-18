@@ -3,6 +3,7 @@ use super::*;
 
 pub(in crate::mir6502) struct MirAcyclicEntryAnalysis<'a> {
     program: &'a MirProgram,
+    ordinary_globals_above_zp: bool,
     routines: BTreeMap<RoutineId, &'a MirRoutine>,
     entries: BTreeMap<RoutineId, Option<Arc<MirCalleeEntryFact>>>,
     visiting: BTreeSet<RoutineId>,
@@ -13,11 +14,16 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
     pub fn new(program: &'a MirProgram) -> Self {
         Self {
             program,
+            ordinary_globals_above_zp: false,
             routines: program.routines.iter().map(|r| (r.id, r)).collect(),
             entries: BTreeMap::new(),
             visiting: BTreeSet::new(),
             failures: BTreeMap::new(),
         }
+    }
+
+    pub fn at_origin(program: &'a MirProgram, origin: u16) -> Self {
+        Self { ordinary_globals_above_zp: origin >= 0x100, ..Self::new(program) }
     }
 
     pub fn analyze(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {
@@ -55,7 +61,7 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
             // The leaf contributes only its matched caller obligations. Its own
             // implementation matcher certifies that the complete body is covered.
             let fact = MirCalleeEntryFact::analyze_with_dependencies(self.program, target,
-                MirCalleeEntryStage::ActualEntry, Some(BTreeMap::new())).map(Arc::new);
+                MirCalleeEntryStage::ActualEntry, Some(BTreeMap::new()), self.ordinary_globals_above_zp).map(Arc::new);
             if fact.is_none() {
                 self.failures.insert(target, (target, Some(site), "uncertified machine leaf entry"));
             }
@@ -92,14 +98,13 @@ impl<'a> MirAcyclicEntryAnalysis<'a> {
             dependencies.insert(id, fact);
         }
         MirCalleeEntryFact::analyze_with_dependencies(self.program, target,
-            MirCalleeEntryStage::ActualEntry, Some(dependencies)).map(Arc::new)
+            MirCalleeEntryStage::ActualEntry, Some(dependencies), self.ordinary_globals_above_zp).map(Arc::new)
     }
 }
 
-/// Limit definite return definitions to the declared direct result, then prove the
-/// physical writes on every returning path. An arbitrary scratch store, an
-/// untyped signature or a conditional result store grants no definition.
-pub(super) fn defined_results(
+/// Return ABI slots supplied on every reachable normal return, using the
+/// caller's transfer domain (physical definitions or available ABI values).
+pub(super) fn result_slots_on_all_returns(
     routine: &MirRoutine, cfg: &MirCfg,
     transfers: &BTreeMap<crate::mir6502::ir::MirBlockId, MirHomeBlockTransfers>,
 ) -> BTreeSet<u8> {

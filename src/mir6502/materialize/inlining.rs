@@ -883,7 +883,7 @@ pub(in crate::mir6502) fn materialize_traced(
         crate::mir6502::materialize_resolved_program_traced(current, config, origin, runtime, true, &replay)?;
     apply_helper_placements(&mut result, &helper_placements);
     trace.event("helper-placement", || serde_json::json!({ "placements": helper_placements.iter().map(|(h,a)| (h.0,a.0)).collect::<Vec<_>>() }));
-    crate::mir6502::verify_program(&result, MirPhase::PreEmission)?;
+    crate::mir6502::verify_program_at_origin(&result, MirPhase::PreEmission, origin)?;
     Ok(result)
 
     })
