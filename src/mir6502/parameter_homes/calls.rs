@@ -116,7 +116,7 @@ impl<'a> ResidenceCalls<'a> {
             // An ordinary native call already admits an unknown entry when all
             // resident values die. If the summary identifies fixed inputs, keep
             // those bytes out of the caller's storage even at this dead boundary.
-            Some(entry) if !require_entry && !observable && !machine && self.acyclic.is_some() => {
+            Some(entry) if self.acyclic.is_some() => {
                 handoff::register_inputs_supplied(&entry, &outgoing)?;
                 return Ok(handoff::extra_fixed_inputs(&entry, &outgoing).collect());
             }
@@ -212,7 +212,10 @@ impl<'a> ResidenceCalls<'a> {
         {
             return Err("unsupported residence callee");
         }
-        self.check_inputs(call, true)?;
+        let implicit_inputs = self.check_inputs(call, true)?;
+        if site.is_none() && !implicit_inputs.is_empty() {
+            return Err("extra-entry-fixed-byte");
+        }
         let summary = self.known.get(*target).ok_or("unknown residence callee writes")?;
         let projected;
         let writes = if self.acyclic.is_some() && summary.needs_write_arguments() {
@@ -225,7 +228,11 @@ impl<'a> ResidenceCalls<'a> {
         if writes.has_formal_writes() || matches!(writes, MirKnownMemoryWrites::Unknown) {
             return Err("unknown residence callee writes");
         }
-        Ok(writes.clone())
+        let mut footprint = writes.clone();
+        for byte in implicit_inputs {
+            footprint.record(MirMem::FixedZeroPage(MirFixedZpSlot(byte)));
+        }
+        Ok(footprint)
     }
 }
 
@@ -293,8 +300,8 @@ mod tests {
     }
 
     #[test]
-    fn dead_native_boundary_excludes_the_callees_extra_input_bytes() {
-        for (dead, extra, allowed) in [(true, 0xe6, true), (true, 0xe5, false), (false, 0xe6, false)] {
+    fn native_boundary_reserves_only_the_callees_extra_input_bytes() {
+        for (dead, extra, allowed) in [(true, 0xe6, true), (true, 0xe5, false), (false, 0xe6, true), (false, 0xe5, false)] {
             let mut p = chain_program(false, true, dead);
             let middle = p.routines.iter_mut().find(|r| r.name == "Middle").unwrap();
             middle.blocks[0].ops.insert(0, MirOp::Load {
