@@ -7,6 +7,9 @@ elided values as they are. Capture the TN baseline described in slice 5 before
 the first compiler change. Deliver each slice below as a separate commit.
 [Placement design](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md)
 
+The shipped implementation and qualification cover cart and standalone.
+[Final home ranges, remaining conflicts, XEX sizes, VM cycles and compiler timings](benchmarks/6502-default-zp-homes/README.md)
+
 ## 1. Classify physical pool use for native and reviewed writes
 
 Start with the current TN blocker, `Copy → Convert(v(j))`. The native routine

@@ -176,7 +176,16 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
         ram.write_word(directory, 0x4321);
         ram.write_word(right_path, 0x2345);
 
+        let started = vm.cpu().cycles();
         vm = call(vm, &mut hooks, routine("SwapWin"), 0, 0);
+        if std::env::var_os("ACTIONC_TN_HOME_CYCLES").is_some() {
+            eprintln!(
+                "TN home cycles {:?} debug={} SwapWin {}",
+                compiled.runtime(),
+                debug,
+                vm.cpu().cycles() - started
+            );
+        }
         assert_eq!(state(&vm, active), [1, 0, other_drive, 0, 0, 0, 0x69, 1, 0]);
         assert_eq!(vm.bus().ram().read(winnum), 1);
         assert_eq!(vm.bus().ram().read(0x5A), 21);

@@ -1,0 +1,146 @@
+{
+  "TN-cart": {
+    "xex_bytes": [
+      9584,
+      9588
+    ],
+    "sha256": [
+      "746de40f999880eef886b0bfb49073935bcf450b4404d76cd7aeeb6c586b3b50",
+      "a0cce35eb1354a9e13c3d64ab6844400a3fe6e428e92a2d5ce2b112800ad07e7"
+    ],
+    "compile_seconds": {
+      "before": [
+        23.513,
+        23.587,
+        23.59
+      ],
+      "final": [
+        23.426,
+        23.451,
+        23.468
+      ]
+    },
+    "cycles": {
+      "panel": [
+        1020,
+        1020
+      ],
+      "three_files": [
+        38042,
+        38038
+      ],
+      "twenty_files": [
+        245164,
+        245148
+      ]
+    }
+  },
+  "TN-standalone": {
+    "xex_bytes": [
+      9723,
+      9727
+    ],
+    "sha256": [
+      "6bbaab1cbfc2b1e04a280f05d3227780ff2378b0e90ab5ed88eaaf2cf0fee130",
+      "a5bc459c354e5d4cde4c4d86a7a5e8370588cdc8d823bdc6b67b04165abbbd98"
+    ],
+    "compile_seconds": {
+      "before": [
+        23.445,
+        23.302,
+        23.406
+      ],
+      "final": [
+        23.486,
+        23.2,
+        23.199
+      ]
+    },
+    "cycles": {
+      "panel": [
+        963,
+        963
+      ],
+      "three_files": [
+        39271,
+        39271
+      ],
+      "twenty_files": [
+        251639,
+        251659
+      ]
+    }
+  },
+  "TNDBG-cart": {
+    "xex_bytes": [
+      12602,
+      12601
+    ],
+    "sha256": [
+      "c23bdc4555a78e79b2ac365745df4e4d95189d105bf6b99ff448f82e8fa168c5",
+      "f0ea5becd3511d479eb327c3beef3ca61009f5a7b1c862259e81622481ac466d"
+    ],
+    "compile_seconds": {
+      "before": [
+        29.892,
+        29.217,
+        29.436
+      ],
+      "final": [
+        29.423,
+        29.331,
+        29.606
+      ]
+    },
+    "cycles": {
+      "panel": [
+        1026,
+        1026
+      ],
+      "three_files": [
+        41247,
+        41247
+      ],
+      "twenty_files": [
+        258867,
+        258863
+      ]
+    }
+  },
+  "TNDBG-standalone": {
+    "xex_bytes": [
+      12743,
+      12742
+    ],
+    "sha256": [
+      "3f938d295e958640f507d84b0f875f1538f41047c838464312218d09ec896578",
+      "b9923438b5247ffc0637c774fededd5ff9ed16293cdfa7f2c904340ac30ae6fa"
+    ],
+    "compile_seconds": {
+      "before": [
+        29.38,
+        29.383,
+        29.12
+      ],
+      "final": [
+        30.604,
+        29.484,
+        29.41
+      ]
+    },
+    "cycles": {
+      "panel": [
+        969,
+        969
+      ],
+      "three_files": [
+        42485,
+        42485
+      ],
+      "twenty_files": [
+        265338,
+        265338
+      ]
+    }
+  }
+}

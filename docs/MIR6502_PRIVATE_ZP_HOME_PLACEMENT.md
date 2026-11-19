@@ -6,10 +6,10 @@ object into ZP allocation. Choose inline storage for that object when the
 pool has no suitable bytes for its lifetime. A value carried entirely in
 registers needs no memory home.
 
-This is the target policy. The current selector can reject every ZP byte for
-a live object when a call's write summary is unknown. The implemented
-`Store` review and the measured TN placements provide the baseline.
-[Implementation plan for the default policy](MIR6502_DEFAULT_ZP_HOME_IMPLEMENTATION_PLAN.md) · [Current selector](../src/mir6502/parameter_homes/cross_call.rs) · [TN qualification](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md#tn-qualification)
+The optimized selector checks each ordinary memory home against the selected
+instructions, including in leaf routines and the program entry. A call with
+unknown returning writes can exclude every pool byte for a crossing value.
+[Implementation plan](MIR6502_DEFAULT_ZP_HOME_IMPLEMENTATION_PLAN.md) · [Selector](../src/mir6502/parameter_homes/cross_call.rs) · [TN and TNDBG qualification](benchmarks/6502-default-zp-homes/README.md)
 
 ## Allocating a home
 

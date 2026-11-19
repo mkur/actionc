@@ -697,3 +697,21 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
         }
     }
 }
+
+#[test]
+#[ignore = "qualification matrix at the comparison origin, set ACTIONC_TN_HOME_CYCLES for cycle counts"]
+fn default_home_panel_and_copy_cycles() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (source, debug) in [("TN.ACT", false), ("TNDBG.ACT", true)] {
+            let compiled = compile_file(
+                root().join("samples/tn/modern").join(source),
+                &CompileOptions::for_mode(CompileMode::Mir6502)
+                    .with_runtime(runtime)
+                    .with_origin(0x3000),
+            )
+            .unwrap();
+            panels::check(&compiled, debug);
+            copy::check(&compiled, debug);
+        }
+    }
+}

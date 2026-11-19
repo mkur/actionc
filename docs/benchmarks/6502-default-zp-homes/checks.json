@@ -1,0 +1,52 @@
+{
+  "unit": {
+    "ok": 1591,
+    "FAILED": 5,
+    "ignored": 15
+  },
+  "integration": {
+    "ok": 159,
+    "FAILED": 22,
+    "ignored": 13
+  },
+  "vm": {
+    "ok": 43,
+    "FAILED": 1,
+    "ignored": 0
+  },
+  "known_unit_failures": [
+    "mir6502::materialize::constructor_storage::tests::constructor_storage_protects_incoming_pointer_across_known_calls",
+    "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_audits_effects_and_bounds_in_each_callee_frame",
+    "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_checks_successors_and_frame_exposure",
+    "mir6502::materialize::scalar_captures::observations::tests::scalar_call_elision_is_path_sensitive_and_costed_after_forwarding",
+    "mir6502::parameter_homes::handoff_tests::an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact"
+  ],
+  "baseline_reproduced_integration_failures": [
+    "address_of_local_materializes_directly_to_word_store_home",
+    "argument_x_forwarding_baseline_verifies_modes_runtimes_and_origins",
+    "cast_store_consumers_materialize_without_virtual_temps_or_cast_pseudos",
+    "descriptor_backed_constant_word_reads_materialize_to_indirect_lanes",
+    "descriptor_dynamic_word_read_materializes_to_indirect_byte_lanes",
+    "descriptor_dynamic_word_write_materializes_to_indirect_byte_lanes",
+    "dynamic_inline_byte_read_materializes_to_absolute_y",
+    "dynamic_inline_byte_write_materializes_to_absolute_y",
+    "explicit_source_storage_keeps_its_zero_page_address",
+    "final_gap_cluster_fixtures_materialize_and_emit",
+    "home_value_invalidation_source_controls_have_stable_images_and_real_word_snapshots",
+    "late_cleanup_shrinks_argument_staging_and_preserves_trace_equivalence",
+    "ordinary_action_capture_saves_final_bytes_and_cross_newline_artifacts",
+    "pointer_equality_branch_materializes_to_byte_lane_flag_branches",
+    "register_copy_feature_is_independent_and_costed_on_neutral_sources",
+    "short_circuit_and_or_materialize_to_control_flow",
+    "source_tail_proof_blocker_preserves_output_and_prior_cleanup",
+    "unsigned_word_relational_branch_materializes_to_cmp_sbc_carry_chain",
+    "unsized_dynamic_word_read_materializes_to_indirect_byte_lanes",
+    "unsized_dynamic_word_write_materializes_to_indirect_byte_lanes",
+    "warpdem_exposes_the_expected_codegen_baseline",
+    "word_load_sharing_disabled_matches_baseline_and_enabled_shares_both_destinations"
+  ],
+  "known_vm_failure": [
+    "callee_facts_directional_reader_preserves_caller_and_pointee"
+  ],
+  "scope": "All 35 tests/mir6502* integration targets and MIR6502 library tests. Focused final reruns supersede earlier results for modified cases. VM targets are parameter_homes, cross_call_homes, callee_facts and tn_dispatch. The rotation and file-copy qualification is included."
+}

@@ -170,7 +170,16 @@ pub fn check(compiled: &CompiledProgram, debug: bool) {
         let buffer = vm.bus().ram().read_word(global("buffer"));
         vm.bus_mut().ram_mut().write_word(0x2E5, buffer + arena);
         vm = machine::call(vm, &mut hooks, routine("TagAll"), &[]);
+        let started = vm.cpu().cycles();
         vm = machine::call(vm, &mut hooks, routine("Copy"), &[]);
+        if std::env::var_os("ACTIONC_TN_HOME_CYCLES").is_some() {
+            eprintln!(
+                "TN home cycles {:?} debug={} Copy {}",
+                compiled.runtime(),
+                debug,
+                vm.cpu().cycles() - started
+            );
+        }
         assert_eq!(hooks.outputs, inputs, "copy bytes/EOF/continuation");
         assert_eq!(
             hooks.write_opens,
