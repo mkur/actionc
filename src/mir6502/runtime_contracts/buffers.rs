@@ -49,7 +49,7 @@ impl BufferAccess {
             BufferExtent::Fixed(bytes) => bytes,
             BufferExtent::String { .. } => 256,
             BufferExtent::ByteCount { argument_byte, zero_means_256 } =>
-                crate::callee6502::buffer_length(argument_byte_value(program, call, argument_byte, values), zero_means_256),
+                crate::callee6502::buffer_length(argument_byte_value(program, call, argument_byte, MirWidth::Byte, values), zero_means_256),
             BufferExtent::Count { argument_byte } =>
                 argument_word(program, call, argument_byte, values).unwrap_or(u16::MAX),
         };
@@ -88,11 +88,11 @@ impl super::invocation::InvocationSummary {
 pub(in crate::mir6502) fn argument_word(program: &MirProgram, call: &MirOp, offset: u16,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u16> {
-    Some(u16::from(argument_byte_value(program, call, offset, values)?)
-        | (u16::from(argument_byte_value(program, call, offset.checked_add(1)?, values)?) << 8))
+    Some(u16::from(argument_byte_value(program, call, offset, MirWidth::Word, values)?)
+        | (u16::from(argument_byte_value(program, call, offset.checked_add(1)?, MirWidth::Word, values)?) << 8))
 }
 
-fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16,
+fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16, argument_width: MirWidth,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u8> {
     let MirOp::Call { args, .. } = call else { return None; };
@@ -101,11 +101,12 @@ fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16,
         let width = match arg.width { MirWidth::Byte => 1, MirWidth::Word => 2 };
         if offset < start + width {
             let byte = (offset - start) as u8;
-            // Expanded calls name physical input lanes. Read the current lane,
-            // not the diagnostic value retained for a stack/ZP argument.
+            // A word represented by separate byte arguments has already been staged.
+            // Read its physical lanes even if a diagnostic operand is a literal.
             if let Some((values, site)) = values {
                 let current = match &arg.home {
-                    MirArgHome::Reg(reg) if width == 1 && matches!(arg.value, MirValue::Def(MirDef::Reg(_))) =>
+                    MirArgHome::Reg(reg) if width == 1 && (argument_width == MirWidth::Word
+                        || matches!(arg.value, MirValue::Def(MirDef::Reg(_)))) =>
                         Some(values.register_at(site, *reg).ok().flatten()),
                     MirArgHome::FixedZeroPage(slot) =>
                         Some(values.fixed_zero_page_value_at(site, MirFixedZpSlot(slot.0.checked_add(byte)?)).ok().flatten()),

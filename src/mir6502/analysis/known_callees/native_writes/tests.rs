@@ -268,6 +268,14 @@ fn reviewed_and_native_row_writes_keep_numeric_destinations_and_scratch() {
         })
         .unwrap();
     *lane = 0;
+    // The displayed A/X values cannot certify a physical destination when
+    // the actual definition of one register comes from the wrong word lane.
+    let args = row_block.ops.iter_mut().find_map(|op| match op {
+        MirOp::Call { args, .. } => Some(args),
+        _ => None,
+    }).unwrap();
+    args[0].value = MirValue::ConstU8(0x00);
+    args[1].value = MirValue::ConstU8(0x71);
     assert_eq!(
         MirKnownCalleeSummaries::analyze_for_source_homes(&broken, 0)
             .get(row)

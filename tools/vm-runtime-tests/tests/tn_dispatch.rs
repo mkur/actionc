@@ -479,6 +479,36 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
     }
 }
 
+// Both panel and file-copy fixtures install their call trampolines in this range.
+fn load_tn(compiled: &CompiledProgram) -> CompilerVm {
+    let (mut vm, profile) = fixed_point::vm_for(compiled.runtime());
+    if compiled.runtime() == Runtime::Standalone {
+        vm.load_bundled_altirra_os().unwrap();
+    }
+    let image = vm
+        .load_atari_object_for_execution(profile, compiled.object_bytes())
+        .unwrap();
+    assert!(
+        image
+            .segments
+            .iter()
+            .all(|s| s.end < machine::ENTRY || s.start > machine::RETURN)
+    );
+    vm.bus_mut().ram_mut().write(machine::RETURN, 0x60);
+    vm
+}
+
+#[test]
+fn standalone_tn_toggles_tags_updates_panel_counts_and_copies_files() {
+    let compiled = compile_file(
+        root().join("samples/tn/modern/TN.ACT"),
+        &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(Runtime::Standalone),
+    )
+    .unwrap();
+    panels::check(&compiled, false);
+    copy::check(&compiled, false);
+}
+
 /// Supply raw key codes at the OS vector. The ROM performs translation and
 /// returns through Getchar's real stack frame, including when called by Range.
 struct KeyboardInput {

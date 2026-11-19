@@ -96,3 +96,25 @@ cargo test --lib mir6502::parameter_homes::
 cargo test --test mir6502_cross_call_homes
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test cross_call_homes --test callee_facts --test tn_dispatch
 ```
+
+## TN qualification
+
+The general `Store` review in both samples matches classic and MIR6502.
+At the inner `Copy → Tag(j)` call, both lanes of `mem` and `len` and the
+byte `files` are live. The reviewed row write permits private homes while
+reserving `$A0/$A1` and the other physical writes in `Tag`'s call tree.
+
+The eight shipped load files compared byte-for-byte equal to the pre-change
+builds. MIR6502 used origin `$3000`. Sizes below include the XEX headers.
+
+| Source | MIR6502 cart | MIR6502 standalone | Classic optimized cart | Classic optimized standalone |
+| --- | ---: | ---: | ---: | ---: |
+| TN | 9,594 | 9,733 | 10,642 | 10,866 |
+| TNDBG | 12,612 | 12,753 | 13,879 | 14,103 |
+
+Both MIR6502 runtimes select `$A2` for `Tag.i` and `$A3` for `Tag.a`.
+In TN, `Copy.mem`, `Copy.len`, and `Copy.files` remain at `$33D3`, `$33D5`,
+and `$33D7`. The first entry check on the `Copy → SwapWin` path reaches
+`Input`, whose entry lacks a matched review. In a diagnostic build with
+only that entry certified, the first write check to reject those three
+locals moves to `Convert(v(j))` in both runtimes.

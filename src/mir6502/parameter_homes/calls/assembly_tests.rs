@@ -488,3 +488,106 @@ fn tn_print_live_index_rejects_internal_result_at_putchar() {
         "{errors:?}"
     );
 }
+
+#[test]
+fn tn_copy_locals_can_cross_the_inner_tag_call_on_both_runtimes() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
+    let ast = crate::includes::load_program_with_includes(path).unwrap();
+    let model =
+        crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
+            .unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(
+        &crate::semantic::ir::lower_program(&ast, &model),
+    ))
+    .unwrap();
+    let input = crate::mir6502::lower_program(&nir).unwrap();
+    let retained = input.routines.iter().find(|r| r.name == "Copy").unwrap();
+    let addresses = ObjectAddressControl::for_home_placement(&input);
+    let locals = ["mem", "len", "files"].map(|name| {
+        let slot = retained
+            .frame
+            .locals
+            .iter()
+            .find(|s| s.name.as_deref() == Some(name))
+            .unwrap();
+        let MirStorageBase::Local(id) = slot.base else {
+            panic!()
+        };
+        assert!(addresses.compiler_controls_address(retained.id, &MirMem::Local { id, offset: 0 }));
+        (id, slot.storage_size)
+    });
+
+    for runtime in [
+        crate::runtime::Runtime::ActionCart,
+        crate::runtime::Runtime::Standalone,
+    ] {
+        let program = crate::mir6502::materialize_program_with_origin_and_runtime(
+            input.clone(),
+            &crate::mir6502::Mir6502Config::optimized(),
+            0x3000,
+            runtime,
+        )
+        .unwrap();
+        let copy = program
+            .routines
+            .iter()
+            .find(|r| r.id == retained.id)
+            .unwrap();
+        let tag = program
+            .routines
+            .iter()
+            .find(|r| r.name == "Tag")
+            .unwrap()
+            .id;
+        let logical = super::super::logical::LogicalHomes::new(copy).unwrap();
+        let mut calls =
+            ResidenceCalls::at_origin(&program, MirCalleeEntryStage::ActualEntry, 0x3000);
+        let mut checked = 0;
+        for block in &copy.blocks {
+            for (op_index, call) in block.ops.iter().enumerate() {
+                if !matches!(call, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == tag)
+                {
+                    continue;
+                }
+                let site = MirSite::Op {
+                    block: block.id,
+                    op_index,
+                };
+                if !locals.iter().all(|&(id, width)| {
+                    (0..width).all(|offset| {
+                        logical.live_after(&MirMem::Local { id, offset }, site) == Some(true)
+                    })
+                }) {
+                    continue;
+                }
+                let writes = calls.home_writes_at(copy, site, call).unwrap();
+                let fixed = calls.fixed_storage();
+                let free = |byte| writes.preserves_private_fixed_byte(MirFixedZpSlot(byte), &fixed);
+                assert!(!free(0xa0) && !free(0xa1), "{runtime:?} {writes:?}");
+                let occupied: BTreeSet<_> = (0..=255).filter(|&lane| !free(lane)).collect();
+                let bindings = super::super::zero_page::local_bindings(
+                    &input,
+                    retained,
+                    &|mem, _| match mem {
+                        MirMem::Local { id, .. } if locals.iter().any(|(local, _)| local == id) => {
+                            Some(occupied.clone())
+                        }
+                        _ => None,
+                    },
+                    &addresses,
+                )
+                .unwrap();
+                for (id, _) in locals {
+                    assert!(
+                        bindings
+                            .iter()
+                            .any(|b| b.local == id && matches!(b.home, MirLocalHome::ZeroPage(_))),
+                        "{runtime:?} {id:?} {bindings:?}"
+                    );
+                }
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 1, "{runtime:?}: live Copy → Tag site");
+    }
+}

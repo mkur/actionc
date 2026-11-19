@@ -1,9 +1,9 @@
 //! Panel transitions execute intact, including MovePage, sorting, tagging and
 //! directory conversion. Only screen output and CIO directory input are stubbed.
-use super::{global_address, root, routine_address};
+use super::{global_address, load_tn, routine_address};
 use actionc::compiler::CompiledProgram;
 use actionc_vm::{
-    CompilerVm, DEFAULT_CART_BASE, ExecutionProfile, ImageKind, OS_ROM_BASE, RunRequest,
+    CompilerVm, RunRequest,
     StopReason, VmRunHooks, VmRunner,
 };
 use std::collections::BTreeMap;
@@ -134,31 +134,7 @@ pub(super) fn check(compiled: &CompiledProgram, debug: bool) {
     // Both MyDOS current-directory locations, with a separate RAM disk and
     // without one. All symbol addresses come from this compiled program.
     for (dostst, directory, ramdisk, other_drive) in [(0xA9, 0x07B8, 4, 4), (0, 0x07BB, 0xFF, 2)] {
-        let mut vm = CompilerVm::default();
-        for (kind, name, base) in [
-            (ImageKind::Cartridge, "action.rom", DEFAULT_CART_BASE),
-            (ImageKind::Rom, "altirraos-xl.rom", OS_ROM_BASE),
-        ] {
-            vm.load_image_bytes(
-                kind,
-                name,
-                base,
-                std::fs::read(root().join("roms").join(name)).unwrap(),
-            )
-            .unwrap();
-        }
-        let loaded = vm
-            .load_atari_object_for_execution(
-                ExecutionProfile::CartridgeObject,
-                compiled.object_bytes(),
-            )
-            .unwrap();
-        assert!(
-            loaded
-                .segments
-                .iter()
-                .all(|s| s.end < ENTRY || s.start > RETURN)
-        );
+        let mut vm = load_tn(compiled);
         let ram = vm.bus_mut().ram_mut();
         ram.write(RETURN, 0x60);
         ram.write(0x700, b'M');

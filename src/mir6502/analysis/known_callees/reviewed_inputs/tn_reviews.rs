@@ -2,7 +2,11 @@ use super::*;
 use crate::mir6502::ir::MirValue;
 
 fn tn_semir() -> crate::semantic::ir::SemProgram {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
+    tn_program("TN.ACT")
+}
+
+fn tn_program(name: &str) -> crate::semantic::ir::SemProgram {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern").join(name);
     let ast = crate::includes::load_program_with_includes(path).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
@@ -279,5 +283,44 @@ fn tn_cio_reviews_match_both_backends() {
     for name in ["Bget", "Bput"] {
         let routine = stale.routines.iter().find(|r| r.name == name).unwrap();
         assert!(reviewed_contract(&stale, routine).is_none(), "{name}");
+    }
+}
+
+#[test]
+fn both_tn_store_reviews_publish_the_same_fixed_byte_write() {
+    use crate::callee6502::{ArgumentBuffer, BufferLength, DataRange};
+
+    for source in ["TN.ACT", "TNDBG.ACT"] {
+        let sem = tn_program(source);
+        let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+        let store = mir.routines.iter().find(|r| r.name == "Store").unwrap();
+        let facts = reviewed_contract(&mir, store).unwrap();
+        let classic = crate::codegen::projected_review_for_test(&sem, "Store").unwrap();
+        let common = crate::callee6502::Review {
+            facts: classic,
+            fingerprint: 0,
+        }
+        .map_ids(|_| None)
+        .unwrap();
+        assert_eq!(common.facts, *facts, "{source}");
+        assert_eq!(
+            facts.buffers,
+            [ArgumentBuffer {
+                pointer: 1,
+                length: BufferLength::Fixed(1),
+                write: true
+            }]
+        );
+        assert_eq!(
+            facts.writes.as_deref(),
+            Some(
+                &[DataRange {
+                    global: None,
+                    start: 0xa0,
+                    end: 0xa1
+                }][..]
+            )
+        );
+        assert!(facts.reads.is_none());
     }
 }

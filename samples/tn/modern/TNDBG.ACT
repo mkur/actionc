@@ -128,9 +128,11 @@ RETURN
 
 
 ; p can point into zero page, including the scratch pairs.
-;@actionc reviewed-6502 ece1df91f776ef0d
+;@actionc reviewed-6502 99c57fc17b23abe6
 ;@actionc abi-inputs-only
 ;@actionc entry-reads abi
+;@actionc writes-only $A0-$A1
+;@actionc writes-buffer 1 bytes=1
 ;@actionc preserves X
 PROC Store=*(CARD p BYTE value)
 ASM

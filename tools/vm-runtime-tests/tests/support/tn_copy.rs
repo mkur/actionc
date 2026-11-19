@@ -162,7 +162,7 @@ pub fn check(compiled: &CompiledProgram, debug: bool) {
             write_opens: 0,
             prompts: vec![],
         };
-        let mut vm = machine::load(compiled);
+        let mut vm = super::load_tn(compiled);
         for (address, value) in [(0x700, b'M'), (0x76F, 0xA9), (0x70A, ramdisk), (0x70B, 2)] {
             vm.bus_mut().ram_mut().write(address, value);
         }

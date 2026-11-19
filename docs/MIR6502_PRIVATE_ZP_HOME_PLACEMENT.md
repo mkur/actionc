@@ -1,6 +1,6 @@
 # Private zero-page homes in MIR6502
 
-**Proposed placement rule.** An ordinary parameter or local has the same
+**Placement rule.** An ordinary parameter or local has the same
 protection from unrelated pointer accesses in zero page as it has in inline
 storage. MIR6502 can choose a ZP home when two conditions hold.
 
@@ -31,29 +31,31 @@ Their placement can therefore be decided without tracing how `SetWin` fills
 `v` or how `Sort` permutes it. [TN source](../samples/tn/modern/TN.ACT)
 
 The general `Store(p, value)` writes `$A0`, `$A1`, and one byte through its
-first argument. Under this design its review records that fact once. The call
+first argument. Its matched review records the fixed scratch and the one-byte extent. The call
 with `v(i)` occupies the two scratch bytes. For `Store($00A2, value)`, all
 three bytes are occupied. The allocator also accounts for `Tag`'s own homes
 and scratch bytes and those used by its other callees.
 
 ## Compiler contract
 
-Today `Store` has a matched entry review with an open write footprint.
-MIR6502 rejects a live home when the callee's writes summarize to `Unknown`.
-The proposed call check asks which candidate ZP bytes the invocation can use.
+The call check projects reviewed buffer writes at the invocation. A literal
+destination contributes its physical range. A forwarded address keeps its
+formal parameter until substitution. A word loaded from program data supplies
+an ordinary pointee when its lanes have a common origin. An unresolved address
+or unmatched review leaves the invocation unqualified for a live home.
 Native MIR supplies its physical uses. Opaque assembly, runtime helpers, and
 OS calls supply them through a matched contract or the target ABI. An entry
 guarantee alone gives no evidence about scratch. If a call or callback can
 use an unaccounted candidate byte, that byte is unavailable across the call.
 [Current call check](../src/mir6502/parameter_homes/calls.rs) · [Shared assembly contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
 
-Compose these facts through native callers. Discovery and verification after
-expansion must agree for the selected runtime and physical layout. The
-general memory-effects query still reports the indirect write for alias
+Native callers compose these facts. Discovery and verification after expansion
+use the same invocation and outgoing-argument footprint for the selected runtime.
+The general memory-effects query still reports the indirect write for alias
 analysis and ordering. In the TN acceptance case, all three locals remain
 candidates across the row write. Forcing a live local into `$A1` must fail.
 Passing the local's address to `Store` must invoke the addressable-storage rules.
 Other calls in `Copy` and final image cost can still determine its placement.
 [Home selection](../src/mir6502/parameter_homes/cross_call.rs) · [Residence verification](../src/mir6502/parameter_homes/lifetimes.rs)
 
-The [implementation plan](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md) gives the commit sequence and acceptance checks.
+The [implementation plan and TN measurements](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md#tn-qualification) record the acceptance checks and shipped placements.
