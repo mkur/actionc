@@ -545,13 +545,15 @@ stores let unknown readers observe the proper source value without a read-footpr
 proof. Reloading after a possible write preserves that write's normal meaning.
 Cache invalidation does not bypass the existing call ABI or emission checks.
 
-Reuse the existing and planned call-chain contracts; there is no new recursive
-call analysis or assembly-entry admission in this extension. Qualified facts may
-keep a direct home or copy live; an unproved call rejects direct residence across
-it and can divide an optional copy's regions. PopUp's complete menu loop cannot
-currently assume preservation:
-Items/Ord/FindItem exceed leaf-only admission, and Range reaches the opaque
-Getchar handler. Bottom-up composition of those contracts is separate work.
+In TN's `PopUp → Range → Getchar` chain, MIR analyzes the native `Range`
+and stops at `Getchar`. Its signature supplies zero Action! arguments and a
+one-byte result in `$A0`. Its annotations declare a clobber of `$A0` and
+equality of A and `$A0` on return. Preservation of other ZP bytes is
+unspecified. A live home may cross the call when the boundary contract
+guarantees that its bytes survive. Otherwise it keeps its existing home,
+and an optional cached copy can end at the call. This decision uses only
+caller-visible facts and requires no inspection of the keyboard handler.
+[TN declarations](../samples/tn/modern/LIB.ACT) · [Shared callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 ### MIR ownership and shared machinery
 
