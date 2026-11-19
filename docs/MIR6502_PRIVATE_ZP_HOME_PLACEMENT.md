@@ -9,7 +9,7 @@ registers needs no memory home.
 This is the target policy. The current selector can reject every ZP byte for
 a live object when a call's write summary is unknown. The implemented
 `Store` review and the measured TN placements provide the baseline.
-[Current selector](../src/mir6502/parameter_homes/cross_call.rs) · [TN qualification](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md#tn-qualification)
+[Implementation plan for the default policy](MIR6502_DEFAULT_ZP_HOME_IMPLEMENTATION_PLAN.md) · [Current selector](../src/mir6502/parameter_homes/cross_call.rs) · [TN qualification](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md#tn-qualification)
 
 ## Allocating a home
 
