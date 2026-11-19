@@ -315,7 +315,8 @@ fn final_ranges_join_the_exact_mir_and_expose_zero_byte_consumers() {
         mir6502::generate_output_with_trace(
             &nir(&source.replace("\r\n", "\n")),
             0x3000,
-            &Mir6502Config::optimized(),
+            // Keep a redundant inline read for the zero-byte event oracle.
+            &Mir6502Config { enable_acyclic_call_homes: false, ..Mir6502Config::optimized() },
             Runtime::ActionCart,
             &mut trace,
         )

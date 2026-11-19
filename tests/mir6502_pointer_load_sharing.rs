@@ -26,6 +26,8 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
                 let config = Mir6502Config {
                     enable_argument_x_forwarding: false,
                     enable_pointer_load_sharing: false,
+                    // Preserve two actual loads for the standalone sharing pass.
+                    enable_acyclic_call_homes: false,
                     ..Mir6502Config::optimized()
                 };
                 let p = mir6502::materialize_program_with_origin_and_runtime(
@@ -76,6 +78,11 @@ fn pointer_load_sharing_baseline_preserves_nir_modes_runtimes_and_origins() {
                     image.len() - actionc::codegen::format_load_file(&after).len(),
                     6
                 );
+                if is_optimized && origin == 0x3000 {
+                    let resident = mir6502::generate_output_with_config_and_runtime(nir, origin,
+                        &Mir6502Config { enable_acyclic_call_homes: true, ..enabled.clone() }, runtime).unwrap();
+                    assert!(resident.bytes.len() < after.bytes.len());
+                }
                 for before in &output.map.routine_ranges {
                     let r = after
                         .map

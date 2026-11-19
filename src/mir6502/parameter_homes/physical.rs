@@ -16,11 +16,20 @@ fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
 
 pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
     // A caller inherits the layout obligation for writes in a descendant.
+    // A verified terminal argument handoff ends the input lifetime at entry to
+    // the target. Its ABI scratch may coincide with those argument lanes.
+    let survives_reviewed_call = r.frame.parameter_handoff.is_none();
     let mut pending = vec![r.id];
     let mut seen = BTreeSet::new();
     while let Some(id) = pending.pop() {
         if !seen.insert(id) { continue; }
         let Some(r) = p.routines.iter().find(|r| r.id == id) else { continue; };
+        // Even a completely opaque reviewed leaf can name a writable argument.
+        // This only requests layout verification. The normal contract query
+        // still authenticates the review before it grants preservation.
+        if survives_reviewed_call && r.frame.callee_review.as_ref().is_some_and(|review| review.facts.buffers.iter().any(|b| b.write)) {
+            return true;
+        }
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
             if writes_ordinary_pointee(op) || super::super::runtime_contracts::library::may_write_buffer(op) { return true; }
             if let MirOp::Call { target: MirCallTarget::Routine(id), .. } = op { pending.push(*id); }
@@ -129,6 +138,7 @@ pub(super) fn verify_relocation(
     old_input: &MirProgram,
     new_input: &MirProgram,
 ) -> Result<(), Vec<MirDiagnostic>> {
+    verify_handoff_buffer_addresses(old, new, old_input, new_input)?;
     let objects = records(&new.program, &new.memory)?;
     if objects.is_empty() {
         return Ok(());
@@ -169,6 +179,35 @@ pub(super) fn verify_relocation(
         }
         check(previous, &old.memory, &observations)?;
         check(object, &new.memory, &observations)?;
+    }
+    Ok(())
+}
+
+// Handoff lanes are consumed before the callee uses its ABI scratch. Explicit
+// buffer addresses still observe physical storage on both sides of relocation.
+fn verify_handoff_buffer_addresses(
+    old: &super::super::preparation::Executable, new: &super::super::preparation::Executable,
+    old_input: &MirProgram, new_input: &MirProgram,
+) -> Result<(), Vec<MirDiagnostic>> {
+    let changed: BTreeSet<_> = new.program.routines.iter().filter(|r|
+        r.frame.parameter_handoff.is_some() && old.program.routines.iter().find(|o| o.id == r.id)
+            .is_some_and(|o| o.frame.parameter_homes != r.frame.parameter_homes))
+        .map(|r| r.id).collect();
+    if changed.is_empty() { return Ok(()); }
+    let mut ranges = BTreeSet::new();
+    for p in [old_input, new_input, &old.program, &new.program] {
+        ranges.extend(crate::mir6502::analysis::known_callees::numeric_buffer_observations(p)
+            .into_iter().map(|(_, a, n, _)| (a, n)));
+        ranges.extend(crate::mir6502::analysis::known_callees::native_numeric_observations(p));
+    }
+    if ranges.is_empty() { return Ok(()); }
+    for layout in [&old.memory, &new.memory] {
+        for storage in layout.source_storage().ok_or_else(|| error("missing handoff storage inventory"))? {
+            if matches!(storage.object, SourceObject::Routine { owner, base:MirStorageBase::Param(_), .. } if changed.contains(&owner))
+                && ranges.iter().any(|&(start, size)| (0..size).any(|i| storage.contains(start.wrapping_add(i)))) {
+                return Err(error("numeric buffer observation overlaps an old or proposed handoff parameter"));
+            }
+        }
     }
     Ok(())
 }

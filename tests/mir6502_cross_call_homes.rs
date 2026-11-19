@@ -1029,6 +1029,9 @@ fn forwarded_numeric_destination_protects_the_original_inline_home() {
         ))
     };
     let config = Mir6502Config {
+        // Separately costed argument handoff can move the baseline when its
+        // own inline frame happens to overlap the destination under test.
+        enable_parameter_argument_handoff: false,
         enable_small_leaf_inlining: false,
         ..Mir6502Config::optimized()
     };

@@ -96,7 +96,7 @@ impl FormalWrite {
             _ => return None,
         };
         Some(Self { argument: buffer.pointer_byte, offset: 0, bytes, carrier: None,
-            count, reviewed_copy: count.map(|_| owner) })
+            count, reviewed_copy: (bytes > 1).then_some(owner) })
     }
 
     fn at_call(mut self, program: &MirProgram, routine: &MirRoutine, call: &MirOp,
@@ -540,7 +540,7 @@ fn record_base(
     match base {
         Base::Numeric(base) => {
             let start = base.wrapping_add(write.offset);
-            if let Some(owner) = write.reviewed_copy {
+            if write.bytes > 1 && let Some(owner) = write.reviewed_copy {
                 let review = program.routines.iter().find(|r| r.id == owner)?.frame.callee_review.as_ref()?;
                 for range in review.facts.reads.as_ref()?.iter().chain(review.facts.writes.as_ref()?) {
                     let base = match range.global {

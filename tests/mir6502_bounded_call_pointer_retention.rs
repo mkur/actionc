@@ -29,7 +29,10 @@ fn bounded_call_pointer_retention_saves_ten_bytes_with_unchanged_unknown_calls()
         };
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for origin in [0x3000, 0x41C7] {
-                let mut config = Mir6502Config::optimized();
+                // Isolate reload elimination when the pointer starts inline.
+                let mut config = Mir6502Config {
+                    enable_acyclic_call_homes: false, ..Mir6502Config::optimized()
+                };
                 config.enable_bounded_call_pointer_retention = false;
                 let old = mir6502::generate_output_with_config_and_runtime(
                     &nir, origin, &config, runtime,
@@ -41,6 +44,15 @@ fn bounded_call_pointer_retention_saves_ten_bytes_with_unchanged_unknown_calls()
                 )
                 .unwrap();
                 assert_eq!(old.bytes.len() - new.bytes.len(), 10);
+                if opt && origin == 0x3000 {
+                    let resident = mir6502::generate_output_with_config_and_runtime(
+                        &nir, origin, &Mir6502Config::optimized(), runtime,
+                    ).unwrap();
+                    assert!(resident.bytes.len() < new.bytes.len());
+                    assert!(resident.map.storage_symbols.iter().any(|s|
+                        s.scope == actionc::codegen::CodegenSymbolScope::Routine("ReadAcrossCopy".into())
+                            && s.name == "p" && s.address < 255));
+                }
                 if let Some(directory) = std::env::var_os("ACTIONC_BOUNDED_CALL_IMAGES") {
                     let directory = std::path::PathBuf::from(directory);
                     std::fs::create_dir_all(&directory).unwrap();

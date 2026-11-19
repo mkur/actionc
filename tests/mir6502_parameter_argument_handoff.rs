@@ -369,3 +369,21 @@ fn ordinary_action_capture_saves_final_bytes_and_cross_newline_artifacts() {
         }
     }
 }
+
+#[test]
+fn reviewed_copy_can_use_its_abi_scratch_but_observes_numeric_destinations() {
+    let source = include_str!("../fixtures/runtime/parameter_argument_handoff.act")
+        .replace("\r\n", "\n");
+    for (destination, accepts) in [("$7000", true), ("$00A2", false)] {
+        let n = nir(&source.replace("CopyCounted($7000", &format!("CopyCounted({destination}")));
+        let mut trace = Mir6502Trace::default();
+        mir6502::generate_output_with_trace(&n, 0x3000, &Mir6502Config {
+            enable_small_leaf_inlining: false, ..Mir6502Config::optimized()
+        }, Runtime::ActionCart, &mut trace).unwrap();
+        let result = trace.events().into_iter().find(|e| e.kind == "parameter-argument-handoff-result").unwrap();
+        assert_eq!(result.data["accepted"], accepts, "{:?}", result.data);
+        if !accepts {
+            assert!(result.data["diagnostics"].as_str().unwrap().contains("numeric buffer observation"));
+        }
+    }
+}

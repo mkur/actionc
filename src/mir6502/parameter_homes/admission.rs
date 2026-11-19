@@ -118,7 +118,15 @@ pub(super) fn check_for_layout(addresses: &ObjectAddressControl<'_>, routine: &M
         // The actual instructions and helper invocations are available to the
         // default selector. Their physical effects are checked again after binding.
         let selected_address = mixed && selected.is_some() && matches!(op, MirOp::LeaAddr { target: MirMem::Absolute(_), .. });
-        if !supported && !default_homes && !selected_address { return Err(reject(Reason::Operation)); }
+        // A retained operation that may call a helper needs a matching planned
+        // call site. Missing calls cannot be explained by a pure expanded CFG.
+        let needs_arithmetic_plan = matches!(op, MirOp::Binary {
+            op: MirBinaryOp::Mul | MirBinaryOp::Div | MirBinaryOp::UDiv | MirBinaryOp::Mod
+                | MirBinaryOp::UMod | MirBinaryOp::Lsh | MirBinaryOp::Rsh, ..
+        });
+        if !supported && !selected_address && (!default_homes || needs_arithmetic_plan) {
+            return Err(reject(Reason::Operation));
+        }
     }
     Ok(())
 }
