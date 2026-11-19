@@ -1647,6 +1647,15 @@ impl Analyzer {
             self.analyze_decl(routine_scope, local, false);
         }
 
+        for a in &routine.annotations {
+            if let ActioncAnnotation::PreservesVia { vector, .. } | ActioncAnnotation::InstalledCallback { vector, .. } = a
+                && !self.symbols.resolve_action_name(routine_scope, vector).is_some_and(|s|
+                    matches!(s.stage, LookupStage::Global | LookupStage::Module)
+                    && self.symbols.symbols[s.id.0].ty.as_ref().and_then(ValueType::as_callable_pointer).is_some())
+            {
+                self.diagnostics.push(Diagnostic::new(routine.span, format!("callback review requires a global routine pointer: {vector}")));
+            }
+        }
         match crate::callee6502::declaration(&routine.annotations) {
             Ok(Some(review)) => {
                 let resolved = review.map_ids(|name| {

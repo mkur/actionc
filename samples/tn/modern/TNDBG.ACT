@@ -1555,48 +1555,50 @@ PROC InitPanels()
 RETURN
 
 
+; EOF returns to the CIO caller. Recovery discards its stack before fallthrough.
 PROC NavError=*()
+  ASM OPAQUE
+    lda Ioerr
+    cmp #IO_EOF
+    bne recover
+    rts
+recover:
+    jsr Dbg
+    jsr SwapScr
+    ldx #$FF
+    txs
+  ENDASM
 
-  IF ioerr # IO_EOF THEN
+  CloseAll()
 
-    Dbg()
+  Window( 10, 9, 16, 4 )
+  Relpos( 1, 1 )
+  Print( "I/O error " )
+  PrintB( ioerr )
 
-    SwapScr()
+  Close( 1 )
+  Close( 2 )
 
-    ASM OPAQUE
-      ldx #$FF
-      txs
-    ENDASM
+  GetAnyKey()
 
-    CloseAll()
+  DO
+    NewDrive()
+  UNTIL ans # ESC OD
 
-    Window( 10, 9, 16, 4 )
-    Relpos( 1, 1 )
-    Print( "I/O error " )
-    PrintB( ioerr )
+  InitPanels()
 
-    Close( 1 )
-    Close( 2 )
-
-    GetAnyKey()
-
-    DO
-      NewDrive()
-    UNTIL ans # ESC OD
-
-    InitPanels()
-
-    IF copyflag THEN
-      copyflag = false
-      Swapwin()
-      Path()
-      Draw(0)
-    FI
-    Handle()
+  IF copyflag THEN
+    copyflag = false
+    Swapwin()
+    Path()
+    Draw(0)
   FI
+  Handle()
 RETURN
 
   
+; NavInit owns the installed error vector for this program invocation.
+;@actionc installed-callback ErrorHandler b46ec4d3c231d0b7 $A0-$A3 $AA-$AB $AE-$AF $E0-$EF
 PROC NavInit()
         
 BYTE krpdel=$2D9, keyrep=$2DA, shflok=$2BE

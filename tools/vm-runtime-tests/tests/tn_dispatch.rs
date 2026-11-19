@@ -648,12 +648,28 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
             vm.load_atari_object_for_execution(profile, compiled.object_bytes()).unwrap();
             let ram = vm.bus_mut().ram_mut();
             ram.map(FILENAME, &[4, b'D', b':', b'A', b'B']).unwrap();
-            ram.write_word(global_address(&listing, "ErrorHandler"), HANDLER);
-            // A returning error handler may overwrite an application ZP home.
-            ram.map(HANDLER, &[0xe6, 0xac, 0x60]).unwrap(); // INC $AC / RTS
+            let vector = global_address(&listing, "ErrorHandler");
+            let ioerr = global_address(&listing, "Ioerr");
+            let pool: Vec<u8> = (0xa0..=0xa3).chain(0xaa..=0xab).chain(0xae..=0xaf).chain(0xe0..=0xef).collect();
+            ram.write_word(vector, routine_address(&listing, "NavError"));
+            for status in [1, 0x88] {
+                let ram = vm.bus_mut().ram_mut();
+                for &byte in &pool { ram.write(u16::from(byte), byte ^ status); }
+                ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap();
+                let mut hook = CioVector { calls: 0, iocb: 0x10 };
+                vm = machine::call(vm, &mut hook, routine_address(&listing, "Close"), &[1]);
+                assert_eq!(hook.calls, 1);
+                assert_eq!(vm.bus().ram().read(ioerr), status);
+                for &byte in &pool {
+                    assert_eq!(vm.bus().ram().read(u16::from(byte)), byte ^ status, "{mode:?} {runtime:?} ${byte:02X}");
+                }
+            }
+            let ram = vm.bus_mut().ram_mut();
+            ram.write_word(vector, HANDLER);
+            // A replacement returning handler can clobber a pool byte.
+            ram.map(HANDLER, &[0xe6, 0xac, 0xe6, 0xec, 0x60]).unwrap();
             let [lo, hi] = FILENAME.to_le_bytes();
             let [buf_lo, buf_hi] = 0x72abu16.to_le_bytes();
-            let ioerr = global_address(&listing, "Ioerr");
             for (name, cmd, args) in [
                 ("Close", 12, &[1u8][..]),
                 ("Xio", 33, &[2, 33, 6, 9, lo, hi]),
@@ -672,6 +688,7 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                     ram.map(iocb, &[0xcc; 16]).unwrap();
                     ram.write(0xa4, 0xdd);
                     ram.write(0xac, 0x76);
+                    ram.write(0xec, 0x56);
                     ram.write(ioerr, 0xff);
                     ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap(); // LDY #status / RTS
                     let mut hook = CioVector { calls: 0, iocb: offset };
@@ -680,6 +697,7 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                     assert_eq!(hook.calls, 1, "{name}");
                     assert_eq!(ram.read(ioerr), status, "{name}");
                     assert_eq!(ram.read(0xac), 0x76 + u8::from(status >= 0x80), "{name}");
+                    assert_eq!(ram.read(0xec), 0x56 + u8::from(status >= 0x80), "{name}");
                     assert_eq!(ram.read(iocb + 2), cmd, "{name}");
                     if matches!(name, "Input" | "Bget" | "Bput") {
                         assert_eq!(machine::bytes(&vm, iocb + 4, 2), args[1..3], "{name} buffer");
@@ -694,6 +712,22 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                     }
                 }
             }
+            let ram = vm.bus_mut().ram_mut();
+            ram.write_word(vector, routine_address(&listing, "NavError"));
+            ram.write(routine_address(&listing, "SwapScr"), 0x60); // Stub screen swap.
+            ram.map(DEVICE, &[0xa0, 0x82, 0x60]).unwrap();
+            let [lo, hi] = routine_address(&listing, "Close").to_le_bytes();
+            // Start with a distinct SP so the recovery stack reset is observable.
+            ram.map(ENTRY, &[0xa2, 0x77, 0x9a, 0xa9, 1, 0x20, lo, hi, 0x00]).unwrap();
+            vm.set_pc(ENTRY);
+            let recovery = routine_address(&listing, "CloseAll");
+            let mut hook = CioVector { calls: 0, iocb: 0x10 };
+            let result = VmRunner::new(vm).run_with_hooks(RunRequest {
+                max_steps: 96, stop_after_pc: Some(recovery), history_len: 8,
+            }, &mut hook).unwrap();
+            assert_eq!(result.stop_reason(), StopReason::PcReached { pc: recovery });
+            assert_eq!(hook.calls, 1);
+            assert_eq!(result.report.registers.sp, 0xfd, "recovery starts with a fresh stack");
         }
     }
 }

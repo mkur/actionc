@@ -114,17 +114,14 @@ impl SemProgram {
 
     pub(crate) fn program_entry_routine(&self) -> Option<&SemRoutine> {
         let entry = self.entry_routine?;
-        Some(
-            self.modules
-                .iter()
-                .flat_map(|module| &module.items)
-                .filter_map(|item| match item {
-                    SemItem::Routine(routine) if routine.symbol.id == entry => Some(routine),
-                    _ => None,
-                })
-                .next()
-                .expect("SemIR program entry must refer to a retained routine"),
-        )
+        Some(self.routine_by_id(entry).expect("SemIR program entry must refer to a retained routine"))
+    }
+
+    pub(crate) fn routine_by_id(&self, id: SymbolId) -> Option<&SemRoutine> {
+        self.modules.iter().flat_map(|m| &m.items).find_map(|item| match item {
+            SemItem::Routine(r) if r.symbol.id == id => Some(r),
+            _ => None,
+        })
     }
 }
 
@@ -410,6 +407,7 @@ pub struct SemRoutine {
     pub body: Vec<SemStmt>,
     pub system_address: Option<SemExpr>,
     pub callee_review: Option<crate::callee6502::Review<SymbolId>>,
+    pub callback_reviews: Vec<SemCallbackReview>,
     pub annotations: Vec<ActioncAnnotation>,
     pub effects: SemEffects,
     pub control_flow: SemControlFlow,
@@ -2552,6 +2550,8 @@ struct IrBuilder<'a> {
 
 mod aggregate;
 mod walk;
+mod installed_callbacks;
+pub use installed_callbacks::SemCallbackReview;
 mod multidimensional;
 pub use walk::{visit_lexical_declarations, visit_nested_statements};
 mod fresh;
@@ -3362,6 +3362,15 @@ impl<'a> IrBuilder<'a> {
                 .as_ref()
                 .map(|address| self.lower_expr(parent_scope, address)),
             callee_review: self.model.callee_reviews.get(&symbol.id).cloned(),
+            callback_reviews: routine.annotations.iter().filter_map(|a| {
+                let (name, prefix, bytes) = match a {
+                    ActioncAnnotation::PreservesVia { vector, ranges } => (vector, None, ranges),
+                    ActioncAnnotation::InstalledCallback { vector, fingerprint, ranges } => (vector, Some(*fingerprint), ranges),
+                    _ => return None,
+                };
+                let vector = self.symbol_ref(routine_scope, name, routine.span)?.id;
+                Some(SemCallbackReview { vector, installed_prefix: prefix, bytes: bytes.clone() })
+            }).collect(),
             annotations: routine.annotations.clone(),
             effects: SemEffects::default(),
             control_flow: {

@@ -157,6 +157,33 @@ observes only incoming argument lanes as entry requirements. A review can
 certify ordinary argument sufficiency with `abi-inputs-only` even if an
 instruction observes an incoming flag whose value cannot affect the outcome.
 
+### Installed callbacks
+
+A reviewed wrapper can forward part of a callback's normal-return guarantee.
+TN's `Close` uses the following clause.
+
+```action
+;@actionc preserves-via ErrorHandler $A0-$A3 $AA-$AB $AE-$AF $E0-$EF
+```
+
+On the selected program entry, `installed-callback <vector> <fingerprint> <ZP ranges>`
+declares that the application owns the vector for that invocation. This is a
+program-level precondition covering foreign code and out-of-band writes. The
+entry's first statement must install a named procedure. The compiler checks
+source references across the linked program for reassignments, address exposure
+and other uses of the cell. An opaque indirect jump can read the vector.
+
+The fingerprint identifies the installed procedure's leading `ASM OPAQUE` block
+at an unwrapped, parameterless procedure entry. Its review certifies that every
+return to the interrupted caller occurs within that block and preserves the
+listed bytes. Falling through the block must abandon the original invocation.
+The reviewer must check that calls in the block execute only on paths that
+abandon the invocation. The fingerprint binds the identity of those callees.
+The identity includes the block's bytes, typed relocations and claimed ranges.
+The compiler also checks that the wrapper's reviewed call chain dispatches
+through the named vector. Both backends receive the intersection of the reviewed
+ranges. If any check fails, the wrapper retains its unconditional ABI facts.
+
 ### Reviewed indirect destinations
 
 `requires indirect-writes $0100-$FFFF` is a caller precondition. Every byte

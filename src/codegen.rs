@@ -649,6 +649,7 @@ impl Generator {
                 }
                 ActioncAnnotation::ReturnsAEqualsA0 | ActioncAnnotation::DebugProfileCompat
                 | ActioncAnnotation::AbiInputsOnly { .. } | ActioncAnnotation::Reviewed6502 { .. }
+                | ActioncAnnotation::PreservesVia { .. } | ActioncAnnotation::InstalledCallback { .. }
                 | ActioncAnnotation::DefinesOnReturn(_) | ActioncAnnotation::IndirectWriteRange(_) | ActioncAnnotation::PhysicalAbiInputs | ActioncAnnotation::Buffer(_) | ActioncAnnotation::OrdinaryAbiInputs | ActioncAnnotation::ReadsOnly(_) | ActioncAnnotation::WritesOnly(_) => {}
             }
         }

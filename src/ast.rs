@@ -378,6 +378,8 @@ pub enum ActioncAnnotation {
     Reviewed6502 { fingerprint: u64 },
     OrdinaryAbiInputs,
     PhysicalAbiInputs,
+    PreservesVia { vector: String, ranges: Vec<AnnotationZeroPageRange> },
+    InstalledCallback { vector: String, fingerprint: u64, ranges: Vec<AnnotationZeroPageRange> },
     DefinesOnReturn(std::collections::BTreeSet<u8>),
     IndirectWriteRange(AnnotationAddressRange),
     Buffer(crate::callee6502::ArgumentBuffer),

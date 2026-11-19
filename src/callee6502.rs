@@ -1,6 +1,7 @@
 //! Implementation identity for reviewed 6502 contracts. A successful
 //! match certifies the recorded claims, independently of instruction effects.
 use crate::codegen::{AddressingMode, decode_6502_opcode};
+pub(crate) mod installed_callbacks;
 
 pub(crate) enum OpaqueTarget<'a> {
     Absolute(u16),
@@ -480,6 +481,7 @@ pub(crate) fn declaration(
 ) -> Result<Option<Review<String>>, &'static str> {
     use crate::ast::ActioncAnnotation::*;
     let mut expected = None;
+    let mut forwards_callback = false;
     let mut facts = CallFacts::default();
     for annotation in annotations {
         match annotation {
@@ -493,6 +495,8 @@ pub(crate) fn declaration(
                 if facts.indirect_writes.replace(*r).is_some() { return Err("duplicate indirect write precondition"); }
             }
             DefinesOnReturn(bytes) => facts.defines_on_return.extend(bytes),
+            PreservesVia { .. } if forwards_callback => return Err("duplicate preserves-via"),
+            PreservesVia { .. } => forwards_callback = true,
             PhysicalAbiInputs => facts.physical_abi_inputs = true,
             OrdinaryAbiInputs => facts.abi_inputs_only = true,
             ReadsOnly(items) if facts.reads.is_none() => facts.reads = Some(items.clone()),
@@ -543,6 +547,7 @@ pub(crate) fn declaration(
         }
         return Ok(Some(Review { fingerprint, facts }));
     }
+    if forwards_callback { return Err("preserves-via requires reviewed-6502"); }
     if !facts.defines_on_return.is_empty() { return Err("defines-on-return requires reviewed-6502"); }
     if facts.indirect_writes.is_some() || facts.physical_abi_inputs
         || !facts.buffers.is_empty()

@@ -68,6 +68,10 @@ lifetimes. [Shared callee contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
   unnecessary for placing the three private locals. Calling the same writer
   with `$00A2` also occupies `$A2`. Passing `@mem` exposes `mem` itself.
   [Tag](../samples/tn/modern/TN.ACT#L355)
+- The installed-callback review lets `Copy.mem`, `len` and `files` cross
+  `Close(1)`. The first remaining call without pool preservation for these
+  values is the following `Open(1, fname, OPEN_READ, 0)`.
+  [File routines](../samples/tn/modern/LIB.ACT#L576) · [Copy loop](../samples/tn/modern/TN.ACT#L910)
 - `Copy.j` holds the source drive across the first `SwapWin()`. On that
   path, `SetWin(n, 0)` copies two nine-byte panel records. Those ordinary
   copies can coexist with a private caller home. `SetWin`'s physical homes

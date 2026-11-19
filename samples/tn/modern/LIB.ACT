@@ -465,7 +465,7 @@ PROC POINTER ErrorHandler
 
 PROC Error()
 
-; CIOV and the installed error handler can both return with memory changed.
+; CIOV uses OS scratch. A returning application error handler has its own effects.
 ;@actionc reviewed-6502 7cb4806d79a6801f
 PROC _Cio=*()
 ASM OPAQUE
@@ -575,6 +575,7 @@ ENDASM
 
 ;@actionc reviewed-6502 34453d526302e71a
 ;@actionc abi-inputs-only
+;@actionc preserves-via ErrorHandler $A0-$A3 $AA-$AB $AE-$AF $E0-$EF
 PROC Close=*(BYTE chn)
 ASM OPAQUE
   jsr _LodChn

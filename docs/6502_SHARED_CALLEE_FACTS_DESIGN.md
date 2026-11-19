@@ -168,6 +168,15 @@ TN's `Close`, `Xio`, `Open`, `Bget` and `Bput` accept ordinary ABI arguments.
 The block transfers pass the buffer and 16-bit length to `_BlockIO` under
 its private convention. All five leave reads and writes open because both
 the installed device and the error handler can modify memory before returning.
+For TN's selected entry, `Close` also forwards the installed handler's
+normal-return preservation for the source-home pool. The wrapper review relies
+on CIOV using OS scratch outside that pool. The EOF arm of `NavError` preserves the pool,
+and the recovery arm discards the caller's stack. SemIR resolves the callback
+cell and installation. The shared 6502 review matches the entry block and
+projects the same unconditional return facts into classic and NIR for that
+program. The general memory effects still include I/O and callback activity.
+[Installed callback review](ACTIONC_ANNOTATIONS.md#installed-callbacks)
+
 The explicit operand inventory still distinguishes a fixed pointer fetch in
 `(zp),Y` from the indexed pointer fetch in `(zp,X)`. The assembler supplies
 that distinction in the relocation. [TN file routines](../samples/tn/modern/LIB.ACT)

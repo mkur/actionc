@@ -25,9 +25,10 @@ impl ClassicCalleeReviews {
             let name = names
                 .get(&routine.symbol.id)
                 .unwrap_or(&routine.symbol.name);
-            if let Some(review) = &routine.callee_review {
+            if routine.callee_review.is_some() {
                 if classic_matches(program, routine, &mut ReviewDependencies::new()).is_some() {
-                    facts.contracts.insert(normalize_name(name), review.facts.clone());
+                    let selected = program.review_for_selected_entry(routine).expect("declared review");
+                    facts.contracts.insert(normalize_name(name), selected.facts);
                 }
                 continue;
             }
@@ -151,7 +152,8 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
             return None;
         }
         dependencies.resolve(callee.symbol.id, |deps| {
-            classic_matches(program, callee, deps)?.dependency_hash(|id| declarations().find_map(|i| match i {
+            classic_matches(program, callee, deps)?;
+            program.review_for_selected_entry(callee)?.dependency_hash(|id| declarations().find_map(|i| match i {
                 SemItem::Declaration(d) if d.symbol.id == *id => Some(d.symbol.name.clone()), _ => None,
             }))
         })

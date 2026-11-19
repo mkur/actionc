@@ -220,7 +220,7 @@ impl NirLowerer {
                             None => NirRoutinePlacement::Relocatable,
                         };
                         let entry = NirRoutineEntry {
-                            callee_review: routine.callee_review.as_ref().and_then(|review| review.map_ids(|id| self.global_ids_by_symbol.get(id).copied())),
+                            callee_review: program.review_for_selected_entry(routine).and_then(|review| review.map_ids(|id| self.global_ids_by_symbol.get(id).copied())),
                             abi_inputs_only_review: routine.annotations.iter().find_map(|a| match a {
                                 crate::ast::ActioncAnnotation::AbiInputsOnly { fingerprint } => Some(*fingerprint),
                                 _ => None,

@@ -3598,6 +3598,21 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
             }
             Some(ActioncAnnotation::DefinesOnReturn(bytes))
         }
+        _ if normalized.starts_with("PRESERVES-VIA ") || normalized.starts_with("INSTALLED-CALLBACK ") => {
+            let mut fields = normalized.split_whitespace();
+            let directive = fields.next()?;
+            let subject = fields.next()?;
+            let hash = if directive == "INSTALLED-CALLBACK" { Some(fields.next()?) } else { None };
+            let ranges = fields.map(parse_annotation_zero_page_range).collect::<Option<Vec<_>>>()?;
+            if ranges.is_empty() { return None; }
+            if directive == "PRESERVES-VIA" {
+                Some(ActioncAnnotation::PreservesVia { vector: subject.to_owned(), ranges })
+            } else {
+                let hash = hash?;
+                (hash.len() == 16).then_some(())?;
+                Some(ActioncAnnotation::InstalledCallback { vector: subject.to_owned(), fingerprint: u64::from_str_radix(hash, 16).ok()?, ranges })
+            }
+        }
         "ENTRY-READS ABI" => Some(ActioncAnnotation::PhysicalAbiInputs),
         "ABI-INPUTS-ONLY" => Some(ActioncAnnotation::OrdinaryAbiInputs),
         _ if normalized.starts_with("REVIEWED-6502 ") => {

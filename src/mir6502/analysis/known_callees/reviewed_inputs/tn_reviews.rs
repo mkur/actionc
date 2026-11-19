@@ -274,7 +274,14 @@ fn tn_cio_reviews_match_both_backends() {
         assert_eq!((inputs.registers.x, inputs.registers.y), (xy, xy), "{name}");
         assert_eq!(inputs.fixed, fixed.iter().copied().collect(), "{name}");
         let exit = exits.get(routine.id).unwrap();
-        assert_eq!(exit.writes(), &MirKnownMemoryWrites::Unknown, "{name}");
+        if name == "Close" {
+            for byte in (0xa0..=0xa3).chain(0xaa..=0xab).chain(0xae..=0xaf).chain(0xe0..=0xef) {
+                assert!(exit.writes().preserves_private_fixed_byte(MirFixedZpSlot(byte), exits.fixed_storage()), "{name} ${byte:02x}: {:?}", exit.writes());
+            }
+            assert!(!exit.writes().preserves_fixed_byte(MirFixedZpSlot(0xac), exits.fixed_storage()));
+        } else {
+            assert_eq!(exit.writes(), &MirKnownMemoryWrites::Unknown, "{name}");
+        }
         assert_eq!(exit.reads(), &MirKnownMemoryReads::Unknown, "{name}");
     }
 
@@ -330,4 +337,52 @@ fn both_tn_store_reviews_publish_the_same_fixed_byte_write() {
         );
         assert!(facts.reads.is_none());
     }
+}
+
+#[test]
+fn close_forwards_only_a_current_entry_installed_callback() {
+    use crate::semantic::ir::{SemExprKind, SemItem, SemProgram, SemRoutine, SemStmt};
+    fn routine<'a>(sem: &'a mut SemProgram, name: &str) -> &'a mut SemRoutine {
+        sem.modules.iter_mut().flat_map(|m| &mut m.items).find_map(|item| match item {
+            SemItem::Routine(r) if r.symbol.name == name => Some(r), _ => None,
+        }).unwrap()
+    }
+    fn check(sem: &SemProgram, strong: bool) {
+        let classic = crate::codegen::projected_review_for_test(sem, "Close").unwrap();
+        let mir = crate::mir6502::lower_program(&crate::nir::lower_program(sem)).unwrap();
+        let close = mir.routines.iter().find(|r| r.name == "Close").unwrap();
+        let facts = reviewed_contract(&mir, close).unwrap();
+        assert!(classic.abi_inputs_only && facts.abi_inputs_only);
+        assert_eq!(classic.preserves_zp, facts.preserves_zp);
+        assert_eq!(facts.preserves_zp.iter().any(|r| r.start <= 0xec && 0xed <= r.end), strong);
+        assert!(facts.reads.is_none() && facts.writes.is_none());
+    }
+
+    let program = tn_semir();
+    check(&program, true);
+    check(&tn_program("TNDBG.ACT"), true);
+
+    let mut other = program.clone();
+    other.select_program_entry("Copy").unwrap();
+    check(&other, false);
+
+    let mut other = program.clone();
+    let replace = routine(&mut other, "SwapScr").symbol.clone();
+    let SemStmt::Assign { value, .. } = &mut routine(&mut other, "NavInit").body[0] else { panic!() };
+    value.kind = SemExprKind::AddressOfSymbol(replace);
+    check(&other, false);
+
+    let mut other = program.clone();
+    let init = routine(&mut other, "NavInit").body[0].clone();
+    routine(&mut other, "Copy").body.push(init);
+    check(&other, false);
+
+    let mut other = program.clone();
+    let SemStmt::InlineAsm { program: asm, .. } = &mut routine(&mut other, "NavError").body[0] else { panic!() };
+    asm.bytes[0] ^= 1;
+    check(&other, false);
+
+    let mut other = program;
+    routine(&mut other, "NavInit").callback_reviews.clear();
+    check(&other, false);
 }
