@@ -558,6 +558,7 @@ ENDASM
 
 ;@actionc reviewed-6502 6d165f441bf111c2
 ;@actionc abi-inputs-only
+;@actionc preserves-via ErrorHandler $A0 $A2-$A3 $AA-$AB $AE-$AF $E0-$EF
 PROC Open=*(BYTE chn CARD s BYTE aux1,aux2)
 ASM OPAQUE
   stx $A1

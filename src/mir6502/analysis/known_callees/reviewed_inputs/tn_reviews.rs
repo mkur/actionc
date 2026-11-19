@@ -274,9 +274,10 @@ fn tn_cio_reviews_match_both_backends() {
         assert_eq!((inputs.registers.x, inputs.registers.y), (xy, xy), "{name}");
         assert_eq!(inputs.fixed, fixed.iter().copied().collect(), "{name}");
         let exit = exits.get(routine.id).unwrap();
-        if name == "Close" {
+        if matches!(name, "Close" | "Open") {
             for byte in (0xa0..=0xa3).chain(0xaa..=0xab).chain(0xae..=0xaf).chain(0xe0..=0xef) {
-                assert!(exit.writes().preserves_private_fixed_byte(MirFixedZpSlot(byte), exits.fixed_storage()), "{name} ${byte:02x}: {:?}", exit.writes());
+                let preserved = exit.writes().preserves_private_fixed_byte(MirFixedZpSlot(byte), exits.fixed_storage());
+                assert_eq!(preserved, name == "Close" || byte != 0xa1, "{name} ${byte:02x}");
             }
             assert!(!exit.writes().preserves_fixed_byte(MirFixedZpSlot(0xac), exits.fixed_storage()));
         } else {
@@ -287,8 +288,9 @@ fn tn_cio_reviews_match_both_backends() {
 
     for (helper, wrappers) in [
         ("_BlockIO", &["Bget", "Bput"][..]),
-        ("_LodChn", &["Input"][..]),
-        ("_Cio", &["Input", "Bget", "Bput"][..]),
+        ("_LodChn", &["Input", "Open", "Bget"][..]),
+        ("_StrNam", &["Open"][..]),
+        ("_Cio", &["Input", "Open", "Bget", "Bput"][..]),
     ] {
         let mut stale = mir.clone();
         let child = stale.routines.iter_mut().find(|r| r.name == helper).unwrap();
