@@ -43,6 +43,11 @@ impl<'a> ResidenceCalls<'a> {
         Self::with_entries(program, stage, Some(origin))
     }
 
+    pub fn sargs_capture(&self, routine: &MirRoutine, op: &MirOp) -> Option<crate::mir6502::runtime_contracts::CaptureSummary> {
+        if !self.program.routines.iter().any(|r| std::ptr::eq(r, routine)) { return None; }
+        crate::mir6502::runtime_contracts::sargs_capture(self.program, routine, op)
+    }
+
     fn entry(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {
         if let Some(analysis) = &mut self.acyclic { return analysis.analyze(target); }
         self.entries.entry(target).or_insert_with(||

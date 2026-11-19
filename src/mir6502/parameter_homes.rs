@@ -431,6 +431,10 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
         return errors;
     };
     let mut fail = |message: &str| errors.push(MirDiagnostic::routine(&routine.name, message));
+    if routine.frame.abi_parameter_bytes().is_none_or(|n| n > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES)
+        && !routine.frame.sargs_layout_valid() {
+        fail("SArgs parameter bindings require one contiguous zero-page frame in ABI order");
+    }
     let mut ids = BTreeSet::new();
     let mut occupied = BTreeSet::new();
     for binding in bindings {

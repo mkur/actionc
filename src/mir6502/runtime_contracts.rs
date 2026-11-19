@@ -134,45 +134,42 @@ pub(super) struct CaptureSummary {
 /// each invocation. On BREAK the helper also increments BRKKEY.
 pub(super) const SARGS_STATE: &[crate::codegen::ZeroPage] = &[crate::codegen::runtime_zp::BRKKEY];
 
+/// Structural facts also checked before a deferred helper binding is resolved.
+pub(super) fn canonical_sargs_capture(routine: &MirRoutine, op: &MirOp) -> bool {
+    let MirOp::SArgsCapture { first_param, byte_count, effects } = op else { return false };
+    matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
+        && routine.frame.params.first().is_some_and(|p| p.base == MirStorageBase::Param(*first_param))
+        && (crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES + 1..=256).contains(byte_count)
+        && routine.frame.abi_parameter_bytes() == Some(*byte_count)
+        && routine.frame.params.iter().all(|p| matches!(p.base, MirStorageBase::Param(_))
+            && p.offset == 0 && p.abi_byte_width() == Some(p.storage_size))
+        && routine.frame.sargs_layout_valid()
+        && *effects == super::materialize::helper_effects(&MirRuntimeHelper::SArgs)
+}
+
 pub(super) fn sargs_capture(
     program: &MirProgram,
     routine: &MirRoutine,
     op: &MirOp,
 ) -> Option<CaptureSummary> {
-    let MirOp::SArgsCapture {
-        first_param,
-        byte_count,
-        effects,
-    } = op
-    else {
-        return None;
-    };
+    let MirOp::SArgsCapture { byte_count, .. } = op else { return None };
     selected_helper(program, MirRuntimeHelper::SArgs)?;
-    // The ABI's contiguous $A0-based area must fit in ZP. The descriptor's
-    // wider encoding alone does not establish a supported argument range.
-    if !(5..=96).contains(byte_count)
-        || routine.frame.parameter_homes.is_some()
-        || !matches!(
-            routine.abi,
-            MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry
-        )
-        || routine.frame.params.first()?.base != MirStorageBase::Param(*first_param)
-        || *effects != super::materialize::helper_effects(&MirRuntimeHelper::SArgs)
-    {
-        return None;
-    }
+    // All incoming bytes must fit in the ABI's $A0-based window.
+    if *byte_count > 96 || !canonical_sargs_capture(routine, op) { return None; }
     let mut definitions = Vec::new();
     for slot in &routine.frame.params {
         let MirStorageBase::Param(id) = slot.base else {
             return None;
         };
-        if slot.offset != 0 || slot.storage_size != slot.abi_byte_width()? {
-            return None;
+        for offset in 0..slot.storage_size {
+            let cell = MirMem::Param { id, offset };
+            if routine.frame.parameter_homes.is_some() {
+                let MirParamLane::ZeroPage(slot) = routine.frame.object_lane(&cell, 0)? else { return None };
+                definitions.push(MirMem::FixedZeroPage(slot));
+            } else {
+                definitions.push(cell);
+            }
         }
-        definitions.extend((0..slot.storage_size).map(|offset| MirMem::Param { id, offset }));
-    }
-    if definitions.len() != usize::from(*byte_count) {
-        return None;
     }
     Some(CaptureSummary {
         inputs: (0..*byte_count)

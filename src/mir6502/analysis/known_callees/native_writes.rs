@@ -189,7 +189,7 @@ fn origin(
                 }
                 continue;
             }
-            // SArgs copies the input stream to the inline parameter cells.
+            // SArgs copies the input stream to the selected parameter cells.
             // Follow only the matched contract's ordered input/definition pair.
             if let (Lane::Cell(cell), MirOp::SArgsCapture { .. }) = (&lane, op) {
                 let capture =

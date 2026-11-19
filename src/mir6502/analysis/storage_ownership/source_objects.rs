@@ -10,6 +10,14 @@ pub(in crate::mir6502) struct ObjectAddressControl<'a> {
 
 impl<'a> ObjectAddressControl<'a> {
     pub fn new(source: &'a MirProgram) -> Self {
+        Self::collect(source, false)
+    }
+
+    pub fn for_home_placement(source: &'a MirProgram) -> Self {
+        Self::collect(source, true)
+    }
+
+    fn collect(source: &'a MirProgram, relocate_frame: bool) -> Self {
         let mut exposed: BTreeMap<RoutineId, Vec<MirMem>> = BTreeMap::new();
         let mut machine_owners = BTreeSet::new();
         for r in &source.routines {
@@ -22,6 +30,13 @@ impl<'a> ObjectAddressControl<'a> {
             for block in &r.blocks {
                 cells.extend(classify_terminator(&block.terminator).memory.address_references);
                 for op in &block.ops {
+                    // The entry descriptor follows the whole frame during placement.
+                    // Other consumers still observe its address as usual.
+                    if relocate_frame && matches!(op, MirOp::SArgsCapture { .. })
+                        && r.blocks.first().and_then(|b| b.ops.first()).is_some_and(|entry| std::ptr::eq(entry, op))
+                        && crate::mir6502::runtime_contracts::canonical_sargs_capture(r, op) {
+                        continue;
+                    }
                     cells.extend(classify_op(op).memory.address_references);
                     // Raw machine operands can name a source home without a
                     // typed address use. Keep the existing owning-body guard.

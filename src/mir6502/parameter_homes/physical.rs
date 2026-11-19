@@ -135,7 +135,7 @@ pub(super) fn verify_relocation(
     // Retained inputs are resolved only in the executable produced from them.
     let sources = [(old_input, &old.memory), (new_input, &new.memory),
         (&old.program, &old.memory), (&new.program, &new.memory)];
-    let addresses: Vec<_> = sources.iter().map(|(p, _)| ObjectAddressControl::new(p)).collect();
+    let addresses: Vec<_> = sources.iter().map(|(p, _)| ObjectAddressControl::for_home_placement(p)).collect();
     let observations = resolve_sources(&sources)?;
     for object in objects {
         let previous = old

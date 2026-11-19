@@ -38,6 +38,19 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
     for block in &routine.blocks {
         for (op_index, op) in block.ops.iter().enumerate() {
             let site = MirSite::Op { block: block.id, op_index };
+            if let MirOp::SArgsCapture { .. } = op {
+                let Some(capture) = calls.as_ref().and_then(|facts| facts.sargs_capture(routine, op)) else {
+                    return vec![MirDiagnostic::routine(&routine.name, "unqualified SArgs capture for resident homes")];
+                };
+                // The capture initializes every parameter. Other resident objects
+                // must be disjoint from its scratch and incoming argument bytes.
+                if resident.iter().any(|(mem, slot)| !matches!(mem, MirMem::Param { .. })
+                    && (capture.scratch.contains(&MirMem::FixedZeroPage(*slot))
+                        || capture.inputs.contains(&MirArgHome::FixedZeroPage(*slot)))) {
+                    return vec![MirDiagnostic::routine(&routine.name, "resident local overlaps SArgs capture")];
+                }
+                continue;
+            }
             let consumes = terminal == Some(site);
             let call_dead = matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) && owned.iter()
                 .all(|home| matches!(liveness.live_after(*home, site), Ok(false)));
@@ -64,7 +77,6 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 op,
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
-                    | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
                     | MirOp::Barrier { .. }
             ) && !consumes && !call_dead && invocation.is_none() {

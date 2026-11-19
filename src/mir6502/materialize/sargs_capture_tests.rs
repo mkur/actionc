@@ -79,3 +79,39 @@ fn sargs_capture_rejects_invalid_targets_counts_frames_and_effects() {
     assert!(mir6502::verify_program(&p, MirPhase::PreMaterialization).unwrap_err().iter()
         .any(|d| d.message.contains("SArgs capture")));
 }
+
+#[test]
+fn sargs_bound_frame_defines_every_destination_and_rejects_broken_bindings() {
+    let mut p = program(0x3000);
+    let r = p.routines.iter_mut().find(|r| r.name == "Capture").unwrap();
+    let mut cursor = 0xebu8;
+    let mut bindings = Vec::new();
+    for slot in &r.frame.params {
+        let MirStorageBase::Param(param) = slot.base else { panic!() };
+        bindings.push(MirParamBinding { param, home: MirParamHome::ZeroPage(MirFixedZpSlot(cursor)) });
+        cursor += slot.storage_size as u8;
+    }
+    r.frame.parameter_homes = Some(bindings);
+    r.frame.fixed_zero_page.extend((0xeb..=0xef).map(MirFixedZpSlot));
+    let r = p.routines.iter().find(|r| r.name == "Capture").unwrap();
+    let op = &r.blocks[0].ops[0];
+    let contract = mir6502::runtime_contracts::invocation(&p, r, op).unwrap();
+    let destinations: Vec<_> = (0xeb..=0xef).map(|b| MirMem::FixedZeroPage(MirFixedZpSlot(b))).collect();
+    assert_eq!(contract.definitions, destinations);
+    assert!(destinations.iter().all(|m| contract.writes.contains(m)));
+    mir6502::verify_program(&p, MirPhase::PreEmission).unwrap();
+
+    for home in [MirParamHome::Absent, MirParamHome::Inline,
+        MirParamHome::ZeroPage(MirFixedZpSlot(0xed)), MirParamHome::ZeroPage(MirFixedZpSlot(0xa3))] {
+        let mut invalid = p.clone();
+        let r = invalid.routines.iter_mut().find(|r| r.name == "Capture").unwrap();
+        r.frame.parameter_homes.as_mut().unwrap()[1].home = home;
+        let r = invalid.routines.iter().find(|r| r.name == "Capture").unwrap();
+        assert!(mir6502::runtime_contracts::sargs_capture(&invalid, r, &r.blocks[0].ops[0]).is_none());
+        assert!(mir6502::verify_program(&invalid, MirPhase::PreEmission).is_err());
+    }
+    let r = p.routines.iter_mut().find(|r| r.name == "Capture").unwrap();
+    r.blocks[0].ops.remove(0);
+    assert!(mir6502::verify_program(&p, MirPhase::PreEmission).unwrap_err().iter()
+        .any(|d| d.message.contains("one capture at routine entry")));
+}

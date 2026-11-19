@@ -447,7 +447,34 @@ impl MirParamHome {
     }
 }
 
+/// Compiler-managed contiguous ZP storage available for an SArgs destination.
+pub(super) const SARGS_HOME_POOL: std::ops::RangeInclusive<u8> = 0xe0..=0xef;
+
 impl MirFrame {
+    pub(super) fn abi_parameter_bytes(&self) -> Option<u16> {
+        self.params.iter().try_fold(0u16, |n, p| n.checked_add(p.abi_byte_width()?))
+    }
+
+    /// The descriptor carries one address and copies the entire ABI byte stream.
+    pub(super) fn sargs_layout_valid(&self) -> bool {
+        let Some(bindings) = &self.parameter_homes else { return true };
+        if bindings.len() != self.params.len() { return false; }
+        let mut next = None;
+        for slot in &self.params {
+            let MirStorageBase::Param(id) = slot.base else { return false };
+            let Some(MirParamHome::ZeroPage(start)) = self.parameter_home(id) else { return false };
+            if !SARGS_HOME_POOL.contains(&start.0)
+                || next.is_some_and(|n| n != u16::from(start.0))
+                || !(1..=2).contains(&slot.storage_size)
+            {
+                return false;
+            }
+            next = u16::from(start.0).checked_add(slot.storage_size);
+            if next.is_none_or(|end| end > u16::from(*SARGS_HOME_POOL.end()) + 1) { return false; }
+        }
+        next.is_some()
+    }
+
     pub fn local_home(&self, id: LocalId) -> Option<&MirLocalHome> {
         self.local_homes.as_ref()?.iter().find(|b| b.local == id).map(|b| &b.home)
     }
