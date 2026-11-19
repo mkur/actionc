@@ -584,3 +584,69 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
         assert!(input.keys.is_empty());
     }
 }
+
+#[test]
+fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
+    const FILENAME: u16 = 0x0712;
+    const DEVICE: u16 = 0x0740;
+    const HANDLER: u16 = 0x0750;
+
+    struct CioVector { calls: u8, iocb: u8 }
+    impl VmRunHooks for CioVector {
+        type Error = String;
+        fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+            if vm.cpu().registers().pc == 0xe456 {
+                self.calls += 1;
+                assert_eq!(vm.cpu().registers().x, self.iocb);
+                vm.set_pc(DEVICE);
+            }
+            Ok(())
+        }
+    }
+
+    for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let compiled = compile_file(root().join("samples/tn/modern/TN.ACT"),
+                &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
+            let listing = compiled.source_listing();
+            let (mut vm, profile) = fixed_point::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, compiled.object_bytes()).unwrap();
+            let ram = vm.bus_mut().ram_mut();
+            ram.map(FILENAME, &[4, b'D', b':', b'A', b'B']).unwrap();
+            ram.write_word(global_address(&listing, "ErrorHandler"), HANDLER);
+            // A returning error handler may overwrite an application ZP home.
+            ram.map(HANDLER, &[0xe6, 0xac, 0x60]).unwrap(); // INC $AC / RTS
+            let [lo, hi] = FILENAME.to_le_bytes();
+            let ioerr = global_address(&listing, "Ioerr");
+            for (name, cmd, args) in [
+                ("Close", 12, &[1u8][..]),
+                ("Xio", 33, &[2, 33, 6, 9, lo, hi]),
+                ("Open", 3, &[3, lo, hi, 6, 9]),
+            ] {
+                let offset = args[0] << 4;
+                let iocb = 0x0340 + u16::from(offset);
+                for status in [1, 0x82] {
+                    let ram = vm.bus_mut().ram_mut();
+                    ram.map(iocb, &[0xcc; 16]).unwrap();
+                    ram.write(0xac, 0x76);
+                    ram.write(ioerr, 0xff);
+                    ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap(); // LDY #status / RTS
+                    let mut hook = CioVector { calls: 0, iocb: offset };
+                    vm = machine::call(vm, &mut hook, routine_address(&listing, name), args);
+                    let ram = vm.bus().ram();
+                    assert_eq!(hook.calls, 1, "{name}");
+                    assert_eq!(ram.read(ioerr), status, "{name}");
+                    assert_eq!(ram.read(0xac), 0x76 + u8::from(status >= 0x80), "{name}");
+                    assert_eq!(ram.read(iocb + 2), cmd, "{name}");
+                    if name != "Close" {
+                        assert_eq!(machine::bytes(&vm, iocb + 10, 2), [6, 9], "{name}");
+                        let filename = ram.read_word(iocb + 4);
+                        assert_eq!(ram.read_word(0x86), filename, "{name}");
+                        assert_eq!(machine::bytes(&vm, filename, 5),
+                            [b'D', b':', b'A', b'B', 0x9b], "{name}");
+                    }
+                }
+            }
+        }
+    }
+}

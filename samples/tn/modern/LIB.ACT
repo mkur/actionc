@@ -465,9 +465,10 @@ PROC POINTER ErrorHandler
 
 PROC Error()
 
-;@actionc writes Ioerr $0340-$03BF
+; CIOV and the installed error handler can both return with memory changed.
+;@actionc reviewed-6502 7cb4806d79a6801f
 PROC _Cio=*()
-ASM
+ASM OPAQUE
   jsr $E456
   sty Ioerr
   bpl done
@@ -476,10 +477,14 @@ done:
   rts
 ENDASM
 
+; A holds the channel on entry. A and X return the byte offset of its IOCB.
+;@actionc reviewed-6502 7862b9362f71c385
+;@actionc reads-only none
+;@actionc writes-only none
 ;@actionc preserves Y $AC/$AD $AE/$AF
 ;@actionc clobbers A X
 PROC _LodChn=*()
-ASM
+ASM OPAQUE
   asl a
   asl a
   asl a
@@ -488,12 +493,13 @@ ASM
   rts
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A Y $86-$88
-;@actionc writes fnam $0340-$03BF
+; A/Y point to a counted filename of 1..39 bytes. X is the IOCB offset.
+; The private buffer also holds the trailing ATASCII EOL.
+;@actionc reviewed-6502 20e0bd9c73ca4831
+;@actionc preserves X
 PROC _StrNam()
- CHAR ARRAY fnam(40) CARD r=$86
-ASM
+ CHAR ARRAY fnam(40)
+ASM OPAQUE
   sta $86
   sty $87
   ldy #$00
@@ -508,11 +514,11 @@ copy_name:
   iny
   lda #EOL
   sta fnam-1,y
-ENDASM
- r=fnam
-ASM
+  lda #<fnam
+  sta $86
   sta $0344,x
-  lda.z r+1
+  lda #>fnam
+  sta $87
   sta $0345,x
   rts
 ENDASM
@@ -550,11 +556,10 @@ ASM
   jmp _Cio
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $86-$88 $A1 $A3/$A4
-;@actionc writes $0100-$FFFF
+;@actionc reviewed-6502 6d165f441bf111c2
+;@actionc abi-inputs-only
 PROC Open=*(BYTE chn CARD s BYTE aux1,aux2)
-ASM
+ASM OPAQUE
   stx $A1
   jsr _LodChn
   lda $A1
@@ -568,11 +573,10 @@ ASM
   jmp _Cio
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y
-;@actionc writes Ioerr $0340-$03BF
+;@actionc reviewed-6502 34453d526302e71a
+;@actionc abi-inputs-only
 PROC Close=*(BYTE chn)
-ASM
+ASM OPAQUE
   jsr _LodChn
   lda #CIO_CLOSE
   sta $0342,x
@@ -642,11 +646,10 @@ ASM
   jmp _BlockIO
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $86-$88 $A1 $A3-$A5
-;@actionc writes $0100-$FFFF
+;@actionc reviewed-6502 bc218fa78abb5693
+;@actionc abi-inputs-only
 PROC Xio=*(BYTE chn, cmd, aux1, aux2 CARD s)
-ASM
+ASM OPAQUE
   stx $A1
   jsr _LodChn
   lda $A1

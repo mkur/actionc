@@ -234,3 +234,39 @@ fn internal_review_composes_through_native_print_callers() {
         assert!(MirAcyclicEntryAnalysis::new(&stale).analyze(id(name)).is_none());
     }
 }
+
+#[test]
+fn tn_cio_reviews_match_both_backends() {
+    let sem = tn_semir();
+    let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+    for name in ["_LodChn", "_StrNam", "_Cio", "Close", "Xio", "Open"] {
+        let routine = mir.routines.iter().find(|r| r.name == name).unwrap();
+        let review = routine.frame.callee_review.as_ref().unwrap();
+        let computed = body_fingerprint(&mir, routine, review.version());
+        assert_eq!(computed, Some(review.fingerprint), "{name} fingerprint {computed:016x?}");
+        let mir_facts = reviewed_contract(&mir, routine).unwrap();
+        let classic = crate::codegen::projected_review_for_test(&sem, name)
+            .unwrap_or_else(|| panic!("stale classic review for {name}"));
+        let common = crate::callee6502::Review { facts: classic, fingerprint: 0 }.map_ids(|_| None).unwrap();
+        assert_eq!(common.facts, *mir_facts, "{name}");
+        assert_eq!(mir_facts.abi_inputs_only, matches!(name, "Close" | "Xio" | "Open"), "{name}");
+    }
+
+    let mir = crate::mir6502::materialize_program(mir, &Default::default()).unwrap();
+    let mut homes = MirAcyclicEntryAnalysis::at_origin(&mir, 0x3000);
+    let exits = MirKnownCalleeSummaries::analyze_for_source_homes(&mir, 0x3000);
+    for (name, xy, fixed) in [
+        ("Close", false, &[][..]),
+        ("Open", true, &[0xa3, 0xa4][..]),
+        ("Xio", true, &[0xa3, 0xa4, 0xa5][..]),
+    ] {
+        let routine = mir.routines.iter().find(|r| r.name == name).unwrap();
+        let inputs = &homes.analyze(routine.id).unwrap().inputs;
+        assert!(inputs.registers.a && !inputs.flags.any(), "{name}");
+        assert_eq!((inputs.registers.x, inputs.registers.y), (xy, xy), "{name}");
+        assert_eq!(inputs.fixed, fixed.iter().copied().collect(), "{name}");
+        let exit = exits.get(routine.id).unwrap();
+        assert_eq!(exit.writes(), &MirKnownMemoryWrites::Unknown, "{name}");
+        assert_eq!(exit.reads(), &MirKnownMemoryReads::Unknown, "{name}");
+    }
+}
