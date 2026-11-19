@@ -351,11 +351,14 @@ normal-return write footprint must avoid the live caller home. Include capture
 scratch, the parameter frame, body temporaries and descendants. The presence
 of SArgs alone must no longer disqualify the callee.
 
-Keep that callee's captured parameters in their existing contiguous frame.
-Choosing new homes for those parameters, widening its own placement eligibility,
-and replacing capture with scattered stores are separate changes. This gives
-the fact layer accurate parameter capture without changing the calling
-convention or adding another placement mechanism.
+MIR6502 may place the complete captured frame in one free run of the
+compiler-managed `$E0`–`$EF` pool. This allows five to sixteen captured bytes,
+including unused parameters. The selected binding must match the canonical
+SArgs contract. Each parameter keeps its ABI offset from the descriptor base.
+The invocation then defines and writes the concrete destination bytes, so a
+caller keeping a value live across this routine must account for them.
+Source exposure, reservations, call interference, final layout and whole-image
+cost checks apply. If the frame cannot move as a unit, it stays inline.
 
 ### Focused capture checks
 

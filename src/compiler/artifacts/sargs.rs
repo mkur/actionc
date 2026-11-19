@@ -101,6 +101,10 @@ impl SArgsListing {
         if let Some(word) = word_directive(output, data.address, &data.bytes, symbols, relocations)
         {
             symbols.push_definitions(data.address, &mut payload);
+            let fixed = params.first().filter(|_| relocations.at(data.address).is_none()
+                && relocations.at(data.address + 1).is_none())
+                .and_then(|p| symbols.fixed_storage_reference(p.address, data.address));
+            let word = fixed.map_or(word, |name| format!(".WORD {name}"));
             payload.push(format_assembly_line(
                 &word,
                 data.address,

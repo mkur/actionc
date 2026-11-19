@@ -67,10 +67,18 @@ fn sargs_descriptors_and_parameter_storage_are_typed_and_named() {
                 assert!(listing.contains("; SArgs descriptor for parameters: first, word, last, extra"));
                 assert!(listing.contains("; SArgs descriptor for parameters: tag, ptr, items"));
                 assert_eq!(listing.matches("| copy 5 parameter bytes").count(), 2);
-                assert_parameter(&listing, "param_SumFrame_first:", ".BYTE $00", "first");
-                assert_parameter(&listing, "param_SumFrame_word:", ".WORD $0000", "word");
-                assert_parameter(&listing, "param_Indirect_ptr:", ".WORD $0000", "ptr");
-                assert_parameter(&listing, "param_Indirect_items:", ".WORD $0000", "items");
+                if mode == CompileMode::Mir6502 {
+                    for label in ["param_SumFrame_first", "param_SumFrame_word", "param_Indirect_ptr", "param_Indirect_items"] {
+                        assert!(listing.lines().any(|l| l.starts_with(&format!("{label} = $00E"))), "{label}");
+                    }
+                    assert!(listing.lines().any(|l| l.trim_start().starts_with(".WORD param_SumFrame_first ")));
+                    assert!(listing.lines().any(|l| l.trim_start().starts_with(".WORD param_Indirect_tag ")));
+                } else {
+                    assert_parameter(&listing, "param_SumFrame_first:", ".BYTE $00", "first");
+                    assert_parameter(&listing, "param_SumFrame_word:", ".WORD $0000", "word");
+                    assert_parameter(&listing, "param_Indirect_ptr:", ".WORD $0000", "ptr");
+                    assert_parameter(&listing, "param_Indirect_items:", ".WORD $0000", "items");
+                }
                 if runtime == Runtime::Standalone {
                     let lines = listing.lines().collect::<Vec<_>>();
                     let at = lines
@@ -157,6 +165,8 @@ fn sargs_overrides_are_recognized_by_binding_instead_of_implementation_name() {
             );
             assert!(listing.contains("; SArgs descriptor for parameters: first, word, last, extra"));
             assert!(!listing.contains("DTA D'(c)1983ACS'"));
+            // A custom implementation has no matched placement contract.
+            assert_parameter(&listing, "param_SumFrame_first:", ".BYTE $00", "first");
         }
     }
 }

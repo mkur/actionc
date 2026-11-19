@@ -72,12 +72,15 @@ fn register_parameters_save_final_bytes_without_upstream_search() {
 fn unsupported_register_lifetimes_keep_complete_fallback() {
     for body in [
         "CARD FUNC Subject(BYTE a,b,c) RETURN(@a)",
-        "BYTE FUNC Subject(BYTE a,b,c,d,e) RETURN(e)",
+        "CARD FUNC Subject(BYTE a,b,c,d,e) RETURN(@e)",
         "CARD FUNC Subject(BYTE a,b,c) RETURN(a*b)",
     ] {
         let n = nir(&format!("{body}\nPROC Main() DO OD RETURN"));
         let off = Mir6502Config {
             enable_parameter_home_selection: false,
+            // Exercise leaf selection in isolation. Cross-call selection can
+            // place operands across a contracted multiply.
+            enable_cross_call_home_selection: false,
             enable_small_leaf_inlining: false,
             ..Mir6502Config::optimized()
         };
@@ -237,4 +240,53 @@ fn optimized_policy_respects_the_master_gate_and_historical_dump_boundary() {
         output
     };
     assert_eq!(compile(true), compile(false));
+}
+
+#[test]
+fn sargs_homes_require_room_for_the_entire_abi_frame() {
+    for (count, reservations, fits) in [
+        (5, "", true),
+        (16, "", true),
+        (17, "", false),
+        (5, "BYTE a=$E4,b=$E9,c=$EE", false),
+    ] {
+        let names = (0..count)
+            .map(|i| format!("p{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let n = nir(&format!(
+            "{reservations}\nBYTE out\nPROC Wide(BYTE {names}) out=p0 RETURN\nPROC Main() RETURN"
+        ));
+        let output = mir6502::generate_output_with_config_and_runtime(
+            &n,
+            0x3000,
+            &Mir6502Config {
+                enable_small_leaf_inlining: false,
+                ..Mir6502Config::optimized()
+            },
+            Runtime::ActionCart,
+        )
+        .unwrap();
+        let entry = output
+            .routine_addresses
+            .iter()
+            .find(|r| r.name == "Wide")
+            .unwrap()
+            .address;
+        let offset = usize::from(entry - output.origin);
+        let frame = u16::from_le_bytes([output.bytes[offset + 3], output.bytes[offset + 4]]);
+        assert_eq!(output.bytes[offset], 0x20);
+        assert_eq!(output.bytes[offset + 5], count - 1);
+        assert_eq!(
+            (0xe0..=0xf0 - u16::from(count)).contains(&frame),
+            fits,
+            "{count} {reservations}"
+        );
+        for i in 0..count {
+            assert!(output.map.storage_symbols.iter().any(|s| s.scope
+                == actionc::codegen::CodegenSymbolScope::Routine("Wide".into())
+                && s.name == format!("p{i}")
+                && s.address == frame + u16::from(i)));
+        }
+    }
 }

@@ -265,12 +265,13 @@ fn tn_init_keeps_its_word_across_shift_helper_calls() {
     }
 }
 
-fn assert_zp_home(listing: &str, label: &str, width: u16) {
+fn assert_zp_home(listing: &str, label: &str, width: u16) -> u16 {
     let prefix = format!("{label} = $");
     let home = listing.lines().find_map(|line| line.strip_prefix(&prefix))
         .and_then(|hex| u16::from_str_radix(hex, 16).ok())
         .unwrap_or_else(|| panic!("missing ZP home for {label}"));
     assert!(home <= 0x100 - width, "{label} needs {width} zero-page bytes");
+    home
 }
 
 fn check_init_and_calcadr(compiled: &CompiledProgram, listing: &str) {
@@ -514,6 +515,9 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
             for (label, width) in [("param_InputLine_string", 2), ("param_InputLine_maxlen", 1), ("param_InputLine_curpos", 1)] {
                 assert_zp_home(&listing, label, width);
             }
+            let base = assert_zp_home(&listing, "param_Range_s", 2);
+            assert_eq!(assert_zp_home(&listing, "param_Range_max", 1), base + 2);
+            assert_eq!(assert_zp_home(&listing, "param_Range_c", 2), base + 3);
         }
         let (mut vm, profile) = fixed_point::vm_for(runtime);
         vm.load_bundled_altirra_os().unwrap();
@@ -529,7 +533,7 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
         let ram = vm.bus_mut().ram_mut();
         ram.write_word(0x79, 0x7400);
         ram.write(0x11, 0xff);
-        ram.map(0x7400, &[b'K', b'*', 155, 27]).unwrap();
+        ram.map(0x7400, &[b'K', b'*', 155, 27, b'-', b'+']).unwrap();
         ram.write(machine::RETURN, 0x60);
         for pattern in [0x55u8, 0xaau8] {
             let saved: Vec<_> = (0..16).map(|i| pattern ^ i).collect();
@@ -542,6 +546,22 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
             assert_eq!(vm.bus().ram().read(0xa0), b'K');
             assert_eq!(vm.bus().ram().read(0xa1), pattern);
             assert_eq!(machine::bytes(&vm, 0xe0, 16), saved);
+        }
+        let keys = 0x70b1u16;
+        let value = 0x7254u16;
+        let [sl, sh] = keys.to_le_bytes();
+        let [cl, ch] = value.to_le_bytes();
+        vm.bus_mut().ram_mut().map(keys, &[2, b'-', b'+']).unwrap();
+        for (codes, initial, expected, key) in [
+            (vec![5], 1, 2, b'+'), (vec![4], 1, 0, b'-'),
+            (vec![4, 2], 0, 0, 155), (vec![5, 3], 3, 3, 27),
+        ] {
+            vm.bus_mut().ram_mut().write(value, initial);
+            input.keys = codes.into();
+            vm = machine::call(vm, &mut input, routine("Range"), &[sl, sh, 3, cl, ch]);
+            assert_eq!(vm.bus().ram().read(value), expected, "{mode:?} {runtime:?}");
+            assert_eq!(vm.bus().ram().read(0xa0), key);
+            assert!(input.keys.is_empty());
         }
         vm.bus_mut().ram_mut().write_word(0xe8, 0x2000);
         let [lo, hi] = global_address(&listing, "density").to_le_bytes();

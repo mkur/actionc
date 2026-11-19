@@ -17,7 +17,10 @@ pub(super) fn bindings_avoiding(
     addresses: &ObjectAddressControl<'_>,
 ) -> Option<Vec<MirParamBinding>> {
     let mut used = used_bytes(program, routine, &BTreeSet::new());
-    let total: u16 = routine.frame.params.iter().map(|p| p.storage_size).sum();
+    let total = routine.frame.abi_parameter_bytes()?;
+    if total > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES {
+        return sargs_bindings(routine, used, forbidden, addresses);
+    }
     let mut offset = 0;
     let mut result = Vec::new();
     for slot in &routine.frame.params {
@@ -59,6 +62,36 @@ pub(super) fn bindings_avoiding(
         .then_some(result)
 }
 
+/// SArgs also writes unused parameters, so every byte needs a home.
+fn sargs_bindings(
+    routine: &MirRoutine,
+    used: [bool; 256],
+    forbidden: &impl Fn(&MirMem, u16) -> Option<BTreeSet<u8>>,
+    addresses: &ObjectAddressControl<'_>,
+) -> Option<Vec<MirParamBinding>> {
+    let width = routine.frame.abi_parameter_bytes()?;
+    let starts = SARGS_HOME_POOL.clone().filter(|start|
+        u16::from(*start) + width <= u16::from(*SARGS_HOME_POOL.end()) + 1);
+    let mut slots = Vec::new();
+    for slot in &routine.frame.params {
+        let MirStorageBase::Param(id) = slot.base else { return None };
+        if !eligible_parameter(addresses, routine, slot) { return None; }
+        slots.push((id, slot.storage_size, forbidden(&MirMem::Param { id, offset: 0 }, slot.storage_size)?));
+    }
+    for start in starts {
+        let mut cursor = start;
+        let mut bindings = Vec::new();
+        for (param, width, forbidden) in &slots {
+            let end = cursor + u8::try_from(*width).ok()?;
+            if (cursor..end).any(|byte| used[usize::from(byte)] || forbidden.contains(&byte)) { break; }
+            bindings.push(MirParamBinding { param: *param, home: MirParamHome::ZeroPage(MirFixedZpSlot(cursor)) });
+            cursor = end;
+        }
+        if bindings.len() == slots.len() { return Some(bindings); }
+    }
+    None
+}
+
 fn excluding(mut used: [bool; 256], forbidden: &BTreeSet<u8>) -> [bool; 256] {
     for byte in forbidden { used[usize::from(*byte)] = true; }
     used
@@ -82,6 +115,10 @@ fn used_bytes(program: &MirProgram, routine: &MirRoutine, forbidden: &BTreeSet<u
         for lane in 0..allocation.size {
             used[allocation.start.0.wrapping_add(lane) as usize] = true;
         }
+    }
+    if let Some(bytes) = routine.frame.abi_parameter_bytes()
+        && bytes > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES {
+        used[0xa0..(0xa0 + usize::from(bytes)).min(256)].fill(true);
     }
     for (_, slot) in routine.frame.resident_bytes() {
         used[usize::from(slot.0)] = true;

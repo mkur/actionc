@@ -232,8 +232,8 @@ fn mixed_objects_keep_exposed_and_persistent_homes_inline() {
     assert!(verify_lifetimes(r, Some(&mut ResidenceCalls::new(&expanded, MirCalleeEntryStage::ActualEntry))).is_empty());
 
     // An address-only parameter cannot become Absent or enter register binding.
-    let (input, _) = programs("CARD exposed CARD FUNC Leaf(BYTE c CARD keep BYTE tail) exposed=@c keep==+1 keep==+2 RETURN(keep)");
-    let proposed = super::super::propose(&input, true, 0x3000).unwrap();
+    let (input, selected) = programs("CARD exposed CARD FUNC Leaf(BYTE c CARD keep BYTE tail) exposed=@c keep==+1 keep==+2 RETURN(keep)");
+    let proposed = super::super::propose(&input, &selected, true, 0x3000).unwrap();
     assert_eq!(proposed.routines[0].frame.parameter_homes.as_ref().unwrap()[0].home, MirParamHome::Inline);
 }
 

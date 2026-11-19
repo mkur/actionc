@@ -48,7 +48,7 @@ pub(super) fn select_output(
         input: Arc::new(resume.core.checkpoint.input.program.clone()),
         executable: baseline,
     };
-    if let Some(proposal) = propose(&selected.input, config.enable_zp_home_lifetimes, origin) {
+    if let Some(proposal) = propose(&selected.input, &selected.executable.program, config.enable_zp_home_lifetimes, origin) {
         selected = try_proposal(
             nir,
             selected,
@@ -86,16 +86,16 @@ pub(super) fn select_output(
     selected.executable
 }
 
-fn propose(input: &MirProgram, mixed: bool, origin: u16) -> Option<MirProgram> {
-    let addresses = ObjectAddressControl::new(input);
+fn propose(input: &MirProgram, selected: &MirProgram, mixed: bool, origin: u16) -> Option<MirProgram> {
+    let addresses = ObjectAddressControl::for_home_placement(input);
     let observations = physical::observations_complete(input);
     let mut proposal = input.clone();
     let mut changed = false;
     let layout = std::cell::LazyCell::new(|| super::materialize::MaterializeLayout::new(input, origin));
     for routine in &mut proposal.routines {
-        let admitted = eligible_with_calls(&addresses, routine, false, mixed)
+        let admitted = admission::check(&addresses, routine, false, mixed, Some(selected)).is_ok()
             || super::materialize::arithmetic_homes::reduced_constants(routine, &layout)
-                .is_some_and(|view| eligible_with_calls(&addresses, &view, false, mixed));
+                .is_some_and(|view| admission::check(&addresses, &view, false, mixed, Some(selected)).is_ok());
         if !admitted
             || (!observations && physical::has_pointee_writes(input, routine)) {
             continue;
@@ -144,6 +144,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
     routine.frame.parameter_homes = Some(bindings);
 }
 
+#[cfg(test)]
 fn eligible_with_calls(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, calls: bool, mixed: bool) -> bool {
     admission::check(addresses, routine, calls, mixed, None).is_ok()
 }
@@ -188,13 +189,8 @@ fn register_bindings(routine: &MirRoutine) -> Option<Vec<MirParamBinding>> {
     // One entry consumer ends the incoming parameter lifetime. This avoids
     // reserving registers through a temporary plan that has not yet expanded.
     if routine.blocks.len() != 1
-        || routine
-            .frame
-            .params
-            .iter()
-            .map(|p| p.storage_size)
-            .sum::<u16>()
-            <= 2
+        || !routine.frame.abi_parameter_bytes().is_some_and(|n|
+            (3..=crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES).contains(&n))
     {
         return None;
     }
@@ -828,7 +824,7 @@ mod tests {
                 executable: baseline,
             };
             if leaf_path != 0 {
-                let mut proposal = propose(&selected.input, false, 0x3000).expect("leaf controls qualify");
+                let mut proposal = propose(&selected.input, &selected.executable.program, false, 0x3000).expect("leaf controls qualify");
                 if leaf_path == 2 {
                     proposal.routines[0].frame.parameter_homes = Some(vec![]);
                 }

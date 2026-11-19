@@ -146,14 +146,11 @@ extends this boundary in commit-sized slices. MIR6502 owns SArgs parameter
 capture as one typed operation containing its helper call and inline descriptor.
 The descriptor references a parameter ID in its owning routine and an explicit
 byte count. Emission resolves the contiguous frame and writes the ABI bytes.
-Descriptor bytes are not executable assembly; the helper retains its conservative
-memory/register/stack effects and the complete captured frame retains protection.
-This representation does not authorize a new SArgs home-placement strategy.
-
-The proposed [SArgs capture contract](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#sargs-as-parameter-capture)
-uses this typed operation to report argument reads, parameter definitions and
-normal-return scratch writes. It enables analysis of SArgs-using callees while
-retaining the contiguous frame and its placement restrictions.
+The entry descriptor follows the entire frame when MIR6502 relocates it. The
+allocator requires a contiguous run for every ABI byte, including unused
+parameters. Separate address uses and machine observations retain their usual
+protection. The capture contract supplies the argument reads, destination
+definitions and normal-return scratch writes. [SArgs capture contract](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#sargs-as-parameter-capture)
 
 Explicit machine observations retain typed storage identity, signed addends,
 operand encoding and addressing behavior. An indexed encoded base can precede
@@ -512,12 +509,11 @@ source value and the returned value, beyond proving that the source value died.
 
 Dead boundaries still require supported call inputs. The implemented slice
 admits direct native Action entries with canonical flattened ABI lanes, checking
-any available actual-entry requirements. It does not admit observable assembly
-entries, machine bodies, SArgs capture or barriers through this path. Unknown
-preservation clobbers every resident byte at a dead boundary; it never becomes
-an exact public memory summary. `PopUp` therefore remains inline: its first
-entry-admission blocker is Range's five-byte SArgs capture. Independently,
-`menu` is entry-dependent and `c` is exposed by `@c`.
+any available actual-entry requirements. A selected SArgs capture supplies the
+full set of incoming lanes for a wide native entry. A reviewed assembly entry
+requires its matched call contract. Unknown preservation clobbers every
+resident byte at a dead boundary. In TN, `PopUp.menu` is entry-dependent and
+`@c` exposes `PopUp.c`.
 
 For native pointee writers, discovery excludes layout-independent numeric ZP
 observations using the existing physical-observation inventory. This avoids

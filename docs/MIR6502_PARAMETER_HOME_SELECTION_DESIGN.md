@@ -50,6 +50,12 @@ register when its complete live range permits it; otherwise consider a reserved
 zero-page home before retaining ordinary inline storage. Unsupported routines
 continue through the existing path.
 
+For a wider entry with a matched SArgs capture, select the complete frame as
+one contiguous run in `$E0`–`$EF`. A five- to sixteen-byte frame can qualify
+when every parameter can move and every byte passes the routine's residence
+checks. The descriptor names the first parameter and covers the entire run.
+[SArgs capture contract](MIR6502_RUNTIME_HELPER_CONTRACT_DESIGN.md#sargs-as-parameter-capture)
+
 This addresses the coordination problem described in the
 [pipeline audit](MIR6502_OPTIMIZATION_PIPELINE_AUDIT.md): capture, forwarding,
 pointer preparation, and storage deletion currently make overlapping decisions

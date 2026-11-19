@@ -43,7 +43,14 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     if routine.frame.params.is_empty() && (!calls || routine.frame.locals.is_empty()) {
         return Err(Reason::NoObjects.into());
     }
-    if routine.frame.params.iter().map(|p| p.abi_byte_width().unwrap_or(5)).sum::<u16>() > 4 {
+    let bytes = routine.frame.abi_parameter_bytes().ok_or(Reason::CaptureExtent)?;
+    if bytes > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
+        && (usize::from(bytes) > SARGS_HOME_POOL.len() || !selected.is_some_and(|p| {
+            p.routines.iter().find(|r| r.id == routine.id).is_some_and(|r|
+                r.blocks.first().and_then(|b| b.ops.first())
+                    .and_then(|op| crate::mir6502::runtime_contracts::sargs_capture(p, r, op))
+                    .is_some_and(|capture| capture.inputs.len() == usize::from(bytes)))
+        })) {
         return Err(Reason::CaptureExtent.into());
     }
     if !mixed && !routine.frame.params.iter().all(|p| eligible_parameter(addresses, routine, p)) {

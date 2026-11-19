@@ -18,7 +18,7 @@ fn word_shift_admission_uses_the_native_recipe_boundary() {
                 "{direction} {count}"
             );
             if supported {
-                let proposal = super::super::propose(&p, true, 0x3000).unwrap();
+                let proposal = super::super::propose(&p, &p, true, 0x3000).unwrap();
                 let r = proposal
                     .routines
                     .iter()

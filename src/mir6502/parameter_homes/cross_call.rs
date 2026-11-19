@@ -37,7 +37,7 @@ pub(super) fn propose_configured(
     let multiple = config.enable_multiple_leaf_call_homes;
     let lifetimes = config.enable_zp_home_lifetimes;
     let acyclic = config.acyclic_call_homes_enabled();
-    let addresses = ObjectAddressControl::new(input);
+    let addresses = ObjectAddressControl::for_home_placement(input);
     let unresolved_observation = physical::unresolved_observation(input);
     // Layout-independent numeric observations are already authoritative. Avoid
     // known conflicts before the one combined trial; symbolic/old-home overlaps
@@ -249,6 +249,10 @@ pub(super) fn propose_configured(
         {
             install_bindings(&mut candidate, bindings);
             changed = true;
+        }
+        if candidate.frame.parameter_homes.is_none() && candidate.frame.abi_parameter_bytes()
+            .is_some_and(|n| n > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES) {
+            continue;
         }
         if let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
             candidate.frame.local_homes = Some(bindings);
