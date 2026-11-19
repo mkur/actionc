@@ -77,22 +77,44 @@ pub(in crate::mir6502) struct FormalWrite {
     offset: u16,
     bytes: u16,
     carrier: Option<u8>,
+    // Count and implementation scratch travel with a forwarded copy destination.
+    count: Option<(u16, bool)>,
+    reviewed_copy: Option<RoutineId>,
 }
 
 impl FormalWrite {
     pub(super) fn from_reviewed(
         buffer: &crate::mir6502::runtime_contracts::buffers::BufferAccess,
+        owner: RoutineId,
     ) -> Option<Self> {
         use crate::mir6502::runtime_contracts::buffers::BufferExtent;
-        match buffer.extent {
-            BufferExtent::Fixed(bytes) if buffer.write => Some(Self {
-                argument: buffer.pointer_byte,
-                offset: 0,
-                bytes,
-                carrier: None,
-            }),
-            _ => None,
+        if !buffer.write { return None; }
+        let (bytes, count) = match buffer.extent {
+            BufferExtent::Fixed(bytes) => (bytes, None),
+            BufferExtent::ByteCount { argument_byte, zero_means_256 } =>
+                (crate::callee6502::buffer_length(None, zero_means_256), Some((argument_byte, zero_means_256))),
+            _ => return None,
+        };
+        Some(Self { argument: buffer.pointer_byte, offset: 0, bytes, carrier: None,
+            count, reviewed_copy: count.map(|_| owner) })
+    }
+
+    fn at_call(mut self, program: &MirProgram, routine: &MirRoutine, call: &MirOp,
+        known: &MirKnownCalleeSummaries, values: &MirMachineValueAvailability, site: MirSite,
+    ) -> Self {
+        let Some((offset, zero_means_256)) = self.count.take() else { return self; };
+        let MirOp::Call { args, .. } = call else { return self; };
+        let staged = args.iter().all(|a| a.width == MirWidth::Byte);
+        let value = crate::mir6502::runtime_contracts::buffers::argument_byte_value(
+            program, call, offset, MirWidth::Byte, staged.then_some((values, site)));
+        self.bytes = crate::callee6502::buffer_length(value, zero_means_256);
+        if value.is_none() && staged
+            && let Some(lane) = crate::mir6502::abi::argument_lanes(args.len().try_into().unwrap_or(u16::MAX))
+                .and_then(|lanes| lanes.get(usize::from(offset)).copied())
+            && let Some(Origin::Input(input)) = origin(TracePurpose::Preservation, program, routine, known, site, lane.into()) {
+            self.count = Some((input, zero_means_256));
         }
+        self
     }
 }
 
@@ -509,6 +531,7 @@ fn retained_base(
 }
 
 fn record_base(
+    program: &MirProgram,
     base: Base,
     write: FormalWrite,
     numeric: &mut Vec<(u16, u16)>,
@@ -517,6 +540,20 @@ fn record_base(
     match base {
         Base::Numeric(base) => {
             let start = base.wrapping_add(write.offset);
+            if let Some(owner) = write.reviewed_copy {
+                let review = program.routines.iter().find(|r| r.id == owner)?.frame.callee_review.as_ref()?;
+                for range in review.facts.reads.as_ref()?.iter().chain(review.facts.writes.as_ref()?) {
+                    let base = match range.global {
+                        Some(id) => fixed_storage_address(program, &MirMem::Global { id, offset: 0 })?,
+                        None => 0,
+                    };
+                    let first = base.checked_add(range.start)?;
+                    let last = base.checked_add(range.end)?;
+                    if (first..=last).contains(&start) || first.wrapping_sub(start) < write.bytes {
+                        return None;
+                    }
+                }
+            }
             if write.bytes > 1
                 && let Some(carrier) = write.carrier
                 && [carrier, carrier.wrapping_add(1)]
@@ -570,7 +607,7 @@ impl MirKnownCalleeSummaries {
             && facts.buffers.iter().any(|buffer| buffer.write)
         {
             let callee = program.routines.iter().find(|r| r.id == *id)?;
-            super::reviewed_buffers::residence_writes(program, callee, facts, call, values, site)?
+            super::reviewed_buffers::residence_writes(callee, facts, call)?
         } else {
             summary.writes().clone()
         };
@@ -584,6 +621,8 @@ impl MirKnownCalleeSummaries {
             return Some(writes);
         };
         for write in std::mem::take(formals) {
+            let write = write.at_call(program, routine, call, self, values, site);
+            if write.bytes == 0 { continue; }
             let base = self.call_base(
                 TracePurpose::Preservation,
                 program,
@@ -594,7 +633,7 @@ impl MirKnownCalleeSummaries {
                 write,
             )?;
             *ordinary |= matches!(base, Base::Object);
-            record_base(base, write, numeric, formals)?;
+            record_base(program, base, write, numeric, formals)?;
         }
         Some(writes)
     }
@@ -716,6 +755,26 @@ fn store_base(
     site: MirSite,
     op: &MirOp,
 ) -> Option<(Base, FormalWrite)> {
+    if let MirOp::Store { dst: addr, width, .. } = op {
+        let indexed = match addr {
+            MirAddr::AbsoluteIndexedX { base } => Some((base, MirReg::X)),
+            MirAddr::AbsoluteIndexedY { base } => Some((base, MirReg::Y)),
+            _ => None,
+        };
+        if let Some((mem, index)) = indexed {
+            let index = values.register_at(site, index).ok()?.and_then(|v| match v {
+                MirMachineValue::ConstU8(n) => Some(u16::from(n)), _ => None,
+            });
+            let base = if let Some(a) = fixed_storage_address(program, mem) { Base::Numeric(a) }
+                else if super::super::bounded_pointers::Pointer::named(program, routine, mem).is_some() {
+                    // The final-layout observation also checks indexed wrap into page zero.
+                    Base::Object
+                } else { return None };
+            return Some((base, FormalWrite { argument: 0, offset: index.unwrap_or(0),
+                bytes: crate::mir6502::abi::action_arg_width_bytes(*width) + if index.is_none() { 255 } else { 0 },
+                carrier: None, count: None, reviewed_copy: None }));
+        }
+    }
     let (pair, mut offset, mut bytes, indexed) = destination(op)?;
     let lo = fixed_pair(routine, pair)?;
     let hi = lo.wrapping_add(1);
@@ -763,6 +822,7 @@ fn store_base(
             offset,
             bytes,
             carrier: Some(lo),
+            count: None, reviewed_copy: None,
         },
     ))
 }
@@ -786,7 +846,7 @@ pub(super) fn store(
     )?;
     let mut numeric = Vec::new();
     let mut formals = BTreeSet::new();
-    record_base(base, write, &mut numeric, &mut formals)?;
+    record_base(program, base, write, &mut numeric, &mut formals)?;
     let effects = classify_op(op);
     if effects.memory.opaque || !effects.logical.temp_defs.is_empty() {
         return None;

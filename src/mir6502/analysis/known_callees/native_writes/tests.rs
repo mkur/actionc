@@ -15,6 +15,22 @@ fn materialized(source: &str) -> MirProgram {
 }
 
 #[test]
+fn indexed_array_keeps_private_words_except_at_physical_destinations() {
+    let mut program = materialized("BYTE ARRAY table(32) BYTE i PROC Paint() table(i)=7 RETURN PROC Main() Paint() RETURN");
+    let owner = program.routines.iter().find(|r| r.name == "Paint").unwrap().id;
+    let global = program.globals.iter().position(|g| g.name == "table").unwrap();
+    for address in [None, Some(0xfff0)] {
+        if let Some(a) = address { program.globals[global].backing = crate::mir6502::ir::MirGlobalBacking::Absolute(a); }
+        let known = MirKnownCalleeSummaries::analyze_for_source_homes(&program, 0x3000);
+        let writes = known.get(owner).unwrap().writes();
+        for slot in [0xe4, 0xe5] {
+            assert_eq!(writes.preserves_private_fixed_byte(MirFixedZpSlot(slot), known.fixed_storage()), address.is_none(), "{writes:?}");
+        }
+        assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(0xe4), known.fixed_storage()));
+    }
+}
+
+#[test]
 fn pointer_writes_keep_general_memory_unknown_and_physical_stores_visible() {
     let mut p = materialized("BYTE v PROC Draw() v=1 RETURN PROC Main() Draw() RETURN");
     let pair = MirAddressConsumer::IndirectIndexedY(MirPointerPair::Fixed {

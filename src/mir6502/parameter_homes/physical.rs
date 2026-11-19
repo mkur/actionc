@@ -281,9 +281,22 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                     width,
                     ..
                 } = op
-                    && let Some(a) = numeric_base(p, base)
                 {
-                    out.push((a, if *width == MirWidth::Word { 257 } else { 256 }));
+                    let bytes = 255 + crate::mir6502::abi::action_arg_width_bytes(*width);
+                    if let Some(a) = numeric_base(p, base) {
+                        out.push((a, bytes));
+                    } else if matches!(base, MirMem::Static { .. } | MirMem::Global { .. })
+                        && let Some(layout) = memory {
+                        let a = layout.assembly_address(r.id, base).ok_or_else(|| UnresolvedObservation {
+                            routine: r.name.clone(), routine_id: r.id.0, block: b.label.clone(),
+                            machine_block: 0, stage: "indexed layout", operand: Some(format!("{base:?}")),
+                        })?;
+                        // An ordinary indexed access can reach physical ZP if its
+                        // relocated base is in page zero or indexing wraps at $FFFF.
+                        if a < 256 { out.push((a, bytes.min(256 - a))); }
+                        let end = u32::from(a) + u32::from(bytes);
+                        if end > 65536 { out.push((0, (end - 65536) as u16)); }
+                    }
                 }
                 if let MirOp::MachineBlock { id, .. } = op {
                     let unresolved = || UnresolvedObservation {

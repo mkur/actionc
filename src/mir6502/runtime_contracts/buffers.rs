@@ -92,7 +92,7 @@ pub(in crate::mir6502) fn argument_word(program: &MirProgram, call: &MirOp, offs
         | (u16::from(argument_byte_value(program, call, offset.checked_add(1)?, MirWidth::Word, values)?) << 8))
 }
 
-fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16, argument_width: MirWidth,
+pub(in crate::mir6502) fn argument_byte_value(program: &MirProgram, call: &MirOp, offset: u16, argument_width: MirWidth,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
 ) -> Option<u8> {
     let MirOp::Call { args, .. } = call else { return None; };

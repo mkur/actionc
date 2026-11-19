@@ -28,7 +28,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
             pending.extend(
                 buffers
                     .iter()
-                    .filter_map(FormalWrite::from_reviewed)
+                    .filter_map(|b| FormalWrite::from_reviewed(b, routine.id))
                     .map(|w| (routine.id, w)),
             );
         }
@@ -56,6 +56,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
                         offset: *offset,
                         bytes: crate::mir6502::abi::action_arg_width_bytes(*width),
                         carrier: None,
+                        count: None, reviewed_copy: None,
                     };
                     retained_base(program, routine, site, ptr, write).map(|base| (base, write))
                 } else if destination(op).is_some() {
@@ -101,6 +102,8 @@ pub(in crate::mir6502) fn native_numeric_observations(
             else {
                 continue;
             };
+            let write = write.at_call(program, routine, call, &known, values, site);
+            if write.bytes == 0 { continue; }
             if let Some(base) = known.call_base(
                 TracePurpose::NumericObservation,
                 program,

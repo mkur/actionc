@@ -177,12 +177,9 @@ fn project(
 /// A reviewed buffer has no unconditional exit footprint. Instantiate only
 /// its write direction here; a dynamic source remains a possible read.
 pub(super) fn residence_writes(
-    program: &MirProgram,
     callee: &MirRoutine,
     facts: &CallFacts<crate::nir::SymbolId>,
     call: &MirOp,
-    values: &MirMachineValueAvailability,
-    site: MirSite,
 ) -> Option<MirKnownMemoryWrites> {
     let MirOp::Call { args, .. } = call else {
         return None;
@@ -190,45 +187,12 @@ pub(super) fn residence_writes(
     crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
     crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
     let fixed = reviewed_bytes(facts.writes.as_deref())?;
-    let mut numeric = Vec::new();
-    let mut formals = BTreeSet::new();
-    for buffer in buffer_accesses(callee, facts)?.iter().filter(|b| b.write) {
-        if let Some(write) = FormalWrite::from_reviewed(buffer) {
-            // Substitute the address using the same rules as a native store.
-            formals.insert(write);
-            continue;
-        }
-        let (address, size) = project(buffer, program, call, Some((values, site)));
-        if size == 0 {
-            continue;
-        }
-        let address = address?;
-        // A write into a pointer or count carrier can redirect later loop
-        // iterations. Include read-only carriers (e.g. MovePage's $A3/$A4).
-        for range in facts.reads.as_ref()?.iter().chain(facts.writes.as_ref()?) {
-            let start = match range.global {
-                None => range.start,
-                Some(id) => fixed_storage_address(
-                    program,
-                    &MirMem::Global {
-                        id,
-                        offset: range.start,
-                    },
-                )?,
-            };
-            let end = start.checked_add(range.end.checked_sub(range.start)?)?;
-            if (start..=end).contains(&address) || start.wrapping_sub(address) < size {
-                return None;
-            }
-        }
-        numeric.push((address, size));
-    }
-    if numeric.is_empty() && formals.is_empty() {
-        return Some(MirKnownMemoryWrites::Exact(fixed));
-    }
+    let formals = buffer_accesses(callee, facts)?.iter().filter(|b| b.write)
+        .map(|buffer| FormalWrite::from_reviewed(buffer, callee.id)).collect::<Option<BTreeSet<_>>>()?;
+    if formals.is_empty() { return Some(MirKnownMemoryWrites::Exact(fixed)); }
     Some(MirKnownMemoryWrites::Pointee {
         fixed,
-        numeric,
+        numeric: Vec::new(),
         formals,
         ordinary: false,
         caller_dependent: false,
@@ -314,7 +278,10 @@ mod tests {
             "PROC FullPage() CopyBytes($7000,src,0) RETURN\n",
             "PROC Wrap() CopyBytes($FFFF,src,2) RETURN\n",
             "PROC HitsCarrier() CopyBytes($A3,src,1) RETURN\n",
-            "PROC Unknown() CopyBytes(src,src,4) RETURN\n"
+            "PROC Ordinary() CopyBytes(@dstBuf,src,4) RETURN\n",
+            "PROC Relay(CARD dst BYTE n) CopyBytes(dst,src,n) RETURN\n",
+            "PROC Near() Relay($E2,2) RETURN\n",
+            "PROC Carrier() Relay($A3,3) RETURN\n"
         );
         let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
         let model =
@@ -329,6 +296,7 @@ mod tests {
         let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
         for (name, start, size) in [
             ("Restore", 0x5a, 4),
+            ("Near", 0xe2, 2),
             ("FullPage", 0x7000, 256),
             ("Wrap", 0xffff, 2),
         ] {
@@ -342,7 +310,10 @@ mod tests {
                 assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(slot), known.fixed_storage()));
             }
         }
-        for name in ["CopyBytes", "HitsCarrier", "Unknown"] {
+        let ordinary = known.get(id("Ordinary")).unwrap().writes();
+        assert!(ordinary.preserves_private_fixed_byte(MirFixedZpSlot(0xef), known.fixed_storage()));
+        assert!(!ordinary.preserves_fixed_byte(MirFixedZpSlot(0xef), known.fixed_storage()));
+        for name in ["CopyBytes", "HitsCarrier", "Carrier"] {
             assert_eq!(
                 known.get(id(name)).unwrap().writes(),
                 &MirKnownMemoryWrites::Unknown,
