@@ -2042,7 +2042,7 @@ fn committed_word_store_forward_shape_at(
         }
         let op = ops.get(candidate)?;
         let effects = classify_op(op);
-        if effects.memory.has_unknown_effects_compat
+        if effects.memory.blocks_motion_compat()
             || effects.machine.flag_reads != MirFlagSet::default()
             || [staged_lo.clone(), staged_hi.clone()].iter().any(|mem| {
                 op_reads_mem_or_resolved_alias(op, mem, routine_id, layout)

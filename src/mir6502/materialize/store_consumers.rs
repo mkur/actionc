@@ -1026,7 +1026,7 @@ fn copied_word_store_is_safe(
     producers.iter().all(|op| {
         let effects = classify_op(op);
         if effects.machine.register_reads != MirRegisterSet::default()
-            || effects.memory.has_unknown_effects
+            || effects.memory.blocks_motion()
             || effects.memory.indirect_reads
         {
             return false;
@@ -4030,6 +4030,7 @@ fn word_operand_temp_producer_kind(op: &MirOp) -> (&'static str, &'static str) {
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => ("other", "binary-store-forward-word-temp-producer-other"),
     }

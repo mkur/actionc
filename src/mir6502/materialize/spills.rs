@@ -834,7 +834,7 @@ pub(super) fn can_remove_spill_reload_at(
         | Some(MirOp::AdvanceAddress { .. })
         | Some(MirOp::LoadIndirect { .. })
         | Some(MirOp::StoreIndirect { .. })
-        | Some(MirOp::Barrier { .. })
+        | Some(MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. })
         | Some(MirOp::MachineBlock { .. }) => false,
         None => !terminator_consumes_flags(terminator),
     }
@@ -970,6 +970,7 @@ fn update_accumulator_spill_value(a_value: &mut Option<AccumulatorSpillValue>, o
         | MirOp::SubByteFromWordMem { .. }
         | MirOp::OffsetPointerByIndirectByte { .. }
         | MirOp::OffsetPointerByIndirectBytePlusOne { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {
             *a_value = None;
@@ -1550,6 +1551,7 @@ fn live_range_preserves_fixed_pair(
                 MirOp::RuntimeHelper { .. }
                 | MirOp::SArgsCapture { .. }
                 | MirOp::MachineBlock { .. }
+                | MirOp::ReadVolatileByte { .. }
                 | MirOp::Barrier { .. } => return false,
                 _ if op_may_write_fixed_pair(op, fixed_lo) => return false,
                 _ => {}
@@ -1565,7 +1567,7 @@ fn op_may_write_fixed_pair(op: &MirOp, fixed_lo: MirFixedZpSlot) -> bool {
     if effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
+        || effects.memory.blocks_motion()
         || effects.homes.unknown_writes
     {
         return true;
@@ -1859,6 +1861,7 @@ fn pair_live_across_private_zp_barrier(
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             ) && homes.iter().any(|home| {
                 liveness.live_after(
@@ -2407,6 +2410,7 @@ fn remap_op_spills(op: &mut MirOp, remap: &BTreeMap<MirSpillId, MirSpillId>) {
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -2564,6 +2568,7 @@ pub(in crate::mir6502) fn remap_op_spills_to_zero_page(op: &mut MirOp, remap: &B
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -2725,6 +2730,7 @@ where
         | MirOp::CopyIndirectBytesToFixedZp { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -2876,6 +2882,7 @@ fn collect_op_spills(op: &MirOp, spills: &mut Vec<MirSpillId>) {
         MirOp::UpdateReg { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::SArgsCapture { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
         MirOp::IndirectByteCompound { .. }

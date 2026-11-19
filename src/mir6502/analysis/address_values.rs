@@ -232,7 +232,7 @@ pub(in crate::mir6502) fn local_pointer_store(
         }
         let e = classify_op(&block.ops[i]);
         if e.memory.may_write_any
-            || e.memory.has_unknown_effects
+            || e.memory.blocks_motion()
             || !e.memory.direct_writes.is_empty()
             || !matches!(e.memory.structured_writes, MirMemoryEffect::None)
             || matches!(
@@ -241,6 +241,7 @@ pub(in crate::mir6502) fn local_pointer_store(
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             )
         {

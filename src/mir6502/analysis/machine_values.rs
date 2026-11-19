@@ -522,7 +522,7 @@ fn operation_may_write_indexed_mem(
         || effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
+        || effects.memory.blocks_motion()
         || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
     if !writes_memory {
         return false;
@@ -530,7 +530,7 @@ fn operation_may_write_indexed_mem(
     if effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
+        || effects.memory.blocks_motion()
         || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None)
     {
         return true;
@@ -612,7 +612,7 @@ fn operation_may_write_mem(
         || effects.memory.indirect_writes
         || effects.memory.opaque
         || effects.memory.may_write_any
-        || effects.memory.has_unknown_effects
+        || effects.memory.blocks_motion()
         || !matches!(&effects.memory.structured_writes, MirMemoryEffect::None);
     if !writes_memory {
         return false;
@@ -630,7 +630,7 @@ fn operation_may_write_mem(
         _ if !effects.memory.indirect_writes
             && !effects.memory.opaque
             && !effects.memory.may_write_any
-            && !effects.memory.has_unknown_effects
+            && !effects.memory.blocks_motion()
             && matches!(&effects.memory.structured_writes, MirMemoryEffect::None) =>
         {
             effects
@@ -748,6 +748,7 @@ fn update_fixed_zero_page_values(
         | MirOp::IndirectWordCompound { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::SArgsCapture { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => state.fixed_zero_page.clear(),
         MirOp::Call { target, .. } => {

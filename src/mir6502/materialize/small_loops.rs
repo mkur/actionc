@@ -1052,6 +1052,7 @@ fn remap_op_temp(op: &mut MirOp, old: MirTempId, new: MirTempId) {
         | MirOp::SArgsCapture { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -1261,6 +1262,7 @@ fn unsupported_unrolled_effect(op: &MirOp) -> bool {
         MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::SArgsCapture { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. }
             | MirOp::CopyBytes { .. }

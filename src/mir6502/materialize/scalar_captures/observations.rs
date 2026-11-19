@@ -236,7 +236,7 @@ impl Proof<'_> {
                 if e.indirect_reads
                     || e.indirect_writes
                     || e.opaque
-                    || e.has_unknown_effects
+                    || e.blocks_motion()
                     || e.direct_reads
                         .iter()
                         .any(|a| !ordinary_range(self.program, r, &a.base, a.bytes))
@@ -343,6 +343,7 @@ fn ordinary_op(p: &MirProgram, r: &MirRoutine, op: &MirOp) -> bool {
             | MirOp::RuntimeHelper { .. }
             | MirOp::SArgsCapture { .. }
             | MirOp::MachineBlock { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. }
             | MirOp::CopyBytes {
                 source_volatile: true,
@@ -363,7 +364,7 @@ fn ordinary_memory(p: &MirProgram, r: &MirRoutine, op: &MirOp) -> bool {
     !e.indirect_reads
         && !e.indirect_writes
         && !e.opaque
-        && !e.has_unknown_effects
+        && !e.blocks_motion()
         && !e.may_write_any
         && e.structured_reads == MirMemoryEffect::None
         && e.structured_writes == MirMemoryEffect::None
@@ -437,7 +438,7 @@ fn audit_callee(
         if e.indirect_reads
             || e.indirect_writes
             || e.opaque
-            || e.has_unknown_effects
+            || e.blocks_motion()
             || e.direct_reads
                 .iter()
                 .any(|a| !ordinary_range(p, r, &a.base, a.bytes))

@@ -338,9 +338,10 @@ fn forward_loads(program: &mut MirProgram, config: &Mir6502Config) -> BTreeMap<R
                         | MirOp::RuntimeHelper { .. }
                         | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
+                        | MirOp::ReadVolatileByte { .. }
                         | MirOp::Barrier { .. }
                 ) || effect.memory.opaque
-                    || effect.memory.has_unknown_effects
+                    || effect.memory.blocks_motion()
                     || effect.memory.indirect_reads
                     || effect.memory.indirect_writes
                     || effect.memory.may_write_any

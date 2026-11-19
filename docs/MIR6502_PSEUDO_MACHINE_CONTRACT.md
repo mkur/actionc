@@ -1185,6 +1185,15 @@ There is no general register allocator in the first MIR implementation.
 Materialization may assign A/X/Y locally for concrete sequences. A broader
 allocator, if added later, should be a separate post-materialization pass.
 
+A fixed-address volatile scalar read lowers to one `a =.b volatile-load`
+per byte. The operand retains its absolute address or source-fixed global
+identity. Each execution issues one ordered bus read and defines A, N and Z.
+Word and 32-bit reads capture consecutive lanes from low to high. Optimization
+must preserve the count and order even when a captured lane is dead.
+Caller summaries use the operand's exact read footprint and the actual stores
+that materialization introduces to capture live values. An indexed or indirect
+volatile access and a volatile store retain their opaque ordering barriers.
+
 The pre-home demand analysis may forward a uniquely defined, uniquely used byte
 `Load` directly through A to an immediate store, compare, unary operation, or
 byte binary operation. The load stays at its original program point. At most

@@ -3846,6 +3846,7 @@ pub(in crate::mir6502) fn discover_param_address_consumers(
                         | MirOp::RuntimeHelper { .. }
                         | MirOp::SArgsCapture { .. }
                         | MirOp::MachineBlock { .. }
+                        | MirOp::ReadVolatileByte { .. }
                         | MirOp::Barrier { .. }
                 )
             }) {
@@ -3901,7 +3902,7 @@ pub(in crate::mir6502) fn discover_param_address_consumers(
                                 if effects.memory.indirect_writes
                                     || effects.memory.opaque
                                     || effects.memory.may_write_any
-                                    || effects.memory.has_unknown_effects
+                                    || effects.memory.blocks_motion()
                                     || !matches!(
                                         effects.memory.structured_writes,
                                         crate::mir6502::ir::MirMemoryEffect::None
@@ -4273,6 +4274,7 @@ pub(in crate::mir6502) fn stored_call_result_alias_candidate(
                 MirOp::Call { .. }
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
                     | MirOp::MachineBlock { .. }
             )

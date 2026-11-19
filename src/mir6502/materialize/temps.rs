@@ -319,6 +319,7 @@ fn op_is_sinkable_temp_producer(op: &MirOp) -> bool {
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => false,
     }
@@ -475,7 +476,7 @@ fn op_blocks_temp_producer_sink(producer: &MirOp, op: &MirOp) -> bool {
         ..
     } = producer
     {
-        if matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. }) {
+        if matches!(op, MirOp::MachineBlock { .. } | MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. }) {
             return true;
         }
         return op_may_write_mem(op, source);
@@ -570,6 +571,7 @@ pub(in crate::mir6502) fn replace_op_temp_values(
         | MirOp::PackedRealCompare { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -1099,6 +1101,7 @@ fn invalidate_staged_address_for_op(
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::SArgsCapture { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => true,
     };

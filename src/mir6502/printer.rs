@@ -385,6 +385,7 @@ fn op_summary(op: &MirOp) -> String {
         MirOp::LoadImm { dst, value, width } => {
             format!("{} ={} #{value}", def_summary(dst), width_suffix(*width))
         }
+        MirOp::ReadVolatileByte { source } => format!("a =.b volatile-load {}", mem_summary(source)),
         MirOp::Load { dst, src, width } => {
             format!(
                 "{} ={} load {}",

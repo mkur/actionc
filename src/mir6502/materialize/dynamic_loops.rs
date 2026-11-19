@@ -354,6 +354,7 @@ fn loop_has_unsupported_effects(routine: &MirRoutine, counted: &MirDynamicWordCo
                     MirOp::Call { .. }
                         | MirOp::RuntimeHelper { .. }
                         | MirOp::SArgsCapture { .. }
+                        | MirOp::ReadVolatileByte { .. }
                         | MirOp::Barrier { .. }
                         | MirOp::MachineBlock { .. }
                         | MirOp::StoreIndirect { .. }

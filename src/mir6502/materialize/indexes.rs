@@ -2058,7 +2058,7 @@ fn mem_is_stable_until(ops: &[MirOp], start: usize, end: usize, mem: &MirMem) ->
     ops[start..end].iter().all(|op| {
         !matches!(
             op,
-            MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. }
+            MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. }
         ) && !op_may_write_mem(op, mem)
     })
 }
@@ -2717,6 +2717,7 @@ fn materialized_pointer_has_word_store_consumers(
             MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::SArgsCapture { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. }
             | MirOp::MachineBlock { .. } => return false,
             _ => {}
@@ -2842,7 +2843,7 @@ fn mem_is_stable_except(
         ignored_indices.contains(&index)
             || (!matches!(
                 op,
-                MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. }
+                MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. }
             ) && !op_may_write_mem(op, mem))
     })
 }

@@ -92,7 +92,7 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
             return Err(reject(Reason::Effects));
         }
         let supported = matches!(op,
-            MirOp::LoadImm { .. } | MirOp::Move { .. } | MirOp::Extend { .. }
+            MirOp::ReadVolatileByte { .. } | MirOp::LoadImm { .. } | MirOp::Move { .. } | MirOp::Extend { .. }
                 | MirOp::Truncate { .. } | MirOp::Compare { .. } | MirOp::UpdateMem { .. }
                 | MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And
                     | MirBinaryOp::Or | MirBinaryOp::Xor, .. })

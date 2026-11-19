@@ -90,6 +90,7 @@ impl MirFlagSet {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::mir6502) enum MirOpKind {
     LoadImm,
+    ReadVolatileByte,
     Load,
     Store,
     CopyBytes,
@@ -176,6 +177,8 @@ pub(in crate::mir6502) struct MirMemoryEffects {
     /// Aggregate uncertainty for ordering/both-direction barriers. A directional
     /// footprint must consult its own read/write fields instead.
     pub has_unknown_effects: bool,
+    /// A bus observation that must stay ordered even when its footprint is exact.
+    pub ordered_read: bool,
     /// Compatibility view for the existing materialization helpers. Calls did
     /// not historically treat `opaque` alone as a memory effect, while
     /// barriers and machine blocks did.
@@ -190,6 +193,14 @@ pub(in crate::mir6502) struct MirMemoryRange {
 }
 
 impl MirMemoryEffects {
+    pub(in crate::mir6502) fn blocks_motion(&self) -> bool {
+        self.ordered_read || self.has_unknown_effects
+    }
+
+    pub(in crate::mir6502) fn blocks_motion_compat(&self) -> bool {
+        self.ordered_read || self.has_unknown_effects_compat
+    }
+
     pub(in crate::mir6502) fn reads(&self, mem: &MirMem) -> bool {
         self.reads.iter().any(|read| read == mem)
     }
@@ -354,6 +365,7 @@ pub(in crate::mir6502) struct MirTerminatorEffectSummary {
 
 pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
     let mut summary = MirOpEffectSummary::new(match op {
+        MirOp::ReadVolatileByte { .. } => MirOpKind::ReadVolatileByte,
         MirOp::LoadImm { .. } => MirOpKind::LoadImm,
         MirOp::Load { .. } => MirOpKind::Load,
         MirOp::Store { .. } => MirOpKind::Store,
@@ -404,6 +416,14 @@ pub(in crate::mir6502) fn classify_op(op: &MirOp) -> MirOpEffectSummary {
                 possible_register_result(dst, &mut summary);
             }
             summary.removable_when_results_dead = true;
+        }
+        MirOp::ReadVolatileByte { source } => {
+            // Motion and value reuse stop here. Directional callee summaries
+            // consume the exact read and write sets independently.
+            summary.memory.ordered_read = true;
+            record_memory_range_read(source, MirWidth::Byte, &mut summary);
+            record_def(&MirDef::Reg(MirReg::A), MirWidth::Byte, &mut summary);
+            write_zn(&mut summary.machine.flag_writes);
         }
         MirOp::Load { dst, src, width } => {
             record_load_addr(src, *width, &mut summary);
@@ -2153,6 +2173,10 @@ mod tests {
                 },
             ),
             (
+                MirOpKind::ReadVolatileByte,
+                MirOp::ReadVolatileByte { source: MirMem::Absolute(0xd20f) },
+            ),
+            (
                 MirOpKind::Load,
                 MirOp::Load {
                     dst: temp(1),
@@ -2425,7 +2449,7 @@ mod tests {
             ),
         ];
 
-        assert_eq!(operations.len(), 32);
+        assert_eq!(operations.len(), 33);
         for (expected, operation) in operations {
             assert_eq!(classify_op(&operation).kind, expected, "{operation:?}");
         }
@@ -2786,6 +2810,21 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn fixed_volatile_read_has_exact_bus_and_machine_effects_even_if_dead() {
+        let source = MirMem::Absolute(0xd20f);
+        let effects = classify_op(&MirOp::ReadVolatileByte { source: source.clone() });
+        assert_eq!(effects.memory.direct_reads, [MirMemoryRange { base: source, bytes: 1 }]);
+        assert!(effects.memory.direct_writes.is_empty());
+        assert!(!effects.memory.may_write_any);
+        assert!(!effects.memory.opaque);
+        assert!(!effects.memory.has_unknown_effects);
+        assert!(effects.memory.blocks_motion());
+        assert!(!effects.removable_when_results_dead);
+        assert_eq!(effects.machine.register_writes, MirRegisterSet { a: true, ..Default::default() });
+        assert_eq!(effects.machine.flag_writes, MirFlagSet { n: true, z: true, ..Default::default() });
     }
 
     #[test]

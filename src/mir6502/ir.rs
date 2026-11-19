@@ -715,6 +715,8 @@ pub enum MirOp {
         value: u16,
         width: MirWidth,
     },
+    /// Ordered byte read into A. Each execution must issue one bus read.
+    ReadVolatileByte { source: MirMem },
     Load {
         dst: MirDef,
         src: MirAddr,

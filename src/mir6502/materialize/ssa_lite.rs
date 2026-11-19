@@ -239,7 +239,7 @@ impl SsaLiteValueEnv {
             if effects.memory.indirect_writes
                 || effects.memory.may_write_any
                 || effects.memory.opaque
-                || effects.memory.has_unknown_effects
+                || effects.memory.blocks_motion()
                 || !matches!(
                     effects.memory.structured_writes,
                     crate::mir6502::ir::MirMemoryEffect::None
@@ -384,7 +384,7 @@ impl SsaLiteValueEnv {
             MirOp::Call { .. } => {
                 self.kill_all();
             }
-            MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
+            MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } | MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
                 self.kill_all();
             }
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
@@ -672,7 +672,7 @@ impl SsaLiteV2ObserveEnv {
             MirOp::Call { .. } | MirOp::RuntimeHelper { .. } | MirOp::SArgsCapture { .. } => {
                 self.kill_all(SsaLiteV2KillReason::Call);
             }
-            MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
+            MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. } | MirOp::MachineBlock { .. } => {
                 self.kill_all(SsaLiteV2KillReason::Barrier);
             }
             MirOp::StoreIndirect { .. } | MirOp::IndirectByteCompound { .. } => {
@@ -1423,6 +1423,7 @@ fn op_values(op: &MirOp) -> Vec<&MirValue> {
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => Vec::new(),
     }
@@ -2100,6 +2101,7 @@ impl LiveTempByteLanes {
             | MirOp::AbsoluteWordSubToIndirect { .. }
             | MirOp::IndirectByteCompound { .. }
             | MirOp::IndirectWordCompound { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
@@ -3686,6 +3688,7 @@ fn ssa_lite_redundant_reload_decision_after(
             MirOp::Call { .. }
                 | MirOp::RuntimeHelper { .. }
                 | MirOp::SArgsCapture { .. }
+                | MirOp::ReadVolatileByte { .. }
                 | MirOp::Barrier { .. }
                 | MirOp::MachineBlock { .. }
         ) {

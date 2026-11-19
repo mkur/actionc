@@ -431,6 +431,7 @@ impl State {
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             )
         {

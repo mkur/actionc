@@ -642,6 +642,12 @@ fn validate_posthome_plan(
     }
 
     let original = &block.ops[plan.range.clone()];
+    if !preserves_volatile_reads(original, &plan.replacement) {
+        return Err(MirRewriteError::InvalidDeclaration {
+            stat: plan.stat,
+            message: "post-home rewrite crosses a volatile read".into(),
+        });
+    }
     let point=MirSite::Op {block:plan.block,op_index:plan.range.start};
     let pointer_shape=crate::mir6502::analysis::pointer_load_sharing::replacement(original).as_deref()==Some(plan.replacement.as_slice());
     let word_shape=crate::mir6502::analysis::word_load_sharing::replacement(original).as_deref()==Some(plan.replacement.as_slice());
@@ -850,9 +856,28 @@ fn effect_delta_is_valid(original: &[MirOp], replacement: &[MirOp], delta: MirEf
     effect_delta_is_valid_with_widths(original, replacement, delta, &BTreeMap::new(), None)
 }
 
+/// Effect projections aggregate ordinary reads and writes. An ordered bus
+/// access may appear in unchanged context, but the rewrite must stay on one
+/// side of it.
+fn preserves_volatile_reads(original: &[MirOp], replacement: &[MirOp]) -> bool {
+    let ordered = |op: &MirOp| matches!(op, MirOp::ReadVolatileByte { .. });
+    if !original.iter().chain(replacement).any(ordered) {
+        return true;
+    }
+    let prefix = original.iter().zip(replacement).take_while(|(a, b)| a == b).count();
+    let (original, replacement) = (&original[prefix..], &replacement[prefix..]);
+    let suffix = original.iter().rev().zip(replacement.iter().rev()).take_while(|(a, b)| a == b).count();
+    !original[..original.len() - suffix].iter()
+        .chain(&replacement[..replacement.len() - suffix])
+        .any(ordered)
+}
+
 fn effect_delta_is_valid_with_widths(original: &[MirOp], replacement: &[MirOp], delta: MirEffectDelta,
     widths: &BTreeMap<crate::mir6502::ir::MirTempId, MirWidth>,
     frame: Option<&crate::mir6502::ir::MirFrame>) -> bool {
+    if !preserves_volatile_reads(original, replacement) {
+        return false;
+    }
     let original_ops = original;
     let replacement_ops = replacement;
     if matches!(delta, MirEffectDelta::DeferredPredicateArguments) {
@@ -2474,6 +2499,25 @@ mod tests {
             MirPreHomeRewriteDriver::default().apply_batch(&mut routine(load(1)), vec![removal]),
             Err(MirRewriteError::InvalidDeclaration { .. })
         ));
+    }
+
+    #[test]
+    fn effect_deltas_preserve_volatile_read_count_kind_and_order() {
+        let source = MirMem::Absolute(0xd20f);
+        let read = MirOp::ReadVolatileByte { source: source.clone() };
+        let load = MirOp::Load {
+            dst: MirDef::Reg(MirReg::A), src: MirAddr::Direct(source), width: MirWidth::Byte,
+        };
+        let store = MirOp::Store {
+            dst: MirAddr::Direct(MirMem::Absolute(0xd200)), src: MirValue::ConstU8(0), width: MirWidth::Byte,
+        };
+        let one_read = std::slice::from_ref(&read);
+        let delta = MirEffectDelta::Unchanged;
+        assert!(!effect_delta_is_valid(one_read, &[], delta));
+        assert!(!effect_delta_is_valid(one_read, &[read.clone(), read.clone()], delta));
+        assert!(!effect_delta_is_valid(one_read, &[load], delta));
+        assert!(!effect_delta_is_valid(&[read.clone(), store.clone()], &[store, read.clone()], delta));
+        assert!(effect_delta_is_valid(one_read, one_read, delta));
     }
 
     #[test]

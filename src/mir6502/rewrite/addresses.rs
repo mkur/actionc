@@ -73,7 +73,7 @@ pub(in crate::mir6502) fn discover_address_displacements(
                 if block.ops[index + 1..end].iter().any(|op| {
                     let effects = classify_op(op);
                     effects.memory.may_write_any
-                        || effects.memory.has_unknown_effects
+                        || effects.memory.blocks_motion()
                         || !effects.memory.direct_writes.is_empty()
                         || !matches!(effects.memory.structured_writes, MirMemoryEffect::None)
                         || effects.machine.register_reads.a
@@ -85,6 +85,7 @@ pub(in crate::mir6502) fn discover_address_displacements(
                             MirOp::Call { .. }
                                 | MirOp::RuntimeHelper { .. }
                                 | MirOp::SArgsCapture { .. }
+                                | MirOp::ReadVolatileByte { .. }
                                 | MirOp::Barrier { .. }
                                 | MirOp::MachineBlock { .. }
                         )
@@ -268,7 +269,7 @@ pub(in crate::mir6502) fn discover_record_element_consumers(
             if block.ops[multiply + 1..end].iter().any(|op| {
                 let e = classify_op(op);
                 e.memory.may_write_any
-                    || e.memory.has_unknown_effects
+                    || e.memory.blocks_motion()
                     || !e.memory.direct_writes.is_empty()
                     || !matches!(e.memory.structured_writes, MirMemoryEffect::None)
                     || e.machine.register_reads.a
@@ -280,6 +281,7 @@ pub(in crate::mir6502) fn discover_record_element_consumers(
                         MirOp::Call { .. }
                             | MirOp::RuntimeHelper { .. }
                             | MirOp::SArgsCapture { .. }
+                            | MirOp::ReadVolatileByte { .. }
                             | MirOp::Barrier { .. }
                             | MirOp::MachineBlock { .. }
                     )

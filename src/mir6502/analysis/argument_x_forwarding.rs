@@ -73,6 +73,7 @@ pub(in crate::mir6502) fn shape(r: &MirRoutine, site: MirSite) -> Result<Shape, 
                 | MirOp::RuntimeHelper { .. }
                 | MirOp::SArgsCapture { .. }
                 | MirOp::MachineBlock { .. }
+                | MirOp::ReadVolatileByte { .. }
                 | MirOp::Barrier { .. }
         ) {
             return Err(Blocker::Shape);

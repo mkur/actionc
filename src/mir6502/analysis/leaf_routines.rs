@@ -591,7 +591,7 @@ pub(in crate::mir6502) fn caller_supported(routine: &MirRoutine) -> bool {
                 }
             )
             && block.ops.iter().all(|op| {
-                !matches!(op, MirOp::MachineBlock { .. } | MirOp::Barrier { .. })
+                !matches!(op, MirOp::MachineBlock { .. } | MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. })
                     && classify_op(op).machine.register_reads == MirRegisterSet::default()
                     && (!classify_op(op).machine.flag_reads.any()
                         || matches!(

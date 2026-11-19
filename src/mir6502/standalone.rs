@@ -424,7 +424,8 @@ fn visit_op_storage(
         | MirOp::MaterializeAddress { value: src, .. }
         | MirOp::AdvanceAddress { index: src, .. }
         | MirOp::StoreIndirect { src, .. } => visit_value_storage(src, globals, statics),
-        MirOp::LeaAddr { target, .. }
+        MirOp::ReadVolatileByte { source: target }
+        | MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
         | MirOp::UpdateIndexedMem { base: target, .. } => {
             record_mem_storage(target, globals, statics)
@@ -684,7 +685,8 @@ fn rebase_op(
         | MirOp::MaterializeAddress { value: src, .. }
         | MirOp::AdvanceAddress { index: src, .. }
         | MirOp::StoreIndirect { src, .. } => rebase_value(src, routines, globals, statics)?,
-        MirOp::LeaAddr { target, .. }
+        MirOp::ReadVolatileByte { source: target }
+        | MirOp::LeaAddr { target, .. }
         | MirOp::UpdateMem { mem: target, .. }
         | MirOp::UpdateIndexedMem { base: target, .. } => rebase_mem(target, globals, statics)?,
         MirOp::BinaryDirectIndexedByte {
@@ -1687,6 +1689,7 @@ pub(in crate::mir6502) fn visit_op_routines(op: &MirOp, routines: &mut BTreeSet<
             visit_value_routines(index, routines);
         }
         MirOp::LoadImm { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::LeaAddr { .. }
         | MirOp::UpdateMem { .. }
         | MirOp::UpdateReg { .. }

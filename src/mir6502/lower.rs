@@ -21,6 +21,7 @@ use super::classify::{
     MirAddressShape, MirPlaceShape, MirValueShape, classify_address, classify_place, classify_value,
 };
 use super::diagnostics::MirDiagnostic;
+use super::analysis::known_callees::MirFixedStorage;
 use super::ir::{
     MirAddr, MirAtariFppService, MirBinaryOp, MirBlock, MirBlockId, MirBlockParam,
     MirCarryOut, MirCompareOp, MirCond, MirCondDest, MirDataBacking, MirDataImage,
@@ -554,6 +555,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         .iter()
         .filter_map(|binding| binding.target.map(|target| (binding.symbol, target)))
         .collect::<BTreeMap<_, _>>();
+    let mut program = lower_program_declarations(nir_program);
+    let fixed = MirFixedStorage::new(&program);
     let mut machine_blocks = Vec::new();
     let routines = nir_program
         .routines
@@ -614,6 +617,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                         &block.label,
                         &block.ops,
                         &wide_values,
+                        &fixed,
                         &routine_ids,
                         &routine_system_addresses_by_id,
                         &runtime_targets,
@@ -895,8 +899,14 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
         return Err(diagnostics);
     }
 
+    program.routines = routines;
+    program.machine_blocks = machine_blocks;
+    Ok(program)
+}
+
+fn lower_program_declarations(nir_program: &nir::NirProgram) -> MirProgram {
     let runtime_helpers = runtime_helper_decls_from_bindings(nir_program);
-    let program = MirProgram {
+    MirProgram {
         statics: nir_program
             .statics
             .iter()
@@ -951,11 +961,10 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                 })
                 .collect()
         },
-        routines,
-        machine_blocks,
+        routines: Vec::new(),
+        machine_blocks: Vec::new(),
         runtime_helpers,
-    };
-    Ok(program)
+    }
 }
 
 fn program_uses_unsupported_integer_widths(program: &NirProgram) -> bool {
@@ -1434,6 +1443,7 @@ fn fixed_zero_page_slots(blocks: &[MirBlock]) -> Vec<MirFixedZpSlot> {
 
 fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
     match op {
+        MirOp::ReadVolatileByte { source } => collect_mem_fixed_zero_page(source, slots),
         MirOp::Load {
             src: MirAddr::Direct(mem),
             ..
@@ -1520,6 +1530,7 @@ fn lower_ops(
     block: &str,
     ops: &[NirOpKind],
     wide_values: &wide::WideValues,
+    fixed: &MirFixedStorage,
     routine_ids: &BTreeMap<&str, RoutineId>,
     routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     runtime_targets: &BTreeMap<crate::nir::RuntimeSymbolId, crate::nir::NirRuntimeTarget>,
@@ -1541,7 +1552,7 @@ fn lower_ops(
     let mut addr_defs = BTreeMap::<TempId, MirAddrDef>::new();
     for op in ops {
         if (wide::Builder { values: wide_values, routine, block, next: next_generated_temp,
-            temps: generated_temps, ops: &mut lowered, diagnostics }).lower_op(op, &addr_defs) {
+            temps: generated_temps, ops: &mut lowered, diagnostics }).lower_op(op, &addr_defs, fixed) {
             continue;
         }
         match op {
@@ -1560,6 +1571,11 @@ fn lower_ops(
                 else {
                     continue;
                 };
+                if is_volatile && lower_fixed_volatile_read(
+                    &src, width, [MirTempId(dest.0)], fixed, &mut lowered,
+                ) {
+                    continue;
+                }
                 if is_volatile {
                     lowered.push(volatile_memory_barrier());
                 }
@@ -3386,6 +3402,38 @@ fn constant_integer_real_bytes(value: &NirValueKind, ty: &NirType) -> Option<[u8
     crate::atari_real::AtariReal::from_decimal(&decimal)
         .ok()
         .map(|value| value.to_bytes())
+}
+
+/// Read low lanes first, capturing A before the next bus access. A 32-bit
+/// value uses two word temps but still has one contiguous source footprint.
+fn lower_fixed_volatile_read(
+    src: &MirAddr,
+    width: MirWidth,
+    temps: impl IntoIterator<Item = MirTempId>,
+    fixed: &MirFixedStorage,
+    ops: &mut Vec<MirOp>,
+) -> bool {
+    let MirAddr::Direct(mem) = src else { return false };
+    let Some(address) = fixed.address(mem) else { return false };
+    let mut offset = 0;
+    for temp in temps {
+        for byte in 0..mir_width_bytes(width) {
+            let source = match mem {
+                MirMem::Global { .. } if address.checked_add(offset).is_some() => offset_mem(mem, offset),
+                _ => MirMem::Absolute(address.wrapping_add(offset)),
+            };
+            ops.push(MirOp::ReadVolatileByte { source });
+            let dst = match width {
+                MirWidth::Byte => MirDef::VTemp(temp),
+                MirWidth::Word => MirDef::VTempByte { id: temp, byte: byte as u8 },
+            };
+            ops.push(MirOp::Move {
+                dst, src: MirValue::Def(MirDef::Reg(super::ir::MirReg::A)), width: MirWidth::Byte,
+            });
+            offset += 1;
+        }
+    }
+    true
 }
 
 fn volatile_memory_barrier() -> MirOp {

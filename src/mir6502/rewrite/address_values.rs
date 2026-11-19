@@ -324,7 +324,7 @@ fn safe_to_move_address(
                 op_index: i,
             },
         ) && !e.memory.may_write_any
-            && !e.memory.has_unknown_effects
+            && !e.memory.blocks_motion()
             && e.memory.direct_writes.is_empty()
             && matches!(e.memory.structured_writes, MirMemoryEffect::None)
             && !e.machine.register_reads.a
@@ -337,6 +337,7 @@ fn safe_to_move_address(
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             )
     })

@@ -176,3 +176,39 @@ PROC Main() RETURN"));
         }
     }
 }
+
+#[test]
+fn caller_keeps_a_word_in_zp_while_a_native_leaf_polls_a_volatile_byte() {
+    struct Keyboard { entry: u16, polls: usize }
+    impl VmRunHooks for Keyboard {
+        type Error = String;
+        fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+            if vm.cpu().registers().pc == self.entry {
+                let value = [0xff, 0x04, 0x80].get(self.polls).ok_or("unexpected extra poll")?;
+                vm.bus_mut().write(0xd20f, *value);
+                self.polls += 1;
+            }
+            Ok(())
+        }
+    }
+
+    let n = nir("PROC Poll=*() VOLATILE BYTE status=$D20F WHILE status&4 DO OD RETURN
+CARD FUNC Hold(CARD keep) Poll() RETURN(keep+1)
+PROC Main() Hold(0) RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config(), runtime).unwrap();
+        assert_zp(&output, "Hold", "keep");
+        let entry = |name| output.routine_addresses.iter().find(|r| r.name == name).unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        vm.bus_mut().add_watchpoint(0xd20f);
+        vm.bus_mut().clear_events();
+        let mut keyboard = Keyboard { entry: entry("Poll"), polls: 0 };
+        vm = machine::call(vm, &mut keyboard, entry("Hold"), &0x12ffu16.to_le_bytes());
+        let reads = vm.bus().events().iter()
+            .filter(|e| e.address == 0xd20f && e.access == actionc_vm::BusAccess::Read)
+            .map(|e| e.value).collect::<Vec<_>>();
+        assert_eq!(reads, [0xff, 0x04, 0x80]);
+        assert_eq!(machine::bytes(&vm, 0xa0, 2), 0x1300u16.to_le_bytes());
+    }
+}

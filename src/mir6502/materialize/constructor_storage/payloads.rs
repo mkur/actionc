@@ -165,7 +165,7 @@ fn inert(p: &MirProgram, r: &MirRoutine, op: &MirOp) -> bool {
                 && !e.indirect_reads
                 && !e.indirect_writes
                 && !e.opaque
-                && !e.has_unknown_effects
+                && !e.blocks_motion()
                 && e.structured_reads == MirMemoryEffect::None
                 && e.structured_writes == MirMemoryEffect::None
         }

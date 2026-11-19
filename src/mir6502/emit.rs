@@ -3603,6 +3603,14 @@ fn emit_op(
                 }
             }
         }
+        MirOp::ReadVolatileByte { source } => match ctx.layout.direct_mem(routine, source) {
+            Some(mem) => {
+                emitter.compiler_barrier();
+                emit_lda_mem(mem, emitter);
+                emitter.compiler_barrier();
+            }
+            None => unsupported(ctx, routine, block, "volatile read source is not emit-ready"),
+        },
         MirOp::Barrier { .. } => emitter.compiler_barrier(),
         MirOp::MachineBlock { id, .. } => {
             let Some(machine_block) = ctx.mir.machine_blocks.iter().find(|item| item.id == *id)

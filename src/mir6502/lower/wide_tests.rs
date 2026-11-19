@@ -30,18 +30,12 @@ fn aligned_wide_shifts_use_byte_computation_and_keep_captured_loads() {
                     .flat_map(|r| &r.blocks)
                     .flat_map(|b| &b.ops)
                     .collect();
-                assert_eq!(
-                    ops.iter()
-                        .filter(|op| matches!(
-                            op,
-                            MirOp::Load {
-                                width: MirWidth::Word,
-                                ..
-                            }
-                        ))
-                        .count(),
-                    2
-                );
+                let offsets: Vec<_> = ops.iter().filter_map(|op| match op {
+                    MirOp::ReadVolatileByte { source: MirMem::Global { id, offset } }
+                        if *id == mir.globals[0].id => Some(*offset),
+                    _ => None,
+                }).collect();
+                assert_eq!(offsets, [0, 1, 2, 3]);
                 assert!(!ops.iter().any(|op| matches!(
                     op,
                     MirOp::Binary {

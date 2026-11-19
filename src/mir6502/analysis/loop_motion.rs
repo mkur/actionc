@@ -202,9 +202,10 @@ fn safe_loop(r: &MirRoutine, f: &MirNaturalLoop) -> bool {
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             ) && !e.memory.indirect_writes
-                && !e.memory.has_unknown_effects
+                && !e.memory.blocks_motion()
                 && !e.memory.may_write_any
                 && e.memory.direct_writes.iter().all(|w| {
                     matches!(

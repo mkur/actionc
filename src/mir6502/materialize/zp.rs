@@ -101,6 +101,7 @@ fn routine_uses_deref(routine: &MirRoutine) -> bool {
             | MirOp::Call { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::SArgsCapture { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. }
             | MirOp::LeaAddr { .. }
             | MirOp::UpdateMem { .. }
@@ -168,7 +169,7 @@ pub(super) fn reserve_used_fixed_zero_page_slots(routine: &mut MirRoutine) {
 
 fn collect_op_fixed_zero_page(op: &MirOp, slots: &mut Vec<MirFixedZpSlot>) {
     match op {
-        MirOp::Load {
+        MirOp::ReadVolatileByte { source: mem } | MirOp::Load {
             src: MirAddr::Direct(mem),
             ..
         } => collect_mem_fixed_zero_page(mem, slots),
@@ -534,6 +535,7 @@ fn resolve_op_consumers(
         | MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::SArgsCapture { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }

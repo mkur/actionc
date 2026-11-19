@@ -752,6 +752,7 @@ fn op_kind(op: &MirOp) -> &'static str {
         MirOp::SubByteFromWordMem { .. } => "sub-byte-from-word",
         MirOp::OffsetPointerByIndirectByte { .. } => "offset-pointer-by-indirect-byte",
         MirOp::OffsetPointerByIndirectBytePlusOne { .. } => "offset-pointer-by-indirect-byte-plus-one",
+        MirOp::ReadVolatileByte { .. } => "volatile-load",
         MirOp::Barrier { .. } => "barrier",
         MirOp::MachineBlock { .. } => "machine-block",
     }
@@ -1629,6 +1630,7 @@ fn record_op_uses(
         | MirOp::AbsoluteWordSubToIndirect { .. }
         | MirOp::IndirectByteCompound { .. }
         | MirOp::IndirectWordCompound { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => {}
     }
@@ -1893,7 +1895,7 @@ fn live_across_barriers(
             if matches!(op, MirOp::MachineBlock { .. }) {
                 machine_live.extend(live.intersection(&live_after).copied());
             }
-            if matches!(op, MirOp::Barrier { .. }) {
+            if matches!(op, MirOp::ReadVolatileByte { .. } | MirOp::Barrier { .. }) {
                 barrier_live.extend(live.intersection(&live_after).copied());
             }
         }

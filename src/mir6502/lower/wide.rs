@@ -45,11 +45,12 @@ impl WideValues {
         Self { high }
     }
 
+    fn word_ids(&self, id: TempId) -> [MirTempId; 2] {
+        [MirTempId(id.0), self.high[&id]]
+    }
+
     pub(super) fn defs(&self, id: TempId) -> [MirDef; 2] {
-        [
-            MirDef::VTemp(MirTempId(id.0)),
-            MirDef::VTemp(self.high[&id]),
-        ]
+        self.word_ids(id).map(MirDef::VTemp)
     }
 
     pub(super) fn block_params(&self, param: &nir::NirBlockParam) -> Option<[MirBlockParam; 2]> {
@@ -532,6 +533,7 @@ impl Builder<'_> {
         &mut self,
         op: &NirOpKind,
         addr_defs: &BTreeMap<TempId, MirAddrDef>,
+        fixed: &MirFixedStorage,
     ) -> bool {
         match op {
             NirOpKind::Load { dest, ty, place } | NirOpKind::VolatileLoad { dest, ty, place }
@@ -539,6 +541,11 @@ impl Builder<'_> {
             {
                 if let Some(src) = self.address(place, addr_defs) {
                     let volatile = matches!(op, NirOpKind::VolatileLoad { .. });
+                    if volatile && lower_fixed_volatile_read(
+                        &src, MirWidth::Word, self.values.word_ids(*dest), fixed, self.ops,
+                    ) {
+                        return true;
+                    }
                     if volatile {
                         self.ops.push(volatile_memory_barrier());
                     }

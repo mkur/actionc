@@ -594,6 +594,7 @@ fn op_references_param_storage(op: &MirOp) -> bool {
 
         MirOp::LoadImm { .. }
         | MirOp::UpdateReg { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => false,
         MirOp::Load { src, .. } => addr_references_param_storage(src),

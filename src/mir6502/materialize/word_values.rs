@@ -287,6 +287,7 @@ fn op_blocks_deferred_direct_read(op: &MirOp) -> bool {
         MirOp::Call { .. }
         | MirOp::RuntimeHelper { .. }
         | MirOp::SArgsCapture { .. }
+        | MirOp::ReadVolatileByte { .. }
         | MirOp::Barrier { .. }
         | MirOp::MachineBlock { .. } => true,
         MirOp::Load { .. }

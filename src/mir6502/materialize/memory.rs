@@ -74,7 +74,7 @@ pub(super) fn op_definitely_writes_mem(op: &MirOp, mem: &MirMem) -> bool {
 }
 
 pub(super) fn op_may_have_unknown_memory_effects(op: &MirOp) -> bool {
-    classify_op(op).memory.has_unknown_effects_compat
+    classify_op(op).memory.blocks_motion_compat()
 }
 
 pub(in crate::mir6502) fn op_may_write_mem(op: &MirOp, mem: &MirMem) -> bool {

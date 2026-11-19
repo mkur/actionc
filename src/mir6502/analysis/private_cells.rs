@@ -66,6 +66,7 @@ pub(in crate::mir6502) fn reads_confined(
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. }
             ) || effect.memory.indirect_writes
             {
@@ -302,7 +303,7 @@ pub(in crate::mir6502) fn scalar_home_unobserved(
             for op in b.ops.iter().skip(first) {
                 let e = classify_op(op).memory;
                 if e.opaque
-                    || e.has_unknown_effects
+                    || e.blocks_motion()
                     || e.indirect_reads
                     || e.indirect_writes
                     || e.structured_reads != MirMemoryEffect::None
@@ -399,11 +400,12 @@ pub(in crate::mir6502) fn has_only_named_reads(program: &MirProgram) -> bool {
                     | MirOp::RuntimeHelper { .. }
                     | MirOp::SArgsCapture { .. }
                     | MirOp::MachineBlock { .. }
+                    | MirOp::ReadVolatileByte { .. }
                     | MirOp::Barrier { .. } => false,
                     _ => {
                         !e.indirect_reads
                             && !e.opaque
-                            && !e.has_unknown_effects
+                            && !e.blocks_motion()
                             && e.structured_reads == MirMemoryEffect::None
                     }
                 }

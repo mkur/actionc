@@ -1382,6 +1382,12 @@ Unknown pointee reads alone do not invalidate independently complete writes,
 but observations, inputs and ordering retain their existing proofs. Source-owned
 and ABI storage do not become unobservable.
 
+An ordered read from a source-fixed address contributes the observed byte to
+the caller's read footprint. A raw read in zero page still constrains homes
+at that address. A polling loop reading a hardware register outside zero page
+can preserve live homes when its expanded body has no conflicting writes.
+Each iteration must issue the read even when its result is discarded.
+
 TN's Copy mixes indexed reads with direct word arithmetic. Source-home
 discovery admits a word add or subtract when two adjacent direct word loads
 supply its operands in either order and the following direct word store takes

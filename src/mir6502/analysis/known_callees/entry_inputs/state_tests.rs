@@ -263,3 +263,54 @@ fn decoded_entry_requirements_follow_current_aliases_and_operand_evidence() {
             .is_none()
     );
 }
+
+#[test]
+fn fixed_volatile_poll_has_exact_reads_and_preserves_caller_homes() {
+    let program = crate::mir6502::materialize_program(lower(
+        "PROC Poll=*() VOLATILE BYTE status=$D20F WHILE status&4 DO OD RETURN
+         PROC Write=*() VOLATILE BYTE port=$D20F port=0 RETURN
+         PROC Main() Poll() Write() RETURN",
+    ), &crate::mir6502::Mir6502Config::optimized()).unwrap();
+    let poll = program.routines.iter().find(|r| r.name == "Poll").unwrap();
+    let write = program.routines.iter().find(|r| r.name == "Write").unwrap();
+    let mut entries = MirAcyclicEntryAnalysis::at_origin(&program, 0x3000);
+    assert_eq!(entries.analyze(poll.id).unwrap().inputs, MirEntryRequirements::default());
+    assert!(entries.analyze(write.id).is_none());
+    let exits = MirKnownCalleeSummaries::analyze_for_source_homes(&program, 0x3000);
+    let fact = exits.get(poll.id).unwrap();
+    assert_eq!(fact.reads(), &MirKnownMemoryReads::Exact(vec![MirMem::Absolute(0xd20f)]));
+    assert_eq!(fact.writes(), &MirKnownMemoryWrites::Exact(vec![]));
+    assert!(fact.preserves_register(MirReg::X) && fact.preserves_register(MirReg::Y));
+}
+
+#[test]
+fn volatile_reads_retain_alias_identity_and_raw_zp_exposure() {
+    let mut program = lower(
+        "VOLATILE BYTE port=$D20F BYTE view=port,sink
+         PROC ReadPort() VOLATILE CARD cursor=$FF sink=view sink=BYTE(cursor) RETURN
+         PROC Main() ReadPort() RETURN",
+    );
+    let routine = program.routines.iter().find(|r| r.name == "ReadPort").unwrap();
+    let reads: Vec<_> = routine.blocks.iter().flat_map(|b| &b.ops).filter_map(|op| {
+        if let MirOp::ReadVolatileByte { source } = op { Some(source.clone()) } else { None }
+    }).collect();
+    let alias = program.globals.iter().find(|g| g.name == "view").unwrap().id;
+    assert_eq!(reads, [MirMem::Global { id: alias, offset: 0 }, MirMem::Absolute(0xff), MirMem::Absolute(0x100)]);
+
+    let selected = materialize(program.clone());
+    let mut entries = MirAcyclicEntryAnalysis::at_origin(&selected, 0x3000);
+    assert!(entries.analyze(routine.id).unwrap().inputs.fixed.contains(&0xff));
+
+    let ordinary = program.globals.iter().find(|g| g.name == "sink").unwrap().id;
+    let routine_id = routine.id;
+    let routine = program.routines.iter_mut().find(|r| r.id == routine_id).unwrap();
+    for block in &mut routine.blocks {
+        for op in &mut block.ops {
+            if let MirOp::ReadVolatileByte { source } = op {
+                *source = MirMem::Global { id: ordinary, offset: 0 };
+            }
+        }
+    }
+    let errors = crate::mir6502::verify_program(&program, MirPhase::PreMaterialization).unwrap_err();
+    assert!(errors.iter().any(|e| e.message.contains("volatile byte read requires a source-fixed address")));
+}

@@ -34,6 +34,7 @@ pub(super) fn verify_before_helper_resolution(program: &MirProgram, phase: MirPh
 
 fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_ready: bool, origin: u16) -> Result<(), Vec<MirDiagnostic>> {
     let mut verifier = MirVerifier {
+        program,
         diagnostics: Vec::new(),
         phase,
         bindings_ready,
@@ -45,7 +46,7 @@ fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_rea
         param_ids: BTreeSet::new(),
         scalar_signatures: BTreeMap::new(),
     };
-    verifier.verify_program(program);
+    verifier.verify_program();
     if verifier.diagnostics.is_empty() {
         Ok(())
     } else {
@@ -53,7 +54,8 @@ fn verify_with_binding_phase(program: &MirProgram, phase: MirPhase, bindings_rea
     }
 }
 
-struct MirVerifier {
+struct MirVerifier<'a> {
+    program: &'a MirProgram,
     diagnostics: Vec<MirDiagnostic>,
     phase: MirPhase,
     bindings_ready: bool,
@@ -66,7 +68,7 @@ struct MirVerifier {
     scalar_signatures: BTreeMap<RoutineId, super::ir::MirScalarSignature>,
 }
 
-impl MirVerifier {
+impl MirVerifier<'_> {
     fn physical_homes_required(&self) -> bool {
         matches!(self.phase, MirPhase::PostHome | MirPhase::PreEmission)
     }
@@ -123,7 +125,8 @@ impl MirVerifier {
         }
     }
 
-    fn verify_program(&mut self, program: &MirProgram) {
+    fn verify_program(&mut self) {
+        let program = self.program;
         self.verify_direct_abi_contracts(program);
         let static_ids = program
             .statics
@@ -2320,6 +2323,12 @@ impl MirVerifier {
                 if *additional_results != super::materialize::helper_additional_results(*helper) {
                     self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
                         "runtime helper call additional result homes/widths do not match its signature"));
+                }
+            }
+            MirOp::ReadVolatileByte { source } => {
+                if super::analysis::known_callees::fixed_storage_address(self.program, source).is_none() {
+                    self.diagnostics.push(MirDiagnostic::block(&routine.name, block,
+                        "volatile byte read requires a source-fixed address"));
                 }
             }
             MirOp::PackedRealCompare { .. } | MirOp::Barrier { .. } => {}

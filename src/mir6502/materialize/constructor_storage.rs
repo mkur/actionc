@@ -191,7 +191,7 @@ fn prove(
         if e.indirect_reads
             || e.indirect_writes
             || e.opaque
-            || e.has_unknown_effects
+            || e.blocks_motion()
             || !e.address_references.is_empty()
         {
             return Err(observation);
@@ -252,7 +252,7 @@ fn prove(
                     if e.indirect_writes
                         || e.may_write_any
                         || e.opaque
-                        || e.has_unknown_effects
+                        || e.blocks_motion()
                         || e.structured_writes != MirMemoryEffect::None
                         || e.direct_writes.iter().any(|w| {
                             matches!(w.base, MirMem::Param { id, .. } if id == param)
@@ -416,13 +416,14 @@ fn callee_writes_in_bounds(
             | MirOp::MachineBlock { .. }
             | MirOp::RuntimeHelper { .. }
             | MirOp::SArgsCapture { .. }
+            | MirOp::ReadVolatileByte { .. }
             | MirOp::Barrier { .. } => return false,
             _ => {
                 let e = classify_op(op).memory;
                 if e.indirect_writes
                     || e.may_write_any
                     || e.opaque
-                    || e.has_unknown_effects
+                    || e.blocks_motion()
                     || e.structured_writes != MirMemoryEffect::None
                     || e.direct_writes
                         .iter()
