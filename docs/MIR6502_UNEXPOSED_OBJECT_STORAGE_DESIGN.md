@@ -200,8 +200,11 @@ acyclic native wrappers. It tracks explicit addresses, bounded references to
 named objects, and pointer arguments with their byte offset and write extent.
 For a source-owned pointer cell such as TN’s `Screen`, a matched review can
 establish both pointer bytes. Intervening operations must preserve the pair.
-The analysis checks the actual argument at each call. An unresolved destination
-or an incompatible addressing sequence leaves the write footprint unknown. [Native write summary](../src/mir6502/analysis/known_callees.rs) ·
+The current analysis checks the actual argument at each call. An unresolved
+destination or an incompatible addressing sequence can leave the write
+footprint unknown. The proposed private-home rule uses address exposure and
+byte availability over the value's lifetime when the pointee is ordinary and
+the callee's physical uses are accounted for. [Private ZP home placement](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md) · [Native write summary](../src/mir6502/analysis/known_callees.rs) ·
 [Residence checks](../src/mir6502/parameter_homes/calls.rs)
 
 | Evidence at the call site | Consequence for a live caller object |
