@@ -1382,9 +1382,15 @@ Unknown pointee reads alone do not invalidate independently complete writes,
 but observations, inputs and ordering retain their existing proofs. Source-owned
 and ABI storage do not become unobservable.
 
-Call depth is only one remaining TN limit. Copy still fails the pointer-read/
-variable-word-arithmetic body guard; its SwapWin call must independently qualify
-through the composed entry contract. PopUp encounters Range's five-byte SArgs entry, and its `menu` and
+TN's Copy mixes indexed reads with direct word arithmetic. Source-home
+discovery admits a word add or subtract when two adjacent direct word loads
+supply its operands in either order and the following direct word store takes
+the result. The existing store recipe handles an in-place update and carries
+between byte lanes. An external carry dependency or an indirect operand or
+destination falls outside this rule. Each proposed home still passes the
+expanded residence and physical address checks. Copy's SwapWin call must
+independently qualify through the composed entry contract.
+PopUp encounters Range's five-byte SArgs entry, and its `menu` and
 `c` independently have retained-value and address-exposure obligations. Assembly
 and OS boundaries retain their current restrictions. Complete write summaries
 can still exclude the entire pool: the existing Global-write alias rule is
@@ -1608,8 +1614,8 @@ Broader call depth adds no new storage shape or native operation.
 
 Separate qualified follow-ups may:
 
-1. Certify additional operations, including the currently excluded combination
-   of pointer reads and variable word arithmetic. Account for helpers and scratch
+1. Certify additional operations, including variable word arithmetic that
+   takes an operand from a pointee. Account for helpers and scratch
    that appear only after expansion.
 2. Extend placement of a native `=*` routine's own homes through the relevant
    ownership and ABI checks. Availability of a callee contract alone does not

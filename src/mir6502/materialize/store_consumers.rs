@@ -2792,6 +2792,27 @@ fn try_fuse_two_loaded_word_store_consumer(
     layout: &MaterializeLayout,
     out: &mut Vec<MirOp>,
 ) -> Option<usize> {
+    let (op, dst, left, right) = two_loaded_word_store_operands(ops, index)?;
+    materialize_word_binary_store_consumer(op, dst.clone(), left, right, config, layout, out);
+    Some(4)
+}
+
+/// The two direct loads supply both operands. The store consumes the word and
+/// the low-to-high carry is internal to this expansion.
+pub(in crate::mir6502) fn direct_word_store_supports_source_homes(ops: &[MirOp], binary: usize) -> bool {
+    let Some(start) = binary.checked_sub(2) else { return false };
+    matches!(ops.get(binary), Some(MirOp::Binary {
+        dst: MirDef::VTemp(_),
+        left: MirValue::Def(MirDef::VTemp(left)),
+        right: MirValue::Def(MirDef::VTemp(right)),
+        carry_in: None, carry_out: MirCarryOut::Ignore, ..
+    }) if left != right) && two_loaded_word_store_operands(ops, start).is_some()
+}
+
+fn two_loaded_word_store_operands(
+    ops: &[MirOp],
+    index: usize,
+) -> Option<(MirBinaryOp, &MirMem, MirValue, MirValue)> {
     let first_load = ops.get(index)?;
     let second_load = ops.get(index + 1)?;
     let binary = ops.get(index + 2)?;
@@ -2856,16 +2877,7 @@ fn try_fuse_two_loaded_word_store_consumer(
         return None;
     }
 
-    materialize_word_binary_store_consumer(
-        *op,
-        store_dst.clone(),
-        left,
-        right,
-        config,
-        layout,
-        out,
-    );
-    Some(4)
+    Some((*op, store_dst, left, right))
 }
 
 fn try_fuse_loaded_extend_unary_neg_word_store_consumer(

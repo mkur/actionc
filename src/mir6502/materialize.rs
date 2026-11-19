@@ -264,6 +264,7 @@ use ssa_lite::{
     record_ssa_lite_v2_observability,
 };
 use stats::{MirPeepholeStats, maybe_report_peepholes};
+pub(super) use store_consumers::direct_word_store_supports_source_homes;
 use store_consumers::{
     materialize_value_to_mem, select_absolute_word_sub_indirect_store_consumer,
     select_abstract_byte_inc_dec_store_consumer, select_byte_mul_add_sub_word_store_consumer,

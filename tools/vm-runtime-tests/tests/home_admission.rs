@@ -27,6 +27,35 @@ fn assert_zp(output: &actionc::codegen::CodegenOutput, routine: &str, name: &str
 }
 
 #[test]
+fn direct_word_arithmetic_keeps_a_zp_home_alongside_an_indexed_read() {
+    let n = nir("CARD delta=$730,result=$740 BYTE POINTER p=$710 BYTE seen=$720
+CARD FUNC Calc(CARD n,base) seen=p(1) n==+delta result=base-n RETURN(n)
+PROC Main() Calc(0,0) RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config(), runtime).unwrap();
+        assert_zp(&output, "Calc", "n");
+        assert_zp(&output, "Calc", "base");
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Calc").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        vm.bus_mut().ram_mut().map(0x710, &0x800u16.to_le_bytes()).unwrap();
+        for (input, delta, base, seen) in [(0x00ffu16, 1u16, 0x0100u16, 9u8),
+                                           (0xffff, 2, 0x0100, 17),
+                                           (0x1200, 0x00ff, 3, 33)] {
+            vm.bus_mut().ram_mut().map(0x801, &[seen]).unwrap();
+            vm.bus_mut().ram_mut().map(0x730, &delta.to_le_bytes()).unwrap();
+            let [n_lo, n_hi] = input.to_le_bytes();
+            let [base_lo, base_hi] = base.to_le_bytes();
+            vm = machine::call(vm, &mut Observe, entry, &[n_lo, n_hi, base_lo, base_hi]);
+            let sum = input.wrapping_add(delta);
+            assert_eq!(machine::bytes(&vm, 0xa0, 2), sum.to_le_bytes());
+            assert_eq!(machine::bytes(&vm, 0x740, 2), base.wrapping_sub(sum).to_le_bytes());
+            assert_eq!(machine::bytes(&vm, 0x720, 1), [seen]);
+        }
+    }
+}
+
+#[test]
 fn helper_only_routine_keeps_narrow_home_across_wide_shift_in_both_runtimes() {
     let n = nir("CARD reserve=$A0,reserve2=$A2 LONGCARD input=$700,result=$900
 CARD FUNC Hold(CARD keep BYTE count) result=input RSH count RETURN(keep+1)

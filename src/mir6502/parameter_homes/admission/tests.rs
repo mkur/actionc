@@ -8,6 +8,55 @@ pub(super) fn nir(source: &str) -> crate::nir::NirProgram {
 }
 
 #[test]
+fn pointer_reads_admit_direct_word_stores_and_reject_unqualified_binary_sites() {
+    let n = nir("CARD delta=$730,result=$740 BYTE POINTER p=$710 BYTE seen=$720
+CARD FUNC Calc(CARD n) seen=p(1) n==+delta result=delta-n RETURN(n)
+PROC Main() Calc(0) RETURN");
+    let program = mir::lower_program(&n).unwrap();
+    let addresses = ObjectAddressControl::new(&program);
+    let routine = program.routines.iter().find(|r| r.name == "Calc").unwrap();
+    let block = &routine.blocks[0];
+    assert!(has_pointer_reads(routine));
+    assert_eq!(check(&addresses, routine, false, true, None), Ok(()));
+
+    let binary = block.ops.iter().position(|op| matches!(op, MirOp::Binary { op: MirBinaryOp::Sub, .. })).unwrap();
+    let site = Some(MirSite::Op { block: block.id, op_index: binary });
+    let indirect = block.ops.iter().find_map(|op| match op {
+        MirOp::Load { src: addr @ MirAddr::ComputedIndex { .. }, .. } => Some(addr),
+        _ => None,
+    }).unwrap();
+    let rejects = |routine: &MirRoutine| {
+        assert_eq!(check(&addresses, routine, false, true, None), Err(Rejection {
+            reason: Reason::PointerArithmetic, site,
+        }));
+    };
+    let mut changed = routine.clone();
+    let MirOp::Load { src, .. } = &mut changed.blocks[0].ops[binary - 1] else { panic!() };
+    *src = indirect.clone();
+    rejects(&changed);
+
+    let mut changed = routine.clone();
+    let MirOp::Load { dst: earlier_word, .. } = &block.ops[0] else { panic!() };
+    let MirOp::Binary { left, .. } = &mut changed.blocks[0].ops[binary] else { panic!() };
+    *left = MirValue::Def(earlier_word.clone());
+    rejects(&changed);
+
+    let mut changed = routine.clone();
+    let MirOp::Store { dst, .. } = &mut changed.blocks[0].ops[binary + 1] else { panic!() };
+    *dst = indirect.clone();
+    rejects(&changed);
+
+    for (input, output) in [(Some(MirCarryIn::FromPrevious), MirCarryOut::Ignore),
+                            (None, MirCarryOut::Produce)] {
+        let mut changed = routine.clone();
+        let MirOp::Binary { carry_in, carry_out, .. } = &mut changed.blocks[0].ops[binary] else { panic!() };
+        *carry_in = input;
+        *carry_out = output;
+        rejects(&changed);
+    }
+}
+
+#[test]
 fn admission_reports_structural_and_operation_reasons_without_changing_proposals() {
     let source = "PROC Touch() RETURN
 PROC Empty() Touch() RETURN

@@ -56,19 +56,25 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     if !mixed && !routine.frame.params.iter().all(|p| eligible_parameter(addresses, routine, p)) {
         return Err(Reason::ParameterStorage.into());
     }
-    let ops = || routine.blocks.iter().flat_map(|b| b.ops.iter().enumerate()
-        .map(move |(op_index, op)| (MirSite::Op { block: b.id, op_index }, op)));
-    // Data-dependent pointer arithmetic uses separate fused staging recipes.
+    // Pointer-dependent word operations have separate staging recipes. A pair
+    // of direct word loads feeding a direct arithmetic store qualifies on its own.
     if has_pointer_reads(routine) {
-        for (site, op) in ops() {
-            if matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }
-                if !matches!(left, MirValue::ConstU8(_) | MirValue::ConstU16(_))
-                && !matches!(right, MirValue::ConstU8(_) | MirValue::ConstU16(_))) {
-                return Err(Rejection { reason: Reason::PointerArithmetic, site: Some(site) });
+        for block in &routine.blocks {
+            for (op_index, op) in block.ops.iter().enumerate() {
+                if matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }
+                    if !matches!(left, MirValue::ConstU8(_) | MirValue::ConstU16(_))
+                    && !matches!(right, MirValue::ConstU8(_) | MirValue::ConstU16(_)))
+                    && !crate::mir6502::materialize::direct_word_store_supports_source_homes(&block.ops, op_index)
+                {
+                    let site = MirSite::Op { block: block.id, op_index };
+                    return Err(Rejection { reason: Reason::PointerArithmetic, site: Some(site) });
+                }
             }
         }
     }
-    for (site, op) in ops() {
+    let ops = routine.blocks.iter().flat_map(|b| b.ops.iter().enumerate()
+        .map(move |(op_index, op)| (MirSite::Op { block: b.id, op_index }, op)));
+    for (site, op) in ops {
         let reject = |reason| Rejection { reason, site: Some(site) };
         if matches!(op, MirOp::Call { .. }) {
             if !calls { return Err(reject(Reason::CallsDisabled)); }
