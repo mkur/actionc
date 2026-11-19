@@ -88,3 +88,19 @@ workload for each runtime. For an inline fallback, report the live call,
 reservation or competing home that exhausted the usable slots. Measure
 compiler time separately to check whether fewer pointer-range queries speed
 allocation.
+
+### Retained local values at program entry
+
+A local that can be read before its first definition needs the value left by its
+previous invocation. A dedicated home reserves the entire byte or word across
+the image, including compiler scratch, ABI lanes, and other routines' locals.
+MIR6502 currently establishes this for a closed native program with a
+parameterless, nonreturning entry. Every call stays in the image. Opaque code,
+unresolved indirect memory effects, calls back into the entry, and observable
+external entry points prevent this proof. Such locals retain inline storage.
+
+For an accepted dedicated home the emitter writes its initial bytes in the
+program entry prologue. The first basic block follows the prologue, so a loop
+back to the first block preserves the value. The selector supports scalar
+constant initializers and zero-filled storage. The image comparison includes
+the initialization instructions and the removed inline data.

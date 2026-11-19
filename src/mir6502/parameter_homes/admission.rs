@@ -38,7 +38,15 @@ impl From<Reason> for Rejection {
 /// Preserve the closed expansion set and report one deterministic blocker.
 pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     calls: bool, mixed: bool, selected: Option<&MirProgram>) -> Result<(), Rejection> {
-    if routine.abi != MirRoutineAbi::Action { return Err(Reason::Abi.into()); }
+    check_for_layout(addresses, routine, calls, mixed, selected, false)
+}
+
+/// Only the default allocator inspects the selected physical CFG before placing a home.
+pub(super) fn check_for_layout(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
+    calls: bool, mixed: bool, selected: Option<&MirProgram>, default_homes: bool) -> Result<(), Rejection> {
+    if routine.abi != MirRoutineAbi::Action && !(default_homes && routine.abi == MirRoutineAbi::ProgramEntry) {
+        return Err(Reason::Abi.into());
+    }
     if routine.frame.parameter_homes.is_some() && (!mixed || routine.frame.locals.is_empty()) { return Err(Reason::BoundFrame.into()); }
     if routine.frame.params.is_empty() && routine.frame.locals.is_empty() {
         return Err(Reason::NoObjects.into());
@@ -107,11 +115,10 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
                 source: MirAddr::Direct(_), destination: MirAddr::Direct(_), .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
                 | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. } if native_address(src));
-        let checked_expansion = mixed && selected.is_some() && matches!(op,
-            MirOp::LeaAddr { target: MirMem::Absolute(_), .. }
-            | MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And
-                | MirBinaryOp::Or | MirBinaryOp::Xor, .. });
-        if !supported && !checked_expansion { return Err(reject(Reason::Operation)); }
+        // The actual instructions and helper invocations are available to the
+        // default selector. Their physical effects are checked again after binding.
+        let selected_address = mixed && selected.is_some() && matches!(op, MirOp::LeaAddr { target: MirMem::Absolute(_), .. });
+        if !supported && !default_homes && !selected_address { return Err(reject(Reason::Operation)); }
     }
     Ok(())
 }

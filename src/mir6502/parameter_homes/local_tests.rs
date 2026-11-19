@@ -349,3 +349,16 @@ fn object_storage_admission_keeps_shift_and_helper_boundaries() {
         assert!(!super::super::eligible_with_calls(&ObjectAddressControl::new(&p), &p.routines[0], false, false), "{text}");
     }
 }
+
+#[test]
+fn a_dedicated_local_reserves_bytes_even_while_another_routine_runs() {
+    let mut p = source("BYTE out=$700 PROC Next() BYTE saved=[7] saved==+1 out=saved RETURN
+        PROC Other() BYTE x x=out out=x RETURN PROC Main() DO Next() Other() OD RETURN");
+    bind(&mut p, 0, 0xef);
+    p.routines[0].frame.local_homes.as_mut().unwrap()[0].home =
+        MirLocalHome::PersistentZeroPage(MirFixedZpSlot(0xef));
+    assert!(persistent::verify(&p).is_empty());
+    assert_eq!(persistent::initializers(&p).collect::<Vec<_>>(), [(0xef, 7)]);
+    bind(&mut p, 1, 0xef);
+    assert!(!persistent::verify(&p).is_empty());
+}

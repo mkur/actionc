@@ -412,6 +412,17 @@ pub struct MirLocalBinding {
 pub enum MirLocalHome {
     Inline,
     ZeroPage(MirFixedZpSlot),
+    /// Initialized on program entry and reserved across all routine activations.
+    PersistentZeroPage(MirFixedZpSlot),
+}
+
+impl MirLocalHome {
+    pub(crate) fn slot(&self) -> Option<MirFixedZpSlot> {
+        match self {
+            Self::Inline => None,
+            Self::ZeroPage(slot) | Self::PersistentZeroPage(slot) => Some(*slot),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -504,7 +515,7 @@ impl MirFrame {
                 let byte = offset.checked_add(delta)?;
                 let slot = self.locals.iter().find(|s| s.base == MirStorageBase::Local(*id))?;
                 if byte >= slot.storage_size { return None; }
-                let MirLocalHome::ZeroPage(start) = self.local_home(*id)? else { return None; };
+                let start = self.local_home(*id)?.slot()?;
                 Some(MirParamLane::ZeroPage(MirFixedZpSlot(start.0.checked_add(u8::try_from(byte).ok()?)?)))
             }
             _ => None,
@@ -521,7 +532,7 @@ impl MirFrame {
     pub(crate) fn resident_bytes(&self) -> Vec<(MirMem, MirFixedZpSlot)> {
         self.params.iter().chain(&self.locals).filter(|s| match s.base {
             MirStorageBase::Param(id) => self.parameter_home(id).is_some_and(|h| matches!(h, MirParamHome::ZeroPage(_) | MirParamHome::Lanes(_))),
-            MirStorageBase::Local(id) => matches!(self.local_home(id), Some(MirLocalHome::ZeroPage(_))),
+            MirStorageBase::Local(id) => self.local_home(id).and_then(MirLocalHome::slot).is_some(),
             _ => false,
         }).flat_map(|s| (0..s.storage_size).filter_map(|offset| {
             let mem = match s.base {

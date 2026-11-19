@@ -66,7 +66,7 @@ pub(super) fn propose_configured(
         .enumerate()
         .filter_map(|(index, retained)| {
             let routine = views.get(&retained.id).map_or(retained, |plan| &plan.routine);
-            if let Err(rejection) = admission::check(&addresses, routine, true, lifetimes, lifetimes.then_some(selected)) {
+            if let Err(rejection) = admission::check_for_layout(&addresses, routine, true, lifetimes, lifetimes.then_some(selected), acyclic && lifetimes) {
                 if trace.enabled() && routine.blocks.iter().flat_map(|b| &b.ops)
                     .any(|op| matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }))
                 {
@@ -107,7 +107,9 @@ pub(super) fn propose_configured(
         })
         .collect();
     if candidates.is_empty() {
-        return None;
+        let mut proposal = None;
+        if acyclic && lifetimes { persistent::propose(input, selected, &addresses, &mut proposal, trace); }
+        return proposal;
     }
     let chains = acyclic.then(|| chains::CallChains::new(input, selected));
     let order = chains.as_ref().map(|c| c.order.clone())
@@ -280,6 +282,7 @@ pub(super) fn propose_configured(
             proposal.get_or_insert_with(|| input.clone()).routines[index] = candidate;
         }
     }
+    if acyclic && lifetimes { persistent::propose(input, selected, &addresses, &mut proposal, trace); }
     proposal
 }
 

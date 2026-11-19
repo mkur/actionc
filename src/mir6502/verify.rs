@@ -285,6 +285,9 @@ impl MirVerifier<'_> {
                 &machine_ids,
             );
         }
+        if self.diagnostics.is_empty() {
+            self.diagnostics.extend(super::parameter_homes::persistent::verify(program));
+        }
         // Structural verification precedes analyses of candidate storage/callees.
         if self.diagnostics.is_empty() {
             use super::analysis::known_callees::MirCalleeEntryStage;

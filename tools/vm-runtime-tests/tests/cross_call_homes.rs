@@ -1347,3 +1347,51 @@ fn loop_locals_can_reuse_one_pool_byte_on_both_runtimes() {
         }
     }
 }
+
+#[test]
+fn dedicated_local_is_initialized_once_and_survives_between_calls() {
+    use actionc_vm::{RunRequest, StopReason, VmRunner};
+    let worker = format!("BYTE out=$701 PROC Next() BYTE saved=[7] {} RETURN ",
+        "saved==+1 out=saved ".repeat(8));
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (entry, closed) in [("PROC Main() DO Next() OD RETURN", true),
+            ("PROC Main() Next() RETURN", false)] {
+            let output = arithmetic_output(&format!("{worker}{entry}"), runtime);
+            let saved = output.map.storage_symbols.iter().find(|s| s.name == "saved").unwrap().address;
+            assert_eq!(saved < 256, closed, "{runtime:?} {saved:04X}");
+            if !closed { continue; }
+            let next = output.routine_addresses.iter().find(|r| r.name == "Next").unwrap().address;
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+            vm.bus_mut().ram_mut().write(saved, 0xcd);
+            vm.set_pc(output.run_address);
+            let result = VmRunner::new(vm).run_with_hooks(RunRequest {
+                max_steps: 128, stop_after_pc: Some(next), history_len: 8,
+            }, &mut NoHooks).unwrap();
+            assert_eq!(result.stop_reason(), StopReason::PcReached { pc: next });
+            let mut vm = result.into_vm();
+            assert_eq!(vm.bus().ram().read(saved), 7);
+            for expected in [15, 23, 31] {
+                vm = machine::call(vm, &mut NoHooks, next, &[]);
+                assert_eq!(vm.bus().ram().read(0x701), expected);
+                assert_eq!(vm.bus().ram().read(saved), expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn ordinary_program_entry_local_uses_a_home_through_its_loop() {
+    let source = "BYTE count=$700,out=$701 PROC Main() BYTE i
+        i=count WHILE i DO out==+i i==-1 OD RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = arithmetic_output(source, runtime);
+        let home = output.map.storage_symbols.iter().find(|s| s.name == "i").unwrap();
+        assert!(home.address < 256, "{runtime:?} {home:?}");
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        vm.bus_mut().ram_mut().map(0x700, &[4, 0]).unwrap();
+        vm = machine::call(vm, &mut NoHooks, output.run_address, &[]);
+        assert_eq!(vm.bus().ram().read(0x701), 10);
+    }
+}

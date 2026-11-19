@@ -229,7 +229,7 @@ impl MaterializeLayout {
                 if let MirStorageBase::Local(id) = local.base
                     && routine.frame.local_homes.is_some() && !routine.frame.inline_local(id)
                 {
-                    if let Some(crate::mir6502::ir::MirLocalHome::ZeroPage(start)) = routine.frame.local_home(id) {
+                    if let Some(start) = routine.frame.local_home(id).and_then(crate::mir6502::ir::MirLocalHome::slot) {
                         storage.locals.push((id, u16::from(start.0), local.storage_size, local.scalar_width));
                     }
                     continue;

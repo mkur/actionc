@@ -6,13 +6,16 @@ use crate::nir::LocalId;
 mod tests;
 
 pub(super) fn eligible(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
+    slot.init.is_none() && ordinary(addresses, routine, slot)
+}
+
+pub(super) fn ordinary(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
     let MirStorageBase::Local(id) = slot.base else {
         return false;
     };
     slot.purpose == MirStoragePurpose::Storage
         && slot.storage == MirStorageClass::Scalar
         && slot.offset == 0
-        && slot.init.is_none()
         && matches!(
             (slot.scalar_width, slot.storage_size),
             (Some(MirWidth::Byte), 1) | (Some(MirWidth::Word), 2)
@@ -53,11 +56,11 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             fail("local binding has no matching ordinary Local declaration");
             continue;
         };
-        let MirLocalHome::ZeroPage(start) = binding.home else {
+        let Some(start) = binding.home.slot() else {
             continue;
         };
         if slot.offset != 0
-            || slot.init.is_some()
+            || (slot.init.is_some() && !matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
             || slot.storage != MirStorageClass::Scalar
             || !matches!(
                 (slot.scalar_width, slot.storage_size),
@@ -117,9 +120,10 @@ pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine:
         if binding.home == MirLocalHome::Inline {
             continue;
         }
-        if routine.abi != MirRoutineAbi::Action
+        if !matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
             || !routine.frame.locals.iter().any(|s| {
-                s.base == MirStorageBase::Local(binding.local) && eligible(addresses, routine, s)
+                s.base == MirStorageBase::Local(binding.local) && ordinary(addresses, routine, s)
+                    && (s.init.is_none() || matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
             })
         {
             errors.push(MirDiagnostic::routine(
@@ -127,7 +131,7 @@ pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine:
                 "exposed, aliased or nonordinary local cannot change its home",
             ));
         }
-        if entry_reads
+        if !matches!(binding.home, MirLocalHome::PersistentZeroPage(_)) && entry_reads
             .as_ref()
             .is_none_or(|reads| reads.contains(&binding.local))
         {

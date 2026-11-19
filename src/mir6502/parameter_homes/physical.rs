@@ -10,7 +10,8 @@ use crate::mir6502::analysis::{
 use crate::mir6502::runtime_contracts::{SARGS_STATE, selected_helper};
 
 fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
-    !r.frame.resident_bytes().is_empty() && has_pointee_writes(p, r)
+    r.frame.local_homes.iter().flatten().any(|b| matches!(b.home, MirLocalHome::PersistentZeroPage(_)))
+        || (!r.frame.resident_bytes().is_empty() && has_pointee_writes(p, r))
 }
 
 pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
@@ -199,7 +200,7 @@ fn check(
     if let Some(other) = inventory.iter().find(|other| {
         // Cross-invocation reuse and disjoint local lifetimes have already
         // passed residence verification. Fixed declarations still take precedence.
-        let invocation_home = matches!(other.binding,
+        let invocation_home = !matches!(object.binding, Some(SourceBinding::Local(MirLocalHome::PersistentZeroPage(_)))) && matches!(other.binding,
             Some(SourceBinding::Parameter(MirParamHome::ZeroPage(_) | MirParamHome::Lanes(_)))
             | Some(SourceBinding::Local(MirLocalHome::ZeroPage(_))))
             && matches!((&object.object, &other.object),

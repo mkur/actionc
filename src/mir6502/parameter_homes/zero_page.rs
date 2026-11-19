@@ -102,6 +102,7 @@ fn used_bytes(program: &MirProgram, routine: &MirRoutine, forbidden: &BTreeSet<u
     {
         used[byte as usize] = true;
     }
+    for byte in persistent::slots(program) { used[usize::from(byte)] = true; }
     for slot in &routine.frame.fixed_zero_page {
         // Result homes are subject to the explicit last-use handoff check.
         if !matches!(slot.0, 0xa0 | 0xa1) {

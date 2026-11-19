@@ -1078,7 +1078,7 @@ impl MirObjectLayout {
                 if let MirStorageBase::Local(id) = local.base
                     && routine.frame.local_homes.is_some() && !routine.frame.inline_local(id)
                 {
-                    if let Some(crate::mir6502::ir::MirLocalHome::ZeroPage(start)) = routine.frame.local_home(id) {
+                    if let Some(start) = routine.frame.local_home(id).and_then(crate::mir6502::ir::MirLocalHome::slot) {
                         routine_layout.locals.insert(id, MirStoragePlacement::ZeroPage {
                             address: u16::from(start.0), size: local.storage_size,
                         });
@@ -2255,6 +2255,13 @@ fn emit_routine(ctx: &mut MirEmitContext<'_>, routine: &MirRoutine, emitter: &mu
     ctx.summary
         .routine_signatures
         .push(mir_routine_signature(routine));
+    if routine.abi == super::MirRoutineAbi::ProgramEntry {
+        // The loop's back edge targets the block label below this entry prologue.
+        for (slot, value) in super::parameter_homes::persistent::initializers(ctx.mir) {
+            emitter.emit_lda_imm(value);
+            emitter.emit_sta_zero_page(crate::codegen::ZeroPage::new(slot));
+        }
+    }
     for (index, block) in routine.blocks.iter().enumerate() {
         let block_start = emitter.position();
         ctx.measurements

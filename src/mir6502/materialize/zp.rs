@@ -568,7 +568,7 @@ fn resolve_consumer(
 }
 
 pub(super) fn source_zero_page_slots(program: &MirProgram) -> Vec<MirFixedZpSlot> {
-    let mut slots = Vec::new();
+    let mut slots: Vec<_> = crate::mir6502::parameter_homes::persistent::slots(program).map(MirFixedZpSlot).collect();
     for global in &program.globals {
         let MirGlobalBacking::Absolute(address) = global.backing else {
             continue;

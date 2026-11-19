@@ -54,7 +54,7 @@ impl<'a> InvocationHomes<'a> {
             }
         }
         for r in &source.routines {
-            if r.frame.resident_bytes().is_empty() || r.abi != MirRoutineAbi::Action
+            if r.frame.resident_bytes().is_empty() || !matches!(r.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
                 || r.frame.parameter_handoff.is_some()
                 || !verify_bindings(r).is_empty()
                 || !verify_storage_with_address_control(source, r, MirCalleeEntryStage::ActualEntry, &addresses).is_empty()

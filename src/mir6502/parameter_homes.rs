@@ -22,6 +22,7 @@ mod mixed_tests;
 mod handoff_tests;
 mod zero_page;
 mod physical;
+pub(super) mod persistent;
 pub(super) use physical::verify as verify_physical;
 #[cfg(test)]
 pub(super) use lifetimes::verify as verify_lifetimes;
