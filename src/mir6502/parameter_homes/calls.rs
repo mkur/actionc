@@ -4,6 +4,7 @@ use super::*;
 use crate::mir6502::analysis::known_callees::{
     MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirKnownCalleeSummaries, MirKnownMemoryWrites,
 };
+use crate::mir6502::analysis::sites::MirSite;
 use std::collections::BTreeMap;
 
 pub(in crate::mir6502) struct ResidenceCalls<'a> {
@@ -149,7 +150,26 @@ impl<'a> ResidenceCalls<'a> {
         self.writes_at(call, None)
     }
 
-    pub fn writes_at(&mut self, call: &MirOp,
+    /// A resident value crosses both outgoing argument setup and invocation.
+    /// Use the same physical footprint when selecting and verifying a home.
+    pub fn home_writes_at(&mut self, routine: &MirRoutine, site: MirSite, call: &MirOp)
+        -> Result<MirKnownMemoryWrites, &'static str> {
+        let mut writes = self.writes_at(call, Some((routine, site)))?;
+        if let MirOp::Call { args, .. } = call {
+            for arg in args {
+                let lanes = super::super::abi::physical_lanes(&arg.home, arg.width)
+                    .ok_or("unsupported outgoing argument lanes")?;
+                for lane in lanes {
+                    if let MirParamLane::ZeroPage(slot) = lane {
+                        writes.record(MirMem::FixedZeroPage(slot));
+                    }
+                }
+            }
+        }
+        Ok(writes)
+    }
+
+    fn writes_at(&mut self, call: &MirOp,
         site: Option<(&MirRoutine, crate::mir6502::analysis::sites::MirSite)>,
     ) -> Result<MirKnownMemoryWrites, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {

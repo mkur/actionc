@@ -67,7 +67,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                     }
                     None
                 } else {
-                    match facts.writes_at(op, Some((routine, site))) {
+                    match facts.home_writes_at(routine, site, op) {
                         Ok(writes) => Some(writes),
                         Err(reason) => return vec![MirDiagnostic::routine(&routine.name, reason)],
                     }

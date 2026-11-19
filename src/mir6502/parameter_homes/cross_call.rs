@@ -142,22 +142,9 @@ pub(super) fn propose_configured(
             }
             // Candidate objects are checked individually below by the existing
             // ownership-aware binding selectors. Explicit ranges remain here.
-            let writes = facts.writes_at(call, Some((routine, *site))).map(|writes| (0..=255u8)
+            let writes = facts.home_writes_at(routine, *site, call).map(|writes| (0..=255u8)
                 .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
-                    // The caller stages arguments before the callee begins. An
-                    // outgoing ZP lane can clobber a live object even if the
-                    // reviewed routine preserves that byte on return.
-                    if let MirOp::Call { args, .. } = call {
-                        for arg in args {
-                            let lanes = super::super::abi::physical_lanes(&arg.home, arg.width)
-                                .ok_or("unsupported outgoing argument lanes")?;
-                            writes.extend(lanes.into_iter().filter_map(|lane| match lane {
-                                MirParamLane::ZeroPage(slot) => Some(slot.0),
-                                MirParamLane::Reg(_) => None,
-                            }));
-                        }
-                    }
                     if let Some(chains) = &chains
                         && matches!(call, MirOp::Call { .. })
                         && MirAtariFppService::from_canonical_call(call).is_none()

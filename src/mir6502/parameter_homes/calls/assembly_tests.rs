@@ -360,46 +360,77 @@ fn supplied_home_checks_each_lane_of_native_wrapper_destinations() {
         );
     }
     for start in [0xa1, 0xa2, 0xa8] {
-        let mut p = selected.clone();
-        let hold = p.routines.iter_mut().find(|r| r.name == "Hold").unwrap();
-        let MirStorageBase::Param(param) = hold.frame.params[0].base else {
-            panic!()
-        };
-        hold.frame.parameter_homes = Some(vec![MirParamBinding {
-            param,
-            home: MirParamHome::ZeroPage(MirFixedZpSlot(start)),
-        }]);
-        let id = hold.id;
-        let hold = p.routines.iter().find(|r| r.id == id).unwrap();
-        let mut calls = ResidenceCalls::at_origin(&p, MirCalleeEntryStage::ActualEntry, 0x3000);
-        let addresses = ObjectAddressControl::new(&p);
-        let errors = super::super::lifetimes::verify_with_address_control(
-            hold,
-            Some(&mut calls),
-            Some(&addresses),
+        check_supplied_word_home(&selected, start, start == 0xa8);
+    }
+}
+
+#[test]
+fn private_row_write_uses_address_control_and_checks_both_lanes() {
+    let source = concat!(include_str!("../../../../fixtures/runtime/reviewed_fixed_store.act"), "
+        CARD ARRAY rows(2)
+        PROC Row(BYTE i) Store(rows(i),3) RETURN
+        CARD FUNC Hold(CARD keep) Row(BYTE(keep)) RETURN(keep+1)
+        PROC Siblings(CARD privateptr) BYTE exposed
+          Store(@exposed,7) Store(privateptr,exposed) RETURN
+        PROC Main() RETURN");
+    let ast = crate::parser::parse(&crate::lexer::tokenize(source).unwrap()).unwrap();
+    let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+    let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
+    let input = crate::mir6502::lower_program(&nir).unwrap();
+    let siblings = input.routines.iter().find(|r| r.name == "Siblings").unwrap();
+    let MirStorageBase::Param(ptr) = siblings.frame.params[0].base else { panic!() };
+    let MirStorageBase::Local(exposed) = siblings.frame.locals[0].base else { panic!() };
+    let addresses = ObjectAddressControl::for_home_placement(&input);
+    assert!(addresses.compiler_controls_address(siblings.id, &MirMem::Param { id: ptr, offset: 0 }));
+    assert!(!addresses.compiler_controls_address(siblings.id, &MirMem::Local { id: exposed, offset: 0 }));
+
+    let selected = crate::mir6502::materialize_program(input, &Default::default()).unwrap();
+    // Low lane overlaps $A1, high lane overlaps $A0, then both lanes are free.
+    for (start, allowed) in [(0xa1, false), (0x9f, false), (0xa8, true)] {
+        check_supplied_word_home(&selected, start, allowed);
+    }
+}
+
+fn check_supplied_word_home(selected: &MirProgram, start: u8, allowed: bool) {
+    let mut p = selected.clone();
+    let hold = p.routines.iter_mut().find(|r| r.name == "Hold").unwrap();
+    let MirStorageBase::Param(param) = hold.frame.params[0].base else {
+        panic!()
+    };
+    hold.frame.parameter_homes = Some(vec![MirParamBinding {
+        param,
+        home: MirParamHome::ZeroPage(MirFixedZpSlot(start)),
+    }]);
+    let id = hold.id;
+    let hold = p.routines.iter().find(|r| r.id == id).unwrap();
+    let mut calls = ResidenceCalls::at_origin(&p, MirCalleeEntryStage::ActualEntry, 0x3000);
+    let addresses = ObjectAddressControl::new(&p);
+    let errors = super::super::lifetimes::verify_with_address_control(
+        hold,
+        Some(&mut calls),
+        Some(&addresses),
+    );
+    let site = hold
+        .blocks
+        .iter()
+        .find_map(|b| {
+            b.ops
+                .iter()
+                .position(|op| matches!(op, MirOp::Call { .. }))
+                .map(|op_index| crate::mir6502::analysis::sites::MirSite::Op {
+                    block: b.id,
+                    op_index,
+                })
+        })
+        .unwrap();
+    if allowed {
+        assert!(errors.is_empty(), "{errors:?}");
+    } else {
+        assert!(
+            errors.iter().any(|d| d.message.contains("clobbers live")
+                && d.message.contains(&format!("{site:?}"))),
+            "{errors:?}"
         );
-        let site = hold
-            .blocks
-            .iter()
-            .find_map(|b| {
-                b.ops
-                    .iter()
-                    .position(|op| matches!(op, MirOp::Call { .. }))
-                    .map(|op_index| crate::mir6502::analysis::sites::MirSite::Op {
-                        block: b.id,
-                        op_index,
-                    })
-            })
-            .unwrap();
-        if start == 0xa8 {
-            assert!(errors.is_empty(), "{errors:?}");
-        } else {
-            assert!(
-                errors.iter().any(|d| d.message.contains("clobbers live")
-                    && d.message.contains(&format!("{site:?}"))),
-                "{errors:?}"
-            );
-        }
     }
 }
 

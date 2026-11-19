@@ -1291,3 +1291,32 @@ fn native_pointer_wrapper_writes_the_destination_and_preserves_a_caller_word() {
         }
     }
 }
+
+#[test]
+fn caller_word_survives_reviewed_row_writes_across_a_loop() {
+    let source = concat!(include_str!("../../../fixtures/runtime/reviewed_fixed_store.act"), "
+        CARD ARRAY rows(2)=$700
+        PROC Row(BYTE i) BYTE value value=i+3 Store(rows(i),value) RETURN
+        CARD FUNC Hold(CARD keep)
+          BYTE i
+          FOR i=0 TO 1 DO Row(i) OD
+        RETURN(keep+1)
+        PROC Main() Hold(7) RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let out = arithmetic_output(source, runtime);
+        let keep = out.map.storage_symbols.iter().find(|s|
+            s.scope == actionc::codegen::CodegenSymbolScope::Routine("Hold".into())
+                && s.name == "keep").unwrap();
+        assert!(keep.address < 255 && !(0x9f..=0xa1).contains(&keep.address), "{runtime:?} {keep:?}");
+        let entry = out.routine_addresses.iter().find(|r| r.name == "Hold").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&out)).unwrap();
+        vm.bus_mut().ram_mut().map(0x700, &[0xff, 0x71, 0x00, 0x72]).unwrap();
+        for word in [0x12ffu16, 0xffff] {
+            vm.bus_mut().ram_mut().map(0x71fe, &[0x5a; 4]).unwrap();
+            vm = machine::call(vm, &mut NoHooks, entry, &word.to_le_bytes());
+            assert_eq!(machine::bytes(&vm, 0x71fe, 4), [0x5a,3,4,0x5a]);
+            assert_eq!(machine::bytes(&vm, 0xa0, 2), word.wrapping_add(1).to_le_bytes());
+        }
+    }
+}

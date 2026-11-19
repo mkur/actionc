@@ -113,7 +113,7 @@ impl MirKnownMemoryWrites {
         Self::Exact(Vec::new())
     }
 
-    fn record(&mut self, mem: MirMem) {
+    pub(in crate::mir6502) fn record(&mut self, mem: MirMem) {
         let writes = match self {
             Self::Exact(writes) | Self::Pointee { fixed: writes, .. } => writes,
             Self::Unknown => return,
