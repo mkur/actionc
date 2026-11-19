@@ -164,11 +164,13 @@ part of the review. An opaque body can tail-jump to a reviewed routine under
 the same identity check. Its references to ordinary uninitialized global
 storage bind the backing kind, name and byte extent.
 
-TN's `Close`, `Xio` and `Open` pass their ordinary arguments to the CIO wrappers.
-Their normal-return memory effects include the installed device and error
-handler. The explicit operand inventory still distinguishes a fixed pointer
-fetch in `(zp),Y` from the indexed pointer fetch in `(zp,X)`. The assembler
-supplies that distinction in the relocation. [TN file routines](../samples/tn/modern/LIB.ACT)
+TN's `Close`, `Xio`, `Open`, `Bget` and `Bput` accept ordinary ABI arguments.
+The block transfers pass the buffer and 16-bit length to `_BlockIO` under
+its private convention. All five leave reads and writes open because both
+the installed device and the error handler can modify memory before returning.
+The explicit operand inventory still distinguishes a fixed pointer fetch in
+`(zp),Y` from the indexed pointer fetch in `(zp,X)`. The assembler supplies
+that distinction in the relocation. [TN file routines](../samples/tn/modern/LIB.ACT)
 
 A caller may undertake a numeric bound on every indirect destination of an
 invocation. Fixed writes remain explicit and compose with the indirect range.

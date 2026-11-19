@@ -603,13 +603,11 @@ ASM
   jmp _Cio
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A1 $A3/$A4
-;@actionc writes $0100-$FFFF
 ; X selects the IOCB, Y/$A1 hold the buffer, and $A3/$A4 hold length.
 ; Restore A from ICCOM: CIO uses A when the requested length is zero.
+;@actionc reviewed-6502 188ef9cdf6fe6f91
 PROC _BlockIO=*()
-ASM
+ASM OPAQUE
   lda $A1
   sta $0344,x
   tya
@@ -622,11 +620,10 @@ ASM
   jmp _Cio
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A1 $A3/$A4
-;@actionc writes $0100-$FFFF
+;@actionc reviewed-6502 d19b79041d42ff1f
+;@actionc abi-inputs-only
 PROC Bget=*(BYTE chn CARD buf, len)
-ASM
+ASM OPAQUE
   stx $A1
   jsr _LodChn
   lda #CIO_GET_CHARS
@@ -634,11 +631,10 @@ ASM
   jmp _BlockIO
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A1 $A3/$A4
-;@actionc writes Ioerr $0340-$03BF
+;@actionc reviewed-6502 bb4a7e67e3a48413
+;@actionc abi-inputs-only
 PROC Bput=*(BYTE chn CARD buf, len)
-ASM
+ASM OPAQUE
   stx $A1
   jsr _LodChn
   lda #CIO_PUT_CHARS

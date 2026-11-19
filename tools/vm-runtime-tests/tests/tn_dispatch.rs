@@ -598,6 +598,10 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
             if vm.cpu().registers().pc == 0xe456 {
                 self.calls += 1;
                 assert_eq!(vm.cpu().registers().x, self.iocb);
+                let command = vm.bus().ram().read(0x0342 + u16::from(self.iocb));
+                if matches!(command, 7 | 11) {
+                    assert_eq!(vm.cpu().registers().a, command, "block I/O accumulator at CIOV");
+                }
                 vm.set_pc(DEVICE);
             }
             Ok(())
@@ -617,11 +621,16 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
             // A returning error handler may overwrite an application ZP home.
             ram.map(HANDLER, &[0xe6, 0xac, 0x60]).unwrap(); // INC $AC / RTS
             let [lo, hi] = FILENAME.to_le_bytes();
+            let [buf_lo, buf_hi] = 0x72abu16.to_le_bytes();
             let ioerr = global_address(&listing, "Ioerr");
             for (name, cmd, args) in [
                 ("Close", 12, &[1u8][..]),
                 ("Xio", 33, &[2, 33, 6, 9, lo, hi]),
                 ("Open", 3, &[3, lo, hi, 6, 9]),
+                ("Bget", 7, &[1, buf_lo, buf_hi, 0x23, 0x01]),
+                ("Bput", 11, &[2, buf_lo, buf_hi, 0x45, 0x02]),
+                ("Bget", 7, &[1, buf_lo, buf_hi, 0, 0]),
+                ("Bput", 11, &[2, buf_lo, buf_hi, 0, 0]),
             ] {
                 let offset = args[0] << 4;
                 let iocb = 0x0340 + u16::from(offset);
@@ -638,7 +647,10 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                     assert_eq!(ram.read(ioerr), status, "{name}");
                     assert_eq!(ram.read(0xac), 0x76 + u8::from(status >= 0x80), "{name}");
                     assert_eq!(ram.read(iocb + 2), cmd, "{name}");
-                    if name != "Close" {
+                    if matches!(name, "Bget" | "Bput") {
+                        assert_eq!(machine::bytes(&vm, iocb + 4, 2), args[1..3], "{name} buffer");
+                        assert_eq!(machine::bytes(&vm, iocb + 8, 2), args[3..5], "{name} length");
+                    } else if matches!(name, "Open" | "Xio") {
                         assert_eq!(machine::bytes(&vm, iocb + 10, 2), [6, 9], "{name}");
                         let filename = ram.read_word(iocb + 4);
                         assert_eq!(ram.read_word(0x86), filename, "{name}");
