@@ -127,6 +127,52 @@ fn check_restore_pos_writes(mir: &MirProgram) {
 }
 
 #[test]
+fn opaque_getchar_uses_the_same_boundary_in_range_and_at_a_direct_call() {
+    let sem = tn_semir();
+    let input = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+    let p = crate::mir6502::materialize_program(input, &Default::default()).unwrap();
+    let leaf = p.routines.iter().find(|r| r.name == "Getchar").unwrap();
+    let wrapper = p.routines.iter().find(|r| r.name == "Range").unwrap();
+    let hash = body_fingerprint(&p, leaf, crate::callee6502::CONTRACT_VERSION);
+    assert_eq!(hash, Some(leaf.frame.callee_review.as_ref().unwrap().fingerprint), "{hash:016x?}");
+    let facts = reviewed_contract(&p, leaf).unwrap();
+    let classic = crate::codegen::projected_review_for_test(&sem, "Getchar").unwrap();
+    assert_eq!(classic.preserves_zp, facts.preserves_zp);
+    assert!(facts.abi_inputs_only && facts.returns_a_equals_a0);
+    assert!(facts.reads.is_none() && facts.writes.is_none());
+    let mut entries = MirAcyclicEntryAnalysis::at_origin(&p, 0x3000);
+    let entry = entries.analyze(leaf.id).unwrap();
+    assert_eq!(entry.inputs, Default::default());
+    assert!(entries.analyze(wrapper.id).is_some());
+    let homes = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    let writes = homes.get(leaf.id).unwrap().writes();
+    for slot in 0..=u8::MAX {
+        assert_eq!(writes.preserves_fixed_byte(MirFixedZpSlot(slot), homes.fixed_storage()),
+            facts.preserves_zp.iter().any(|r| (r.start..=r.end).contains(&slot)));
+    }
+    // Isolate the other write in Range. The partial OS footprint composes
+    // through the native loop and its scratch writes when c^ is omitted.
+    let mut control = p.clone();
+    let range = control.routines.iter_mut().find(|r| r.id == wrapper.id).unwrap();
+    let mut count = 0;
+    for b in &mut range.blocks {
+        b.ops.retain(|op| {
+            let indirect = crate::mir6502::analysis::effects::writes_ordinary_pointee(op);
+            if indirect { count += 1; }
+            !indirect
+        });
+    }
+    assert!(count > 0);
+    let control = MirKnownCalleeSummaries::analyze_for_source_homes(&control, 0x3000);
+    let returned = control.get(wrapper.id).unwrap().writes();
+    assert!(returned.preserves_private_fixed_byte(MirFixedZpSlot(0xef), control.fixed_storage()), "{returned:?}");
+    assert!(!returned.preserves_private_fixed_byte(MirFixedZpSlot(0xa1), control.fixed_storage()));
+    let general = MirKnownCalleeSummaries::analyze_for_rewriting(&p);
+    assert_eq!(general.get(leaf.id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+    assert_eq!(general.get(leaf.id).unwrap().reads(), &MirKnownMemoryReads::Unknown);
+}
+
+#[test]
 fn internal_review_composes_through_native_print_callers() {
     use crate::mir6502::analysis::known_callees::{MirAcyclicEntryAnalysis, MirCalleeEntryFact, MirCalleeEntryStage};
     let input = crate::mir6502::lower_program(&crate::nir::lower_program(&tn_semir())).unwrap();

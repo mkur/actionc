@@ -547,12 +547,12 @@ Cache invalidation does not bypass the existing call ABI or emission checks.
 
 In TN's `PopUp → Range → Getchar` chain, MIR analyzes the native `Range`
 and stops at `Getchar`. Its signature supplies zero Action! arguments and a
-one-byte result in `$A0`. Its annotations declare a clobber of `$A0` and
-equality of A and `$A0` on return. Preservation of other ZP bytes is
-unspecified. A live home may cross the call when the boundary contract
-guarantees that its bytes survive. Otherwise it keeps its existing home,
-and an optional cached copy can end at the call. This decision uses only
-caller-visible facts and requires no inspection of the keyboard handler.
+one-byte result in `$A0`. The reviewed keyboard boundary accepts the ordinary
+ABI, returns the key in A and `$A0`, and preserves `$A1` and `$E0–$EF`
+on normal return. Its general memory reads and writes remain unknown.
+For a native caller, intersect the preserved bytes of its opaque callees
+and account for the caller's own stores, argument staging and indirect
+destinations. This decision requires no inspection of the keyboard handler.
 [TN declarations](../samples/tn/modern/LIB.ACT) · [Shared callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 ### MIR ownership and shared machinery

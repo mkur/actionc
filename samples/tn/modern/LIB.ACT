@@ -255,6 +255,10 @@ ASM
   rts
 ENDASM
 
+; TN keyboard ABI: K: GET preserves Range.len ($A1) and the $E0-$EF home pool.
+;@actionc reviewed-6502 a983ca5cc56322fb
+;@actionc abi-inputs-only
+;@actionc preserves $A1 $E0-$EF
 ;@actionc clobbers $A0
 ;@actionc returns A=$A0
 CHAR FUNC Getchar=*()

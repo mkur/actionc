@@ -477,3 +477,74 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
         }
     }
 }
+
+/// Supply raw key codes at the OS vector. The ROM performs translation and
+/// returns through Getchar's real stack frame, including when called by Range.
+struct KeyboardInput {
+    get_vector: u16,
+    keys: VecDeque<u8>,
+    drawing: [u16; 3],
+}
+
+impl VmRunHooks for KeyboardInput {
+    type Error = String;
+
+    fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), String> {
+        let pc = vm.cpu().registers().pc;
+        if pc == self.get_vector {
+            let ram = vm.bus_mut().ram_mut();
+            assert_eq!(ram.read(0x02fc), 0xff);
+            ram.write(0x02fc, self.keys.pop_front().ok_or("unexpected keyboard read")?);
+        } else if self.drawing.contains(&pc) {
+            vm.set_pc(machine::RETURN);
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(root().join("samples/tn/modern/TN.ACT"),
+            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime)).unwrap();
+        let listing = compiled.source_listing();
+        let routine = |name| routine_address(&listing, name);
+        let (mut vm, profile) = fixed_point::vm_for(runtime);
+        vm.load_bundled_altirra_os().unwrap();
+        vm.load_atari_object_for_execution(profile, compiled.object_bytes()).unwrap();
+        let vector = u16::from_le_bytes([vm.bus_mut().read(0xe424), vm.bus_mut().read(0xe425)]).wrapping_add(1);
+        let mut input = KeyboardInput {
+            get_vector: vector,
+            keys: VecDeque::new(),
+            drawing: [routine("Print"), routine("Relpos"), routine("Block")],
+        };
+        // Install a keyboard translation table and release BREAK, just as an
+        // initialized OS supplies these to its K: service.
+        let ram = vm.bus_mut().ram_mut();
+        ram.write_word(0x79, 0x7400);
+        ram.write(0x11, 0xff);
+        ram.map(0x7400, &[b'K', b'*', 155, 27]).unwrap();
+        ram.write(machine::RETURN, 0x60);
+        for pattern in [0x55u8, 0xaau8] {
+            let saved: Vec<_> = (0..16).map(|i| pattern ^ i).collect();
+            vm.bus_mut().ram_mut().map(0xe0, &saved).unwrap();
+            vm.bus_mut().ram_mut().write(0xa0, !pattern);
+            vm.bus_mut().ram_mut().write(0xa1, pattern);
+            input.keys.push_back(0);
+            vm = machine::call(vm, &mut input, routine("Getchar"), &[pattern, !pattern, pattern]);
+            assert_eq!(vm.cpu().registers().a, b'K');
+            assert_eq!(vm.bus().ram().read(0xa0), b'K');
+            assert_eq!(vm.bus().ram().read(0xa1), pattern);
+            assert_eq!(machine::bytes(&vm, 0xe0, 16), saved);
+        }
+        vm.bus_mut().ram_mut().write_word(0xe8, 0x2000);
+        let [lo, hi] = global_address(&listing, "density").to_le_bytes();
+        for (keys, expected) in [(vec![1, 2], b'M'), (vec![3], 27)] {
+            input.keys = keys.into();
+            vm = machine::call(vm, &mut input, routine("PopUp"), &[lo, hi, 0, 2]);
+            assert_eq!(vm.bus().ram().read(0xa0), expected, "{runtime:?}");
+            assert!(input.keys.is_empty());
+            assert_eq!(vm.bus().ram().read_word(0xe8), 0x2000);
+        }
+    }
+}

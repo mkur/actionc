@@ -51,7 +51,10 @@ pub(in crate::mir6502) enum MirKnownMemoryWrites {
     /// Indirect destinations plus direct/scratch writes. Caller-dependent
     /// pointees require a separate private-object proof. A reviewed complete
     /// numeric bound alone can prove disjointness for any fixed ZP byte.
-    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)>, formals: BTreeSet<FormalWrite>, ordinary: bool, caller_dependent: bool },
+    Pointee { fixed: Vec<MirMem>, numeric: Vec<(u16, u16)>, formals: BTreeSet<FormalWrite>, ordinary: bool, caller_dependent: bool,
+        /// Intersection of normal-return ZP guarantees from opaque calls. Other
+        /// memory is unknown. Explicit writes in the enclosing routine still apply.
+        opaque_preserves: Option<BTreeSet<u8>> },
     #[default]
     Unknown,
 }
@@ -68,7 +71,8 @@ impl MirKnownMemoryWrites {
     pub(in crate::mir6502) fn preserves_private_fixed_byte(&self, slot: MirFixedZpSlot, fixed: &MirFixedStorage) -> bool {
         let writes = match self {
             Self::Exact(writes) => writes,
-            Self::Pointee { fixed: writes, numeric, formals, .. } => {
+            Self::Pointee { fixed: writes, numeric, formals, opaque_preserves, .. } => {
+                if opaque_preserves.as_ref().is_some_and(|bytes| !bytes.contains(&slot.0)) { return false; }
                 if !formals.is_empty() || numeric.iter().any(|(start, size)| u16::from(slot.0).wrapping_sub(*start) < *size) {
                     return false;
                 }
@@ -122,11 +126,17 @@ impl MirKnownMemoryWrites {
     fn merge(&mut self, other: &Self) {
         let other = match other {
             Self::Exact(other) => other,
-            Self::Pointee { fixed, numeric, formals, caller_dependent, ordinary } => {
+            Self::Pointee { fixed, numeric, formals, caller_dependent, ordinary, opaque_preserves } => {
                 if let Self::Exact(bytes) = self {
-                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new(), formals: BTreeSet::new(), ordinary: false, caller_dependent: false };
+                    *self = Self::Pointee { fixed: std::mem::take(bytes), numeric: Vec::new(), formals: BTreeSet::new(), ordinary: false, caller_dependent: false, opaque_preserves: None };
                 }
-                if let Self::Pointee { numeric: ranges, caller_dependent: dep, ordinary: native, formals: pending, .. } = self {
+                if let Self::Pointee { numeric: ranges, caller_dependent: dep, ordinary: native, formals: pending, opaque_preserves: common, .. } = self {
+                    if let Some(bytes) = opaque_preserves {
+                        match common {
+                            Some(previous) => previous.retain(|byte| bytes.contains(byte)),
+                            None => *common = Some(bytes.clone()),
+                        }
+                    }
                     pending.extend(formals);
                     *native |= ordinary;
                     *dep |= caller_dependent;
@@ -350,7 +360,7 @@ impl MirKnownCalleeSummaries {
             .routines
             .iter()
             .filter_map(|routine| {
-                summarize_machine_routine(routine, program).map(|summary| (routine.id, summary))
+                summarize_machine_routine(routine, program, source_home_origin.is_some()).map(|summary| (routine.id, summary))
             })
             .collect::<BTreeMap<_, _>>();
         let mut summaries = Self {
@@ -1046,7 +1056,7 @@ fn reviewed_bytes(ranges: Option<&[crate::callee6502::DataRange<crate::nir::Symb
     Some(bytes)
 }
 
-fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeExitSummary {
+fn reviewed_exit(program: &MirProgram, routine: &MirRoutine, source_homes: bool) -> MirKnownCalleeExitSummary {
     let Some(f) = reviewed_contract(program, routine) else { return MirKnownCalleeExitSummary::default() };
     MirKnownCalleeExitSummary {
         accumulator: f.returns_a_equals_a0.then_some(MirMachineValue::DirectMem(MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)))),
@@ -1054,9 +1064,14 @@ fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeEx
         preserves: MirRegisterSet { a: f.preserves_regs.a, x: f.preserves_regs.x, y: f.preserves_regs.y, ..Default::default() },
         reads: if f.buffers.iter().any(|b| !b.write) { MirKnownMemoryReads::Unknown }
             else { reviewed_bytes(f.reads.as_deref()).map(MirKnownMemoryReads::Exact).unwrap_or_default() },
-        writes: if f.buffers.iter().any(|b| b.write) { MirKnownMemoryWrites::Unknown }
+        writes: if source_homes && f.writes.is_none() && !f.preserves_zp.is_empty() {
+            MirKnownMemoryWrites::Pointee {
+                fixed: vec![], numeric: vec![], formals: BTreeSet::new(), ordinary: false, caller_dependent: false,
+                opaque_preserves: Some(f.preserves_zp.iter().flat_map(|r| r.start..=r.end).collect()),
+            }
+        } else if f.buffers.iter().any(|b| b.write) { MirKnownMemoryWrites::Unknown }
             else { reviewed_bytes(f.writes.as_deref()).and_then(|fixed| match f.indirect_writes {
-                Some(r) => Some(MirKnownMemoryWrites::Pointee { fixed, numeric: vec![(r.start, r.end.checked_sub(r.start)?.checked_add(1)?)], formals: BTreeSet::new(), ordinary: false, caller_dependent: false }),
+                Some(r) => Some(MirKnownMemoryWrites::Pointee { fixed, numeric: vec![(r.start, r.end.checked_sub(r.start)?.checked_add(1)?)], formals: BTreeSet::new(), ordinary: false, caller_dependent: false, opaque_preserves: None }),
                 None => Some(MirKnownMemoryWrites::Exact(fixed)),
             }).unwrap_or_default() },
         reviewed: Some(f.clone()),
@@ -1066,9 +1081,10 @@ fn reviewed_exit(program: &MirProgram, routine: &MirRoutine) -> MirKnownCalleeEx
 fn summarize_machine_routine(
     routine: &MirRoutine,
     program: &MirProgram,
+    source_homes: bool,
 ) -> Option<MirKnownCalleeExitSummary> {
     if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
-        return Some(reviewed_exit(program, routine));
+        return Some(reviewed_exit(program, routine, source_homes));
     }
     let [block] = routine.blocks.as_slice() else {
         return None;

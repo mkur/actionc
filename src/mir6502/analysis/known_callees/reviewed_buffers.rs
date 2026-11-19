@@ -226,6 +226,7 @@ pub(super) fn residence_writes(
         formals: BTreeSet::new(),
         ordinary: false,
         caller_dependent: false,
+        opaque_preserves: None,
     })
 }
 

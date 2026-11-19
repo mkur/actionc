@@ -675,6 +675,7 @@ pub(super) fn store(
         formals,
         ordinary: true,
         caller_dependent: false,
+        opaque_preserves: None,
     };
     record_physical_writes(routine, effects, &mut writes);
     Some(writes)

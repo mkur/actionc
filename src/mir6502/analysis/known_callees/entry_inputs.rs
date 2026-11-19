@@ -73,7 +73,8 @@ impl MirCalleeEntryFact {
         ordinary_globals_above_zp: bool,
     ) -> Option<Self> {
         let routine = program.routines.iter().find(|r| r.id == target)?;
-        if routine.effects.opaque { return None; }
+        let review = super::reviewed_contract(program, routine);
+        if routine.effects.opaque && review.is_none() { return None; }
         if routine.effects.may_call_os {
             // Explain the aggregate flag through current returning boundary
             // contracts. An unexplained OS effect remains an entry barrier.
@@ -86,7 +87,7 @@ impl MirCalleeEntryFact {
                     _ => continue,
                 };
                 if !effects.may_call_os { continue; }
-                let returning = matches!(op, MirOp::MachineBlock { .. }) && super::reviewed_contract(program, routine).is_some()
+                let returning = matches!(op, MirOp::MachineBlock { .. }) && review.is_some()
                     || crate::mir6502::runtime_contracts::invocation(program, routine, op).is_some()
                     || matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. }
                         if dependencies.as_ref().is_some_and(|d| d.contains_key(id)));
@@ -114,7 +115,7 @@ impl MirCalleeEntryFact {
             let mut results = HomeResults::default();
             let mut old_values = BTreeSet::new();
             let inputs = if routine.frame.contains_source_asm || routine.frame.callee_review.is_some() {
-                let certified = if let Some(review) = super::reviewed_contract(program, routine) {
+                let certified = if let Some(review) = review {
                     if stage == MirCalleeEntryStage::ActualEntry {
                         results.defined_zp.clone_from(&review.defines_on_return);
                         old_values.extend(review.defines_on_return.iter().copied().filter(|slot|
