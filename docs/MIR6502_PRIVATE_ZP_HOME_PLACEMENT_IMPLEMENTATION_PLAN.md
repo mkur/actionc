@@ -99,6 +99,8 @@ cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test cross_call_h
 
 ## TN qualification
 
+### Store review
+
 The general `Store` review in both samples matches classic and MIR6502.
 At the inner `Copy → Tag(j)` call, both lanes of `mem` and `len` and the
 byte `files` are live. The reviewed row write permits private homes while
@@ -112,9 +114,31 @@ builds. MIR6502 used origin `$3000`. Sizes below include the XEX headers.
 | TN | 9,594 | 9,733 | 10,642 | 10,866 |
 | TNDBG | 12,612 | 12,753 | 13,879 | 14,103 |
 
-Both MIR6502 runtimes select `$A2` for `Tag.i` and `$A3` for `Tag.a`.
-In TN, `Copy.mem`, `Copy.len`, and `Copy.files` remain at `$33D3`, `$33D5`,
-and `$33D7`. The first entry check on the `Copy → SwapWin` path reaches
-`Input`, whose entry lacks a matched review. In a diagnostic build with
-only that entry certified, the first write check to reject those three
-locals moves to `Convert(v(j))` in both runtimes.
+At this checkpoint both MIR6502 runtimes selected `$A2` for `Tag.i` and
+`$A3` for `Tag.a`. The first entry check on the `Copy → SwapWin` path
+reached the unreviewed `Input`. TN kept `Copy.mem`, `Copy.len` and
+`Copy.files` at `$33D3`, `$33D5` and `$33D7`.
+
+### Input review
+
+Both backends consume the same opaque `Input` review. The channel arrives in
+A, the buffer address in X/Y (low/high), and the byte count in `$A3`.
+The review certifies those entry requirements. Memory reads and writes on
+return remain unknown because CIO can invoke the installed error handler
+and that handler can return to the caller. [TN CIO wrappers](../samples/tn/modern/LIB.ACT)
+
+In both TN sources, `SetWin` branches on its panel argument `n`. The
+refresh path assigns `panelDataOld` after `TagAll` and `Inv`, just before
+saving the panel. TN can then use `$E2` for `n`, `$E3` for `drvnum` and
+`$E4/$E5` for `panelDataOld` on both MIR6502 runtimes. The earlier
+`Tag` homes still fit. The first call blocking `Copy.mem`, `Copy.len` and
+`Copy.files` is now `Convert(v(j))`, whose writes are unknown to the home
+allocator. Their inline addresses are `$33D0`, `$33D2` and `$33D4`.
+
+Each MIR6502 load file is 10 bytes smaller than at the `Store` checkpoint.
+Classic optimized load-file sizes are unchanged.
+
+| Source | MIR6502 cart | MIR6502 standalone | Classic optimized cart | Classic optimized standalone |
+| --- | ---: | ---: | ---: | ---: |
+| TN | 9,584 | 9,723 | 10,642 | 10,866 |
+| TNDBG | 12,602 | 12,743 | 13,879 | 14,103 |

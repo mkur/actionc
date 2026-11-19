@@ -390,6 +390,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                     ("param_Convert_s", 2u16), ("param_Putchar_ch", 1),
                     ("param_Tag_i", 1), ("local_Tag_a", 1), ("local_Init_h", 2),
                     ("param_Draw_cnt", 1), ("param_Inv_cnt", 1), ("local_Push_captured", 2),
+                    ("local_SetWin_panelDataOld", 2),
                 ] {
                     assert_zp_home(&listing, label, width);
                 }
@@ -629,8 +630,8 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                 self.calls += 1;
                 assert_eq!(vm.cpu().registers().x, self.iocb);
                 let command = vm.bus().ram().read(0x0342 + u16::from(self.iocb));
-                if matches!(command, 7 | 11) {
-                    assert_eq!(vm.cpu().registers().a, command, "block I/O accumulator at CIOV");
+                if matches!(command, 5 | 7 | 11) {
+                    assert_eq!(vm.cpu().registers().a, command, "I/O accumulator at CIOV");
                 }
                 vm.set_pc(DEVICE);
             }
@@ -657,6 +658,8 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                 ("Close", 12, &[1u8][..]),
                 ("Xio", 33, &[2, 33, 6, 9, lo, hi]),
                 ("Open", 3, &[3, lo, hi, 6, 9]),
+                ("Input", 5, &[4, buf_lo, buf_hi, 0xff]),
+                ("Input", 5, &[0, buf_lo, buf_hi, 0]),
                 ("Bget", 7, &[1, buf_lo, buf_hi, 0x23, 0x01]),
                 ("Bput", 11, &[2, buf_lo, buf_hi, 0x45, 0x02]),
                 ("Bget", 7, &[1, buf_lo, buf_hi, 0, 0]),
@@ -667,6 +670,7 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                 for status in [1, 0x82] {
                     let ram = vm.bus_mut().ram_mut();
                     ram.map(iocb, &[0xcc; 16]).unwrap();
+                    ram.write(0xa4, 0xdd);
                     ram.write(0xac, 0x76);
                     ram.write(ioerr, 0xff);
                     ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap(); // LDY #status / RTS
@@ -677,9 +681,10 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                     assert_eq!(ram.read(ioerr), status, "{name}");
                     assert_eq!(ram.read(0xac), 0x76 + u8::from(status >= 0x80), "{name}");
                     assert_eq!(ram.read(iocb + 2), cmd, "{name}");
-                    if matches!(name, "Bget" | "Bput") {
+                    if matches!(name, "Input" | "Bget" | "Bput") {
                         assert_eq!(machine::bytes(&vm, iocb + 4, 2), args[1..3], "{name} buffer");
-                        assert_eq!(machine::bytes(&vm, iocb + 8, 2), args[3..5], "{name} length");
+                        let length = [args[3], args.get(4).copied().unwrap_or(0)];
+                        assert_eq!(machine::bytes(&vm, iocb + 8, 2), length, "{name} length");
                     } else if matches!(name, "Open" | "Xio") {
                         assert_eq!(machine::bytes(&vm, iocb + 10, 2), [6, 9], "{name}");
                         let filename = ram.read_word(iocb + 4);

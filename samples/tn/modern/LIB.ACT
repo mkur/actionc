@@ -583,11 +583,12 @@ ASM OPAQUE
   jmp _Cio
 ENDASM
 
-;@actionc preserves $AC/$AD $AE/$AF
-;@actionc clobbers A X Y $A1 $A3
-;@actionc writes $0100-$FFFF
+; A selects the channel, X/Y supply the buffer and $A3 supplies its byte length.
+; GET RECORD goes through _Cio and can invoke the installed error handler.
+;@actionc reviewed-6502 b2efc672a7353507
+;@actionc abi-inputs-only
 PROC Input=*(BYTE chn CARD buf BYTE len)
-ASM
+ASM OPAQUE
   stx $A1
   jsr _LodChn
   lda $A1

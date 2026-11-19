@@ -243,7 +243,7 @@ fn internal_review_composes_through_native_print_callers() {
 fn tn_cio_reviews_match_both_backends() {
     let sem = tn_semir();
     let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
-    for name in ["_LodChn", "_StrNam", "_Cio", "_BlockIO", "Close", "Xio", "Open", "Bget", "Bput"] {
+    for name in ["_LodChn", "_StrNam", "_Cio", "_BlockIO", "Close", "Xio", "Open", "Input", "Bget", "Bput"] {
         let routine = mir.routines.iter().find(|r| r.name == name).unwrap();
         let review = routine.frame.callee_review.as_ref().unwrap();
         let computed = body_fingerprint(&mir, routine, review.version());
@@ -254,7 +254,7 @@ fn tn_cio_reviews_match_both_backends() {
         let common = crate::callee6502::Review { facts: classic, fingerprint: 0 }.map_ids(|_| None).unwrap();
         assert_eq!(common.facts, *mir_facts, "{name}");
         assert_eq!(mir_facts.abi_inputs_only,
-            matches!(name, "Close" | "Xio" | "Open" | "Bget" | "Bput"), "{name}");
+            matches!(name, "Close" | "Xio" | "Open" | "Input" | "Bget" | "Bput"), "{name}");
     }
 
     let mir = crate::mir6502::materialize_program(mir, &Default::default()).unwrap();
@@ -264,6 +264,7 @@ fn tn_cio_reviews_match_both_backends() {
         ("Close", false, &[][..]),
         ("Open", true, &[0xa3, 0xa4][..]),
         ("Xio", true, &[0xa3, 0xa4, 0xa5][..]),
+        ("Input", true, &[0xa3][..]),
         ("Bget", true, &[0xa3, 0xa4][..]),
         ("Bput", true, &[0xa3, 0xa4][..]),
     ] {
@@ -277,12 +278,18 @@ fn tn_cio_reviews_match_both_backends() {
         assert_eq!(exit.reads(), &MirKnownMemoryReads::Unknown, "{name}");
     }
 
-    let mut stale = mir;
-    let helper = stale.routines.iter_mut().find(|r| r.name == "_BlockIO").unwrap();
-    helper.frame.callee_review.as_mut().unwrap().fingerprint ^= 1;
-    for name in ["Bget", "Bput"] {
-        let routine = stale.routines.iter().find(|r| r.name == name).unwrap();
-        assert!(reviewed_contract(&stale, routine).is_none(), "{name}");
+    for (helper, wrappers) in [
+        ("_BlockIO", &["Bget", "Bput"][..]),
+        ("_LodChn", &["Input"][..]),
+        ("_Cio", &["Input", "Bget", "Bput"][..]),
+    ] {
+        let mut stale = mir.clone();
+        let child = stale.routines.iter_mut().find(|r| r.name == helper).unwrap();
+        child.frame.callee_review.as_mut().unwrap().fingerprint ^= 1;
+        for &name in wrappers {
+            let routine = stale.routines.iter().find(|r| r.name == name).unwrap();
+            assert!(reviewed_contract(&stale, routine).is_none(), "{name} via {helper}");
+        }
     }
 }
 

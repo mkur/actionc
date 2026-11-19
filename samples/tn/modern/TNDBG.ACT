@@ -481,7 +481,7 @@ PROC SetWin(BYTE n, drvnum)
   dbgSetHits ==+ 1
   winnum=n
   panelDataOld=panelData
-  IF winnum THEN
+  IF n THEN
     pathBuf=lp_PathBuf
     dirnames=lp_names
     panelData=@leftPanel
@@ -536,12 +536,12 @@ PROC SetWin(BYTE n, drvnum)
        s(j)=0
     OD
     DrawWinFrame()
-    panelDataOld=panelData
     active.tagMask=true
     active.selected=0
     active.row=0
     TagAll()
     Inv(0)
+    panelDataOld=panelData
   FI
 
   active.directory=currentDir^
