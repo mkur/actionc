@@ -38,6 +38,12 @@ records the completed entry-fact refinement.
 
 ## Decision
 
+For ordinary locals and parameters whose address the compiler controls,
+optimized MIR6502 defaults to a ZP memory home. Inline storage is the
+fallback when the required bytes are unavailable over the object's lifetime.
+The private-home design specifies pool ownership at calls and how to qualify
+placements. [Private ZP home placement](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md)
+
 Choose a parameter's working home before generating its entry capture and
 home-dependent pointer setup. A shared, typed binding must govern both decisions
 and ordinary storage layout. MIR6502 owns this policy; Action semantics, verified

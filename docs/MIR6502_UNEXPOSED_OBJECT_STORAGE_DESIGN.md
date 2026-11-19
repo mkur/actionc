@@ -14,8 +14,11 @@ their verifier restrictions remain implemented behavior.
 
 Whether an ordinary pointer access can observe a compiler-managed object must
 depend on that object's address exposure, independently of its placement.
-Compute that fact before choosing inline, ZP or register storage. Separately
-prove the object's lifetime and the absence of conflicting physical writes.
+Compute that fact before placement. For an ordinary local or parameter with
+a compiler-controlled address that needs memory, the default home is ZP.
+Its lifetime and physical byte conflicts determine which pool bytes are
+available. If none fit, use inline storage for that object.
+[Private ZP home placement](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md)
 
 Sort demonstrates the current inconsistency. Its Fnamecmp call now passes the
 entry/write contract, but the caller selector and expanded residence verifier
@@ -211,9 +214,9 @@ the callee's physical uses are accounted for. [Private ZP home placement](MIR650
 | --- | --- |
 | A typed native store through an ordinary pointer | A proven unexposed object can survive the pointee write. The complete set of memory addresses the routine may modify can still be unknown. |
 | The source takes the object's address, fixes its location or exposes an alias | Use the exposed object's ordinary alias and physical-overlap rules. Passing the address of a local to the writer is a real path to that local. |
-| A physical write from argument setup, ABI results, scratch, pointer-cell updates or a descendant's allocated home | Exclude each overlapping candidate byte, including a single lane of a word. Count transient writes even if the callee restores the byte before return. |
+| A physical write from argument setup, ABI results, scratch, pointer-cell updates or a descendant's allocated home | Exclude each overlapping candidate byte, including a single lane of a word. A save/restore boundary can protect a live value when no intervening code can read or update the displaced value, including through reentry. |
 | An explicit numeric destination or range | Apply the actual argument at each call site. For example, a one-byte store through a pointer passed as `$A2` excludes `$A2` through a wrapper as well. Include width, indexing and wrapping in the overlap check. If an explicit range might overlap a candidate, decline that candidate. |
-| An opaque operation, unknown callee, stale review or unaccounted physical write | Keep the existing conservative fallback for a value crossing that call. |
+| An opaque operation, unknown callee, stale review or unaccounted physical write | Exclude every byte whose preservation across the call lacks a guarantee from the ABI or a matched review. A live object falls back to inline when no suitable bytes remain. |
 
 MIR6502 derives ordinary pointer effects from typed native operations. It takes
 assembly and helper effects from their matched contracts. Compose the possible
