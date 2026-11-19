@@ -198,3 +198,95 @@ fn a_captured_pointer_uses_the_staged_zp_arguments() {
         &MirKnownMemoryWrites::Unknown
     );
 }
+
+#[test]
+fn reviewed_and_native_row_writes_keep_numeric_destinations_and_scratch() {
+    let source = concat!(
+        include_str!("../../../../../fixtures/runtime/reviewed_fixed_store.act"),
+        "
+        CARD ARRAY rows(4)
+        PROC Forward(CARD p BYTE value) Store(p,value) RETURN
+        PROC Row(BYTE i) Forward(rows(i),7) RETURN
+        PROC First() Forward(rows(0),7) RETURN
+        PROC Near() Forward($A2,7) RETURN
+        PROC Mixed(BYTE i) IF i THEN Near() ELSE Row(i) FI RETURN
+        PROC Native(BYTE i) BYTE POINTER rowptr rowptr=rows(i) rowptr^=i RETURN
+        PROC Main() Mixed(1) Native(1) RETURN"
+    );
+    let mut p = materialized(source);
+    let id = |name: &str| p.routines.iter().find(|r| r.name == name).unwrap().id;
+    let (row, near, mixed, native, forward) = (
+        id("Row"),
+        id("Near"),
+        id("Mixed"),
+        id("Native"),
+        id("Forward"),
+    );
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    for (id, numeric) in [
+        (row, false),
+        (near, true),
+        (mixed, true),
+        (native, false),
+        (id("First"), false),
+    ] {
+        let writes = known.get(id).unwrap().writes();
+        for (byte, preserved) in [
+            (0xa0, id == native),
+            (0xa1, id == native),
+            (0xa2, !numeric),
+            (0xef, true),
+        ] {
+            assert_eq!(
+                writes.preserves_private_fixed_byte(MirFixedZpSlot(byte), known.fixed_storage()),
+                preserved,
+                "{id:?} ${byte:02x} {writes:?}"
+            );
+        }
+        if id != near {
+            assert!(!writes.preserves_fixed_byte(MirFixedZpSlot(0xef), known.fixed_storage()));
+        }
+    }
+    assert!(known.get(forward).unwrap().writes().has_formal_writes());
+    assert!(native_numeric_observations(&p).contains(&(0xa2, 1)));
+
+    // Both register lanes must come from one word. Reusing the other offset
+    // is still a valid byte load, but does not reconstruct that word.
+    let mut broken = p.clone();
+    let row_block = &mut broken
+        .routines
+        .iter_mut()
+        .find(|r| r.id == row)
+        .unwrap()
+        .blocks[0];
+    let lane = row_block
+        .ops
+        .iter_mut()
+        .find_map(|op| match op {
+            MirOp::LoadIndirect { offset, .. } if *offset == 1 => Some(offset),
+            _ => None,
+        })
+        .unwrap();
+    *lane = 0;
+    assert_eq!(
+        MirKnownCalleeSummaries::analyze_for_source_homes(&broken, 0)
+            .get(row)
+            .unwrap()
+            .writes(),
+        &MirKnownMemoryWrites::Unknown
+    );
+
+    p.routines[0]
+        .frame
+        .callee_review
+        .as_mut()
+        .unwrap()
+        .fingerprint ^= 1;
+    assert_eq!(
+        MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0)
+            .get(row)
+            .unwrap()
+            .writes(),
+        &MirKnownMemoryWrites::Unknown
+    );
+}

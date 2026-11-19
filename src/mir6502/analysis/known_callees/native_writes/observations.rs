@@ -17,6 +17,21 @@ pub(in crate::mir6502) fn native_numeric_observations(
     let mut calls = BTreeMap::<_, Vec<_>>::new();
     let mut trackers = BTreeMap::new();
     for routine in &program.routines {
+        if routine
+            .frame
+            .callee_review
+            .as_ref()
+            .is_some_and(|r| !r.facts.buffers.is_empty())
+            && let Some(facts) = super::super::reviewed_contract(program, routine)
+            && let Some(buffers) = super::super::reviewed_buffers::buffer_accesses(routine, facts)
+        {
+            pending.extend(
+                buffers
+                    .iter()
+                    .filter_map(FormalWrite::from_reviewed)
+                    .map(|w| (routine.id, w)),
+            );
+        }
         for b in &routine.blocks {
             for (op_index, op) in b.ops.iter().enumerate() {
                 let site = MirSite::Op {

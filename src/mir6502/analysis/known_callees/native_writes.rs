@@ -2,8 +2,7 @@
 //! distinction between an ordinary pointee and the physical bytes of a caller.
 use super::*;
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirDef, MirDirectParamAbi, MirParamLane, MirPointerPair, MirValue,
-    MirWidth,
+    MirAddr, MirAddressConsumer, MirDef, MirParamLane, MirPointerPair, MirValue, MirWidth,
 };
 
 /// A selected indirect instruction either sets Y from its operand or uses the
@@ -80,6 +79,23 @@ pub(in crate::mir6502) struct FormalWrite {
     carrier: Option<u8>,
 }
 
+impl FormalWrite {
+    pub(super) fn from_reviewed(
+        buffer: &crate::mir6502::runtime_contracts::buffers::BufferAccess,
+    ) -> Option<Self> {
+        use crate::mir6502::runtime_contracts::buffers::BufferExtent;
+        match buffer.extent {
+            BufferExtent::Fixed(bytes) if buffer.write => Some(Self {
+                argument: buffer.pointer_byte,
+                offset: 0,
+                bytes,
+                carrier: None,
+            }),
+            _ => None,
+        }
+    }
+}
+
 #[derive(PartialEq)]
 enum Lane {
     Reg(MirReg),
@@ -96,6 +112,9 @@ impl From<MirParamLane> for Lane {
 }
 
 enum Origin {
+    Constant(u8),
+    DataCell(MirMem),
+    DataByte { preparation: MirSite, offset: u16 },
     Input(u16),
     Address(MirMem, u8),
 }
@@ -124,6 +143,63 @@ enum TracePurpose {
     NumericObservation,
 }
 
+/// Identify the prepared address behind a byte load. Two independently staged
+/// bytes form a program-data word only when both use the same preparation.
+fn loaded_byte(
+    routine: &MirRoutine,
+    known: &MirKnownCalleeSummaries,
+    block: &crate::mir6502::ir::MirBlock,
+    before: usize,
+    consumer: MirAddressConsumer,
+    offset: u16,
+) -> Option<Origin> {
+    if !matches!(
+        consumer,
+        MirAddressConsumer::ScaledIndirectIndexedY(_) | MirAddressConsumer::IndirectIndexedY(_)
+    ) {
+        return None;
+    }
+    let lo = fixed_pair(routine, consumer.pointer_pair())?;
+    for (index, op) in block.ops[..before].iter().enumerate().rev() {
+        match op {
+            MirOp::MaterializeIndexedAddress {
+                consumer: prepared, ..
+            }
+            | MirOp::MaterializeAddress {
+                consumer: prepared, ..
+            } if *prepared == consumer => {
+                return Some(Origin::DataByte {
+                    preparation: MirSite::Op {
+                        block: block.id,
+                        op_index: index,
+                    },
+                    offset,
+                });
+            }
+            // The selector defines these offsets relative to the prepared base,
+            // including the Y adjustments emitted between scaled word lanes.
+            MirOp::LoadIndirect {
+                consumer: other,
+                dst: MirDef::Reg(MirReg::A | MirReg::X),
+                ..
+            } if *other == consumer => continue,
+            _ => {}
+        }
+        if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. })
+            || (consumer.preserves_index_in_y()
+                && classify_op(op).may_clobber_reg_compat(MirReg::Y))
+        {
+            return None;
+        }
+        let mut writes = MirKnownMemoryWrites::exact();
+        summarize_op_writes(op, routine, known, &mut writes);
+        if !writes.preserves_fixed_pair(MirFixedZpSlot(lo), &known.fixed_storage) {
+            return None;
+        }
+    }
+    None
+}
+
 /// Follow byte copies back to entry or a relocation. At a join, a loop, or
 /// any other definition the incoming identity is unavailable.
 fn origin(
@@ -148,8 +224,16 @@ fn origin(
             return None;
         }
         let b = &routine.blocks[cfg.block_index(block)?];
-        for op in b.ops.get(..op_index)?.iter().rev() {
+        for (index, op) in b.ops.get(..op_index)?.iter().enumerate().rev() {
             let value = match (&lane, op) {
+                (
+                    Lane::Reg(r),
+                    MirOp::LoadIndirect {
+                        dst: MirDef::Reg(dst),
+                        consumer,
+                        offset,
+                    },
+                ) if r == dst => return loaded_byte(routine, known, b, index, *consumer, *offset),
                 (
                     Lane::Cell(cell),
                     MirOp::Store {
@@ -182,6 +266,10 @@ fn origin(
             if let Some(value) = value {
                 match value {
                     MirValue::Def(MirDef::Reg(r)) => lane = Lane::Reg(*r),
+                    MirValue::PointerCell(mem) => {
+                        lane = Lane::Cell(physical_cell(routine, known, mem)?)
+                    }
+                    MirValue::ConstU8(n) => return Some(Origin::Constant(*n)),
                     MirValue::StorageAddrByte { mem, byte } => {
                         return Some(Origin::Address(mem.clone(), *byte));
                     }
@@ -242,6 +330,9 @@ fn origin(
         }
         op_index = pred.ops.len();
     }
+    if let Lane::Cell(mem @ (MirMem::Global { .. } | MirMem::Static { .. })) = lane {
+        return Some(Origin::DataCell(mem));
+    }
     let params = routine.frame.direct_parameter_abi.as_ref()?;
     let lanes = crate::mir6502::abi::argument_lanes(crate::mir6502::abi::parameter_bytes(params)?)?;
     Some(Origin::Input(
@@ -270,10 +361,26 @@ fn paired_origin(
         origin(purpose, program, routine, known, site, l)?,
         origin(purpose, program, routine, known, site, h)?,
     ) {
+        (Origin::Constant(lo), Origin::Constant(hi)) => {
+            Some(Base::Numeric(u16::from_le_bytes([lo, hi])))
+        }
+        (Origin::DataCell(lo), Origin::DataCell(hi)) if offset_mem(&lo, 1) == hi && lo != hi => {
+            Some(Base::Object)
+        }
+        (
+            Origin::DataByte {
+                preparation: l,
+                offset: lo,
+            },
+            Origin::DataByte {
+                preparation: h,
+                offset: hi,
+            },
+        ) if l == h && lo.checked_add(1) == Some(hi) => Some(Base::Object),
         (Origin::Input(l), Origin::Input(h)) if h == l + 1 => {
             let mut start = 0;
             for param in routine.frame.direct_parameter_abi.as_ref()? {
-                if start == l && *param == MirDirectParamAbi::Pointer {
+                if start == l && param.width().bytes() == 2 {
                     return Some(Base::Formal(l));
                 }
                 start += param.width().bytes();
@@ -376,13 +483,23 @@ fn retained_base(
                         .iter()
                         .position(|p| p.base == MirStorageBase::Param(*id))?;
                     let params = routine.frame.direct_parameter_abi.as_ref()?;
-                    if params.get(index) != Some(&MirDirectParamAbi::Pointer) {
+                    if params.get(index)?.width().bytes() != 2 {
                         return None;
                     }
                     return Some(Base::Formal(crate::mir6502::abi::parameter_bytes(
                         params.get(..index)?,
                     )?));
                 }
+                MirOp::Load {
+                    src:
+                        MirAddr::Direct(MirMem::Global { .. } | MirMem::Static { .. })
+                        | MirAddr::ComputedIndex { .. }
+                        | MirAddr::PointerIndex { .. }
+                        | MirAddr::PointerCell { .. }
+                        | MirAddr::Deref { .. },
+                    width: MirWidth::Word,
+                    ..
+                } => return Some(Base::Object),
                 _ => return None,
             }
         }
@@ -449,15 +566,19 @@ impl MirKnownCalleeSummaries {
             return None;
         };
         let summary = self.get(*id)?;
-        if let Some(facts) = summary.reviewed_facts()
+        let mut writes = if let Some(facts) = summary.reviewed_facts()
             && facts.buffers.iter().any(|buffer| buffer.write)
         {
             let callee = program.routines.iter().find(|r| r.id == *id)?;
-            return super::reviewed_buffers::residence_writes(program, callee, facts, call, values, site);
-        }
-        let mut writes = summary.writes().clone();
+            super::reviewed_buffers::residence_writes(program, callee, facts, call, values, site)?
+        } else {
+            summary.writes().clone()
+        };
         let MirKnownMemoryWrites::Pointee {
-            formals, numeric, ..
+            formals,
+            numeric,
+            ordinary,
+            ..
         } = &mut writes
         else {
             return Some(writes);
@@ -472,6 +593,7 @@ impl MirKnownCalleeSummaries {
                 site,
                 write,
             )?;
+            *ordinary |= matches!(base, Base::Object);
             record_base(base, write, numeric, formals)?;
         }
         Some(writes)

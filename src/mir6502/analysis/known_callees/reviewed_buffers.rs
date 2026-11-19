@@ -136,7 +136,7 @@ impl ReviewedBuffers {
     }
 }
 
-fn buffer_accesses(
+pub(super) fn buffer_accesses(
     routine: &MirRoutine,
     facts: &CallFacts<crate::nir::SymbolId>,
 ) -> Option<Vec<BufferAccess>> {
@@ -191,17 +191,18 @@ pub(super) fn residence_writes(
     crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
     let fixed = reviewed_bytes(facts.writes.as_deref())?;
     let mut numeric = Vec::new();
+    let mut formals = BTreeSet::new();
     for buffer in buffer_accesses(callee, facts)?.iter().filter(|b| b.write) {
+        if let Some(write) = FormalWrite::from_reviewed(buffer) {
+            // Substitute the address using the same rules as a native store.
+            formals.insert(write);
+            continue;
+        }
         let (address, size) = project(buffer, program, call, Some((values, site)));
         if size == 0 {
             continue;
         }
         let address = address?;
-        if matches!(buffer.extent, BufferExtent::Fixed(_)) {
-            // The review bounds all writes relative to the entry address.
-            numeric.push((address, size));
-            continue;
-        }
         // A write into a pointer or count carrier can redirect later loop
         // iterations. Include read-only carriers (e.g. MovePage's $A3/$A4).
         for range in facts.reads.as_ref()?.iter().chain(facts.writes.as_ref()?) {
@@ -222,13 +223,13 @@ pub(super) fn residence_writes(
         }
         numeric.push((address, size));
     }
-    if numeric.is_empty() {
+    if numeric.is_empty() && formals.is_empty() {
         return Some(MirKnownMemoryWrites::Exact(fixed));
     }
     Some(MirKnownMemoryWrites::Pointee {
         fixed,
         numeric,
-        formals: BTreeSet::new(),
+        formals,
         ordinary: false,
         caller_dependent: false,
         opaque_preserves: None,
