@@ -1789,7 +1789,8 @@ impl Analyzer {
                         | crate::asm6502::InlineAsmSymbolUse::IndexedRead
                         | crate::asm6502::InlineAsmSymbolUse::IndexedWrite
                         | crate::asm6502::InlineAsmSymbolUse::IndexedReadWrite
-                        | crate::asm6502::InlineAsmSymbolUse::PointerRead => matches!(
+                        | crate::asm6502::InlineAsmSymbolUse::PointerRead
+                        | crate::asm6502::InlineAsmSymbolUse::IndexedPointerRead => matches!(
                             symbol.class,
                             SymbolClass::Define
                                 | SymbolClass::Const
@@ -1828,7 +1829,7 @@ impl Analyzer {
                             ),
                         ));
                     }
-                    if relocation.symbol_use == crate::asm6502::InlineAsmSymbolUse::PointerRead
+                    if matches!(relocation.symbol_use, crate::asm6502::InlineAsmSymbolUse::PointerRead | crate::asm6502::InlineAsmSymbolUse::IndexedPointerRead)
                         && symbol
                             .ty
                             .as_ref()

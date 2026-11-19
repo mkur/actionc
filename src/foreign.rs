@@ -42,4 +42,6 @@ pub enum ForeignSymbolUse {
     Call,
     Control,
     PointerRead,
+    /// The index selects the pointer before the indirect memory access.
+    IndexedPointerRead,
 }

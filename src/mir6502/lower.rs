@@ -759,7 +759,10 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     contains_source_asm: routine.blocks.iter().flat_map(|b| &b.ops).any(|op|
                         matches!(op, NirOpKind::ForeignCode { code, .. } if code.kind == nir::NirForeignCodeKind::InlineAssembly)),
                     callee_review: match routine.entry.placement {
-                        nir::NirRoutinePlacement::CurrentLocation => routine.entry.callee_review.clone(),
+                        nir::NirRoutinePlacement::CurrentLocation if routine.locals.is_empty() => routine.entry.callee_review.clone(),
+                        nir::NirRoutinePlacement::Relocatable if routine.params.is_empty() && !routine.locals.is_empty()
+                            && routine.locals.iter().all(|local| matches!(local.backing, NirLocalBacking::Ordinary)
+                                && local.storage == nir::NirStorageClass::Array) => routine.entry.callee_review.clone(),
                         _ => None,
                     },
                     abi_inputs_only_review: routine.entry.abi_inputs_only_review,
@@ -2028,6 +2031,7 @@ fn lower_ops(
                             routine,
                             block,
                             code,
+                            effects.opaque,
                             routine_system_addresses_by_id,
                             diagnostics,
                         )
@@ -3510,6 +3514,7 @@ fn lower_inline_asm(
     routine: &str,
     block: &str,
     code: &NirForeignCode,
+    opaque: bool,
     routine_system_addresses_by_id: &BTreeMap<crate::nir::RoutineId, u16>,
     diagnostics: &mut Vec<MirDiagnostic>,
 ) -> Option<Vec<MirMachineItem>> {
@@ -3537,13 +3542,18 @@ fn lower_inline_asm(
             ));
             return None;
         };
+        let keeps_operand_identity = match relocation.target {
+            NirForeignCodeTarget::Absolute(_) | NirForeignCodeTarget::InlineOffset(_) => true,
+            NirForeignCodeTarget::Routine(id) => opaque && !routine_system_addresses_by_id.contains_key(&id),
+            NirForeignCodeTarget::Storage(crate::nir::NirStorageId::Global(_) | crate::nir::NirStorageId::Local(_)) => opaque,
+            _ => false,
+        };
         items.push(MirMachineItem::Relocation {
             kind,
             target,
             addend: relocation.addend,
             requires_zero_page: relocation.required_address_bits == Some(8),
-            symbol_use: matches!(relocation.target, NirForeignCodeTarget::Absolute(_) | NirForeignCodeTarget::InlineOffset(_))
-                .then_some(relocation.symbol_use),
+            symbol_use: keeps_operand_identity.then_some(relocation.symbol_use),
             span: relocation.span,
         });
         cursor = offset

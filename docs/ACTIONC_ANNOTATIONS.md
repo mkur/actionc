@@ -49,11 +49,18 @@ of the argument and result ABI, payload bytes and typed address relocations.
 The relocation binds the target, byte selector, offset and operand use. Both
 backends use the declared contract at this boundary. MIR uses those relocations
 to identify explicit addresses even when a memory footprint is open.
-This format accepts numeric addresses and local labels. A symbolic external
-dependency requires a different review.
+Numeric addresses and local labels retain their literal address or inline offset.
+References to ordinary uninitialized global storage bind its name, size and
+scalar or inline-array backing. A parameterless opaque helper can use
+uninitialized private inline arrays. Its storage operands bind the local name
+and byte extent. A direct symbolic `JSR` or tail `JMP` binds the
+target routine and its current reviewed facts. Changing a helper or its
+guarantees invalidates the parent review. Recursive dependencies cannot match.
+A numeric OS vector or an indirect callback can have effects beyond the
+wrapper. Leave those effects open unless the review covers every return path.
 An opaque call may declare `preserves` with its general write footprint open.
 
-A composed assembly review can call other reviewed routines by symbolic
+A composed review of checked assembly can call other reviewed routines by symbolic
 `JSR`. Its fingerprint includes each target's name, validated implementation
 fingerprint and declared guarantees. A stale child disables its callers'
 reviews transitively. The reviewer checks each internal calling convention,

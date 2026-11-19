@@ -1421,6 +1421,11 @@ Rules:
 - A payload target must equal the selected NIR target. Legacy Action! machine
   blocks and current inline assembly are tagged `Atari6502`; 65816 and 68k
   compilation rejects them at the retained source span.
+- SemIR carries the assembler's operand use into each relocation. NIR preserves
+  the distinction between a fixed pointer fetch and an indexed pointer fetch.
+  On 6502, `(zp),Y` reads the two pointer bytes at `zp` and its zero-page
+  successor. In `(zp,X)`, X selects the pointer before the fetch. MIR6502 uses
+  this fact when checking which physical storage a reviewed opaque body exposes.
 - Machine blocks must either carry enough structured payload for the selected
   backend to preserve them or produce a precise unsupported diagnostic.
 - Raw parser items do not enter executable NIR; lowering replaces the whole

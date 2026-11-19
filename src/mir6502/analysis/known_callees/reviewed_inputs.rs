@@ -3,7 +3,7 @@
 use super::*;
 use crate::callee6502::ReviewDependencies;
 use crate::asm6502::InlineAsmRelocationKind;
-use crate::mir6502::ir::{MirDirectParamAbi, MirDirectResultAbi, MirInlineAsmTarget};
+use crate::mir6502::ir::{MirDirectParamAbi, MirDirectResultAbi, MirGlobalInit, MirInlineAsmTarget};
 
 pub(in crate::mir6502) fn abi_inputs_review_fingerprint(
     program: &MirProgram,
@@ -59,7 +59,13 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
     let [MirOp::MachineBlock { id, effects }] = block.ops.as_slice() else {
         return None;
     };
-    if !routine.frame.locals.is_empty()
+    let private_arrays = effects.opaque && routine.frame.params.is_empty()
+        && routine.frame.locals.iter().all(|slot| {
+            matches!(slot.base, crate::mir6502::ir::MirStorageBase::Local(_))
+                && slot.storage == crate::mir6502::ir::MirStorageClass::Array
+                && matches!(slot.init, Some(crate::mir6502::ir::MirStorageInit::ZeroFill { bytes, .. }) if bytes == slot.storage_size)
+        });
+    if (!routine.frame.locals.is_empty() && !private_arrays)
         || !routine.frame.contains_source_asm
         || block.terminator != MirTerminator::Unreachable
         || (routine.effects.opaque && !effects.opaque)
@@ -68,7 +74,7 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
         return None;
     }
     let machine = program.machine_blocks.iter().find(|m| m.id == *id)?;
-    use crate::callee6502::{BodyItem, fingerprint};
+    use crate::callee6502::{BodyItem, OpaqueTarget, fingerprint};
     let params = routine
         .frame
         .direct_parameter_abi
@@ -84,17 +90,48 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
         MirDirectResultAbi::Scalar(w) => w.bytes() as u8,
         MirDirectResultAbi::Pointer => b'P',
     };
+    let mut call_identity = |id| {
+        let callee = program.routines.iter().find(|r| r.id == id)?;
+        if program.routines.iter().any(|r| r.id != id && r.name.eq_ignore_ascii_case(&callee.name)) { return None; }
+        let contract = dependencies.resolve(id, |deps| {
+            reviewed_match(program, callee, deps)?.dependency_hash(|id| {
+                program.globals.iter().find(|g| g.id == *id).map(|g| g.name.clone())
+            })
+        })?;
+        Some((callee.name.as_str(), contract))
+    };
     let mut items = Vec::with_capacity(machine.items.len());
     for item in &machine.items {
         match item {
             MirMachineItem::Byte(b) => items.push(BodyItem::Byte(*b)),
             MirMachineItem::Relocation { kind, target, addend, requires_zero_page, symbol_use, .. } if effects.opaque => {
-                let (local, address) = match target {
-                    MirInlineAsmTarget::InlineOffset(offset) => (true, *offset),
-                    MirInlineAsmTarget::Absolute(address) => (false, *address),
+                let target = match target {
+                    MirInlineAsmTarget::InlineOffset(offset) => OpaqueTarget::Local(*offset),
+                    MirInlineAsmTarget::Absolute(address) => OpaqueTarget::Absolute(*address),
+                    MirInlineAsmTarget::Routine(id) => {
+                        let (name, contract) = call_identity(*id)?;
+                        OpaqueTarget::Routine { name, contract }
+                    }
+                    MirInlineAsmTarget::Memory(MirMem::Local { id, offset: 0 }) => {
+                        let slot = routine.frame.locals.iter().find(|s| s.base == crate::mir6502::ir::MirStorageBase::Local(*id))?;
+                        OpaqueTarget::LocalArray { name: slot.name.as_deref()?, extent: slot.storage_size }
+                    }
+                    MirInlineAsmTarget::Memory(MirMem::Global { id, offset: 0 }) => {
+                        let global = program.globals.iter().find(|g| g.id == *id)?;
+                        if !matches!(global.backing, MirGlobalBacking::Ordinary { .. })
+                            || program.globals.iter().any(|g| g.id != *id && g.name.eq_ignore_ascii_case(&global.name))
+                        { return None; }
+                        let array = match &global.init {
+                            Some(MirGlobalInit::ZeroFill { array: Some(a), .. })
+                                if !a.pointer_backed && a.address_initializer.is_none() => true,
+                            None if global.width.is_some() => false,
+                            _ => return None,
+                        };
+                        OpaqueTarget::Storage { name: &global.name, extent: global.storage_size, array }
+                    }
                     _ => return None,
                 };
-                items.push(BodyItem::OpaqueOperand { local, address, kind: *kind, addend: *addend,
+                items.push(BodyItem::OpaqueOperand { target, kind: *kind, addend: *addend,
                     requires_zp: *requires_zero_page, usage: (*symbol_use)? });
             }
             MirMachineItem::Relocation {
@@ -123,14 +160,8 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
                 kind: InlineAsmRelocationKind::Absolute16, target: MirInlineAsmTarget::Routine(id),
                 addend: 0, requires_zero_page: false, ..
             } => {
-                let callee = program.routines.iter().find(|r| r.id == *id)?;
-                if program.routines.iter().any(|r| r.id != *id && r.name.eq_ignore_ascii_case(&callee.name)) { return None; }
-                let contract = dependencies.resolve(*id, |deps| {
-                    reviewed_match(program, callee, deps)?.dependency_hash(|id| {
-                        program.globals.iter().find(|g| g.id == *id).map(|g| g.name.clone())
-                    })
-                })?;
-                items.push(BodyItem::Call { name: &callee.name, contract });
+                let (name, contract) = call_identity(*id)?;
+                items.push(BodyItem::Call { name, contract });
             }
             MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Absolute16,
@@ -145,7 +176,6 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
                 }) {
                     return None;
                 }
-                use crate::mir6502::ir::MirGlobalInit;
                 let array = match global.init.as_ref()? {
                     MirGlobalInit::Bytes { array: Some(a), .. }
                     | MirGlobalInit::ZeroFill { array: Some(a), .. } => a,
@@ -261,6 +291,21 @@ PROC Main() Leaf() RETURN";
     }
 
     #[test]
+    fn opaque_pointer_observations_follow_the_pointer_fetch_address() {
+        let source = ";@actionc reviewed-6502 0000000000000000\nPROC Probe=*()\nASM OPAQUE\nlda ($ff),y\nsta ($86,x)\nrts\nENDASM";
+        let mut mir = crate::mir6502::lower_program(&lower(source).unwrap()).unwrap();
+        let hash = body_fingerprint(&mir, &mir.routines[0], crate::callee6502::CONTRACT_VERSION).unwrap();
+        mir.routines[0].frame.callee_review.as_mut().unwrap().fingerprint = hash;
+        let routine = &mir.routines[0];
+        let inventory = machine_storage_observations(&mir.machine_blocks[0], routine, &mir).unwrap();
+        assert_eq!(inventory.reads.len(), 2);
+        assert_eq!(inventory.reads[0].extent, super::super::observations::ObservationExtent::PointerFetch);
+        assert_eq!(inventory.reads[1].extent, super::super::observations::ObservationExtent::FullZeroPage);
+        // STA reads its pointer. Its indirect destination is outside this inventory.
+        assert!(inventory.writes.is_empty());
+    }
+
+    #[test]
     fn typed_jsr_binds_both_backends_to_current_child_guarantees() {
         let source = ";@actionc reviewed-6502 1111111111111111
 ;@actionc writes-only none
@@ -307,6 +352,49 @@ rts", 1), false),
             assert_eq!(MirCalleeEntryFact::analyze(&mir, mir.routines[1].id, MirCalleeEntryStage::ActualEntry).is_some(), valid);
         }
     }
+    #[test]
+    fn opaque_symbolic_operands_bind_storage_and_current_call_targets() {
+        let source = "BYTE ARRAY buffer(8)
+;@actionc reviewed-6502 1111111111111111
+;@actionc writes-only none
+PROC Child=*()
+ASM OPAQUE
+rts
+ENDASM
+;@actionc reviewed-6502 2222222222222222
+;@actionc abi-inputs-only
+PROC Parent=*()
+ASM OPAQUE
+jsr Child
+sta buffer-1,y
+jmp Child
+ENDASM
+PROC Main() Parent() RETURN";
+        let fingerprint = |src: &str, index| {
+            let mir = crate::mir6502::lower_program(&lower(src).unwrap()).unwrap();
+            body_fingerprint(&mir, &mir.routines[index], crate::callee6502::CONTRACT_VERSION).unwrap()
+        };
+        let src = source.replace("1111111111111111", &format!("{:016x}", fingerprint(source, 0)));
+        let src = src.replace("2222222222222222", &format!("{:016x}", fingerprint(&src, 1)));
+        for (source, valid) in [
+            (src.clone(), true),
+            (src.replace("buffer(8)", "buffer(9)"), false),
+            (src.replace("buffer", "other"), false),
+            (src.replace("buffer-1", "buffer+1"), false),
+            (src.replace("writes-only none", "writes-only $A0"), false),
+            (src.replacen("ASM OPAQUE\nrts", "ASM OPAQUE\nnop\nrts", 1), false),
+            (src.replace("jmp Child", "jmp Parent"), false),
+            (src.replace("jmp Child", "jmp Child+1"), false),
+        ] {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&source).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+            let sem = crate::semantic::ir::lower_program(&ast, &model);
+            let mir = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+            assert_eq!(reviewed_contract(&mir, &mir.routines[1]).is_some(), valid, "{source}");
+            assert_eq!(crate::codegen::projected_review_for_test(&sem, "Parent").is_some(), valid, "{source}");
+        }
+    }
+
     #[test]
     fn native_direct_call_producers_publish_their_own_generated_facts() {
         let source = "BYTE g=$0600 BYTE FUNC Read() RETURN(g) PROC Main() g=Read()+1 RETURN";

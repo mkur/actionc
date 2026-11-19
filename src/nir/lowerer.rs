@@ -3807,6 +3807,7 @@ impl NirBuilder {
                 ForeignSymbolUse::Call
                     | ForeignSymbolUse::Control
                     | ForeignSymbolUse::PointerRead
+                    | ForeignSymbolUse::IndexedPointerRead
                     | ForeignSymbolUse::IndexedRead
                     | ForeignSymbolUse::IndexedReadWrite
             ) || matches!(relocation.target, NirForeignCodeTarget::InlineOffset(_))
@@ -3817,6 +3818,7 @@ impl NirBuilder {
                         | ForeignSymbolUse::IndexedRead
                         | ForeignSymbolUse::IndexedReadWrite
                         | ForeignSymbolUse::PointerRead
+                        | ForeignSymbolUse::IndexedPointerRead
                 )
         });
         let writes_unknown = relocations.iter().any(|relocation| {
@@ -3824,6 +3826,7 @@ impl NirBuilder {
                 relocation.symbol_use,
                 ForeignSymbolUse::Call
                     | ForeignSymbolUse::PointerRead
+                    | ForeignSymbolUse::IndexedPointerRead
                     | ForeignSymbolUse::IndexedWrite
                     | ForeignSymbolUse::IndexedReadWrite
             ) || matches!(relocation.target, NirForeignCodeTarget::InlineOffset(_))
@@ -6137,6 +6140,7 @@ fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemor
                     | ForeignSymbolUse::IndexedRead
                     | ForeignSymbolUse::IndexedReadWrite
                     | ForeignSymbolUse::PointerRead
+                    | ForeignSymbolUse::IndexedPointerRead
             )
         } else {
             matches!(
@@ -6156,7 +6160,7 @@ fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemor
                 regions.push(NirMemoryRegion {
                     kind: NirMemoryRegionKind::Storage(storage),
                     offset: ByteOffset::from(offset),
-                    size: if relocation.symbol_use == ForeignSymbolUse::PointerRead {
+                    size: if matches!(relocation.symbol_use, ForeignSymbolUse::PointerRead | ForeignSymbolUse::IndexedPointerRead) {
                         ByteSize::new(2)
                     } else {
                         ByteSize::ONE
@@ -6168,7 +6172,7 @@ fn inline_asm_regions(code: &NirForeignCode, reads: bool) -> Option<Vec<NirMemor
                 regions.push(NirMemoryRegion {
                     kind: NirMemoryRegionKind::Static(id),
                     offset: ByteOffset::new(u32::try_from(relocation.addend).ok()?),
-                    size: if relocation.symbol_use == ForeignSymbolUse::PointerRead { ByteSize::new(2) } else { ByteSize::ONE },
+                    size: if matches!(relocation.symbol_use, ForeignSymbolUse::PointerRead | ForeignSymbolUse::IndexedPointerRead) { ByteSize::new(2) } else { ByteSize::ONE },
                 });
             }
             NirForeignCodeTarget::Absolute(address) => {

@@ -2,10 +2,18 @@
 //! match certifies the recorded claims, independently of instruction effects.
 use crate::codegen::{AddressingMode, decode_6502_opcode};
 
+pub(crate) enum OpaqueTarget<'a> {
+    Absolute(u16),
+    Local(u16),
+    Storage { name: &'a str, extent: u16, array: bool },
+    LocalArray { name: &'a str, extent: u16 },
+    Routine { name: &'a str, contract: u64 },
+}
+
 pub(crate) enum BodyItem<'a> {
     Byte(u8),
     OpaqueOperand {
-        local: bool, kind: crate::asm6502::InlineAsmRelocationKind, address: u16,
+        target: OpaqueTarget<'a>, kind: crate::asm6502::InlineAsmRelocationKind,
         addend: i32, requires_zp: bool, usage: crate::foreign::ForeignSymbolUse,
     },
     Call { name: &'a str, contract: u64 },
@@ -17,8 +25,7 @@ pub(crate) enum BodyItem<'a> {
 }
 
 /// An explicit ASM OPAQUE review binds the ABI and relocatable payload as
-/// data. Local offsets are independent of link origin. External symbolic
-/// dependencies require their own identity and are outside this projection.
+/// data. Symbolic operands bind storage declarations or current child reviews.
 pub(crate) fn opaque_fingerprint(params: &[u8], result: u8, items: &[BodyItem<'_>], version: &[u8]) -> Option<u64> {
     use crate::asm6502::InlineAsmRelocationKind::*;
     use crate::foreign::ForeignSymbolUse::*;
@@ -34,14 +41,42 @@ pub(crate) fn opaque_fingerprint(params: &[u8], result: u8, items: &[BodyItem<'_
     for item in items {
         match item {
             BodyItem::Byte(byte) => add(&[0, *byte]),
-            BodyItem::OpaqueOperand { local, kind, address, addend, requires_zp, usage } => {
+            BodyItem::OpaqueOperand { target, kind, addend, requires_zp, usage } => {
+                let tag = match target {
+                    OpaqueTarget::Absolute(_) => 0,
+                    OpaqueTarget::Local(_) => 1,
+                    OpaqueTarget::Storage { .. } if !matches!(usage, Call | Control | Constant) => 2,
+                    OpaqueTarget::LocalArray { .. } if !matches!(usage, Call | Control | Constant) => 4,
+                    OpaqueTarget::Routine { .. } if matches!(usage, Call | Control)
+                        && *kind == Absolute16 && *addend == 0 && !requires_zp => 3,
+                    _ => return None,
+                };
                 let usage = match usage {
                     Address => 0, Constant => 1, Read => 2, Write => 3, ReadWrite => 4, IndexedRead => 5,
-                    IndexedWrite => 6, IndexedReadWrite => 7, Call => 8, Control => 9, PointerRead => 10,
+                    IndexedWrite => 6, IndexedReadWrite => 7, Call => 8, Control => 9, PointerRead => 10, IndexedPointerRead => 11,
                 };
-                add(&[1, u8::from(*local), match kind { Absolute16 => 0, Byte8 => 1, Low8 => 2, High8 => 3 },
+                add(&[1, tag, match kind { Absolute16 => 0, Byte8 => 1, Low8 => 2, High8 => 3 },
                     u8::from(*requires_zp), usage]);
-                add(&address.to_le_bytes());
+                match target {
+                    OpaqueTarget::Absolute(address) | OpaqueTarget::Local(address) => add(&address.to_le_bytes()),
+                    OpaqueTarget::Storage { name, extent, array } => {
+                        add(&[u8::from(*array)]);
+                        add(&extent.to_le_bytes());
+                        add(&u32::try_from(name.len()).ok()?.to_le_bytes());
+                        add(name.as_bytes());
+                    }
+                    OpaqueTarget::LocalArray { name, extent } => {
+                        add(&extent.to_le_bytes());
+                        add(&u32::try_from(name.len()).ok()?.to_le_bytes());
+                        add(name.as_bytes());
+                    }
+                    OpaqueTarget::Routine { name, contract } => {
+                        let name = name.to_ascii_uppercase();
+                        add(&u32::try_from(name.len()).ok()?.to_le_bytes());
+                        add(name.as_bytes());
+                        add(&contract.to_le_bytes());
+                    }
+                }
                 add(&addend.to_le_bytes());
             }
             BodyItem::Call { .. } | BodyItem::Global { .. } => return None,

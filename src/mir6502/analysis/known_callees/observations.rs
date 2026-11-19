@@ -150,17 +150,19 @@ fn opaque_operand_observations(machine: &MirMachineBlock) -> Option<MachineStora
         if matches!(usage, Constant | Call | Control) { continue; }
         let base = match target {
             MirInlineAsmTarget::Absolute(address) => absolute_mem(*address),
+            MirInlineAsmTarget::Memory(mem @ (MirMem::Global { .. } | MirMem::Local { .. })) => mem.clone(),
             MirInlineAsmTarget::InlineOffset(_) if usage == Address => continue,
             _ => return None,
         };
         let indexed = matches!(usage, IndexedRead | IndexedWrite | IndexedReadWrite);
-        let extent = if *requires_zero_page && (indexed || usage == PointerRead) {
-            // The shared pointer-read class includes indexed-indirect X.
+        let extent = if *requires_zero_page && (indexed || usage == IndexedPointerRead) {
             ObservationExtent::FullZeroPage
         } else if indexed {
             ObservationExtent::Bytes(256)
         } else if usage == PointerRead {
             ObservationExtent::PointerFetch
+        } else if usage == IndexedPointerRead {
+            return None;
         } else {
             ObservationExtent::Bytes(1)
         };

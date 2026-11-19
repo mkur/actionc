@@ -3832,6 +3832,7 @@ impl<'a> IrBuilder<'a> {
             InlineAsmSymbolUse::Call => ForeignSymbolUse::Call,
             InlineAsmSymbolUse::Control => ForeignSymbolUse::Control,
             InlineAsmSymbolUse::PointerRead => ForeignSymbolUse::PointerRead,
+            InlineAsmSymbolUse::IndexedPointerRead => ForeignSymbolUse::IndexedPointerRead,
         }
     }
 

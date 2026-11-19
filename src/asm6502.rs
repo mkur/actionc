@@ -74,6 +74,8 @@ pub enum InlineAsmSymbolUse {
     Call,
     Control,
     PointerRead,
+    /// The index selects the pointer before the indirect memory access.
+    IndexedPointerRead,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1334,11 +1336,10 @@ fn symbol_use(instruction: &ParsedInstruction) -> InlineAsmSymbolUse {
     if instruction.mode == AddressingMode::Immediate {
         return InlineAsmSymbolUse::Address;
     }
-    if matches!(
-        instruction.mode,
-        AddressingMode::IndexedIndirectX | AddressingMode::IndirectIndexedY
-    ) {
-        return InlineAsmSymbolUse::PointerRead;
+    match instruction.mode {
+        AddressingMode::IndexedIndirectX => return InlineAsmSymbolUse::IndexedPointerRead,
+        AddressingMode::IndirectIndexedY => return InlineAsmSymbolUse::PointerRead,
+        _ => {}
     }
     let use_kind = match instruction.mnemonic.as_str() {
         "STA" | "STX" | "STY" => InlineAsmSymbolUse::Write,
