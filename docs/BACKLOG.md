@@ -17,6 +17,20 @@ remain correct. In the TN listing, `Position` should reduce to
 `STA $FF`, `STX $FE`, `RTS`, and `Relpos` should retain independent coordinate
 wrapping.
 
+## MIR6502 direct indexed access through zero-page pointer homes
+
+TN’s `Range` has contiguous zero-page homes for `s` at `$EA/$EB` and `c` at
+`$ED/$EE`. MIR6502 copies `s` into `$AC/$AD` once for `s(0)` and once
+for the loop reads of `s(i)` and `s(i+1)`. It also copies `c` on each
+of the increment and decrement paths. The bounds checks already read
+`c^` directly. [Range source](../samples/tn/modern/LIB.ACT#L774)
+
+Use the selected pointer home directly for `LDA (zp),Y` and `STA (zp),Y`
+when both pointer bytes stay valid through the access. A hand-assembled
+comparison saved 32 bytes in `Range` on both runtimes by removing the four
+eight-byte copies. Check the generated code and run the existing TN VM cases
+for increment, decrement, and retry at both bounds. [TN VM tests](../tools/vm-runtime-tests/tests/tn_dispatch.rs)
+
 ## 68k Integer Arithmetic Review
 
 Status: backlogged at user request; review and implementation have not started.
