@@ -194,7 +194,9 @@ fn acyclic_expanded_capture_conflict_rechecks_unchanged_callers_and_rolls_back()
     let executable = mir::preparation::resume_output(&n, &resume, initial.clone(), &config, 0x3000, runtime, &trace, None).unwrap();
     let selected = SelectedPlacement { input: Arc::new(initial), executable };
     let mut proposal = propose_with_scope(&selected.input, &selected.executable.program, true, true, true, &trace).unwrap();
-    assert_eq!(hold(&proposal), hold(&selected.input));
+    // Exercise revalidation of a caller that keeps its previous bindings even
+    // when the new policy also finds an eligible local in that caller.
+    *proposal.routines.iter_mut().find(|r| r.name == "Hold").unwrap() = hold(&selected.input).clone();
     let middle = proposal.routines.iter_mut().find(|r| r.name == "Middle").unwrap();
     let MirStorageBase::Param(param) = middle.frame.params[0].base else { panic!() };
     // The conflicting store is introduced by capture expansion, not present as
@@ -501,4 +503,18 @@ fn multiple_leaf_calls_invalid_second_site_restores_exact_selected_artifact() {
                 && e.data["accepted"] == false
                 && e.data["reason"] == "invalid-trial")
     );
+}
+
+#[test]
+fn default_leaf_places_private_local_with_an_address_taken_sibling() {
+    let (input, selected) = programs("BYTE input=$700,out=$701 CARD address=$704
+        PROC Work() BYTE cold,hot address=@cold hot=input out=hot+hot RETURN
+        PROC Main() Work() RETURN");
+    let proposed = propose_with_scope(&input, &selected, true, true, true, &Trace::disabled()).unwrap();
+    let routine = proposed.routines.iter().find(|r| r.name == "Work").unwrap();
+    for (name, placed) in [("cold", false), ("hot", true)] {
+        let slot = routine.frame.locals.iter().find(|s| s.name.as_deref() == Some(name)).unwrap();
+        let MirStorageBase::Local(id) = slot.base else { panic!() };
+        assert_eq!(matches!(routine.frame.local_home(id), Some(MirLocalHome::ZeroPage(_))), placed);
+    }
 }

@@ -39,13 +39,13 @@ impl From<Reason> for Rejection {
 pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     calls: bool, mixed: bool, selected: Option<&MirProgram>) -> Result<(), Rejection> {
     if routine.abi != MirRoutineAbi::Action { return Err(Reason::Abi.into()); }
-    if routine.frame.parameter_homes.is_some() { return Err(Reason::BoundFrame.into()); }
-    if routine.frame.params.is_empty() && (!calls || routine.frame.locals.is_empty()) {
+    if routine.frame.parameter_homes.is_some() && (!mixed || routine.frame.locals.is_empty()) { return Err(Reason::BoundFrame.into()); }
+    if routine.frame.params.is_empty() && routine.frame.locals.is_empty() {
         return Err(Reason::NoObjects.into());
     }
     let bytes = routine.frame.abi_parameter_bytes().ok_or(Reason::CaptureExtent)?;
     if bytes > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES
-        && (usize::from(bytes) > SARGS_HOME_POOL.len() || !selected.is_some_and(|p| {
+        && ((usize::from(bytes) > SARGS_HOME_POOL.len() && routine.frame.locals.is_empty()) || !selected.is_some_and(|p| {
             p.routines.iter().find(|r| r.id == routine.id).is_some_and(|r|
                 r.blocks.first().and_then(|b| b.ops.first())
                     .and_then(|op| crate::mir6502::runtime_contracts::sargs_capture(p, r, op))
@@ -58,7 +58,7 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     }
     // Pointer-dependent word operations have separate staging recipes. A pair
     // of direct word loads feeding a direct arithmetic store qualifies on its own.
-    if has_pointer_reads(routine) {
+    if (!mixed || selected.is_none()) && has_pointer_reads(routine) {
         for block in &routine.blocks {
             for (op_index, op) in block.ops.iter().enumerate() {
                 if matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }
@@ -107,7 +107,11 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
                 source: MirAddr::Direct(_), destination: MirAddr::Direct(_), .. })
             || matches!(op, MirOp::Load { src, width: MirWidth::Byte | MirWidth::Word, .. }
                 | MirOp::Store { dst: src, width: MirWidth::Byte | MirWidth::Word, .. } if native_address(src));
-        if !supported { return Err(reject(Reason::Operation)); }
+        let checked_expansion = mixed && selected.is_some() && matches!(op,
+            MirOp::LeaAddr { target: MirMem::Absolute(_), .. }
+            | MirOp::Binary { op: MirBinaryOp::Add | MirBinaryOp::Sub | MirBinaryOp::And
+                | MirBinaryOp::Or | MirBinaryOp::Xor, .. });
+        if !supported && !checked_expansion { return Err(reject(Reason::Operation)); }
     }
     Ok(())
 }

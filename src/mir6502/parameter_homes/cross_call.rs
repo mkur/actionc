@@ -4,6 +4,7 @@ use super::*;
 use crate::mir6502::analysis::sites::MirSite;
 use std::collections::BTreeMap;
 mod chains;
+mod expanded;
 
 #[cfg(test)]
 pub(super) fn propose(
@@ -100,7 +101,8 @@ pub(super) fn propose_configured(
                     matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }).then_some((MirSite::Op { block: b.id, op_index }, op))
                 }))
                 .collect();
-            (!calls.is_empty() && (multiple || calls.len() == 1))
+            let default_leaf = acyclic && lifetimes && calls.is_empty();
+            (default_leaf || (!calls.is_empty() && (multiple || calls.len() == 1)))
                 .then_some((index, routine, calls))
         })
         .collect();
@@ -186,6 +188,8 @@ pub(super) fn propose_configured(
             call_writes.push((*site, writes, results));
         }
         let retained = &input.routines[index];
+        let Some(actual) = selected.routines.iter().find(|r| r.id == id) else { continue };
+        let expanded = std::cell::LazyCell::new(|| expanded::ExpandedConflicts::new(actual, &mut facts));
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
             let mut forbidden = if physical::has_pointee_writes(input, retained) {
@@ -222,6 +226,19 @@ pub(super) fn propose_configured(
                     }
                 }
             }
+            if acyclic && lifetimes {
+                let result = match &*expanded {
+                    Ok(evidence) => evidence.exclude(mem, width, &mut forbidden).map_err(|(site, why)| (Some(site), why)),
+                    Err(why) => Err((None, *why)),
+                };
+                if let Err((site, why)) = result {
+                    trace.event("cross-call-home-ineligible", || serde_json::json!({
+                        "routine": routine.name, "home": format!("{mem:?}"),
+                        "expanded_site": format!("{site:?}"), "reason": why,
+                    }));
+                    return None;
+                }
+            }
             Some(forbidden)
         };
         let mut candidate = retained.clone();
@@ -231,17 +248,13 @@ pub(super) fn propose_configured(
             r.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
                 if r.frame.parameter_has_memory(id) && matches!(r.frame.parameter_home(id), None | Some(MirParamHome::Inline)))));
         let mut changed = false;
-        if ordinary_params
+        if ordinary_params && candidate.frame.parameter_homes.is_none()
             && let Some(bindings) = zero_page::bindings_avoiding(input, &candidate, &forbidden, &addresses)
         {
             install_bindings(&mut candidate, bindings);
             changed = true;
         }
-        if candidate.frame.parameter_homes.is_none() && candidate.frame.abi_parameter_bytes()
-            .is_some_and(|n| n > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES) {
-            continue;
-        }
-        if let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
+        if candidate.frame.local_homes.is_none() && let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
             candidate.frame.local_homes = Some(bindings);
             for (_, slot) in candidate.frame.resident_bytes() {
                 if !candidate.frame.fixed_zero_page.contains(&slot) {

@@ -85,8 +85,8 @@ PROC Main() RETURN";
     assert_eq!(on,off);
     assert!(session.events().iter().any(|e| e.kind=="cross-call-ineligible"
         && e.data["routine"]=="Empty" && e.data["reason"]=="no candidate source objects"));
-    assert!(session.events().iter().any(|e| e.kind=="cross-call-ineligible"
-        && e.data["routine"]=="Indexed" && e.data["operation"].as_str().unwrap().contains("Binary")));
+    assert!(check(&addresses, p.routines.iter().find(|r| r.name == "Indexed").unwrap(),
+        true, true, Some(&selected)).is_ok());
     let config = mir::Mir6502Config { enable_small_leaf_inlining:false,..mir::Mir6502Config::optimized() };
     let runtime = crate::runtime::Runtime::ActionCart;
     let (p,resume) = mir::prepare_program_for_emission(&n,0x3000,&config,runtime,&session.context()).unwrap();
