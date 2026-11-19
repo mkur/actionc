@@ -115,7 +115,6 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
             SemExprKind::CurrentLocation
         )
         || !routine.locals.is_empty()
-        || asm.mode != ForeignCodeMode::Analyzed
     {
         return None;
     }
@@ -137,6 +136,7 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
         Some(ty) => lane(ty)?,
         None => 0,
     };
+    let opaque = asm.mode == ForeignCodeMode::Opaque;
     let mut items = Vec::new();
     let mut cursor = 0usize;
     for rel in &asm.relocations {
@@ -170,6 +170,19 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
             ) if rel.addend == 0 => {
                 items.push(BodyItem::Byte(u8::try_from(*addr).ok()?));
             }
+            (SemInlineAsmTarget::InlineOffset(offset), encoding, required) if opaque => {
+                use crate::asm6502::InlineAsmRelocationKind::*;
+                let kind = match encoding {
+                    ForeignRelocationEncoding::Address { width } if width.get() == 2 => Absolute16,
+                    ForeignRelocationEncoding::Unsigned { width: ByteSize::ONE } => Byte8,
+                    ForeignRelocationEncoding::TargetByte { byte_index: 0, .. } => Low8,
+                    ForeignRelocationEncoding::TargetByte { byte_index: 1, .. } => High8,
+                    _ => return None,
+                };
+                if !matches!(required, None | Some(8)) { return None; }
+                items.push(BodyItem::Local { kind, offset: *offset, addend: rel.addend, requires_zp: required.is_some() });
+            }
+            (SemInlineAsmTarget::Symbol(_), ..) if opaque => return None,
             (
                 SemInlineAsmTarget::Symbol(symbol),
                 ForeignRelocationEncoding::Address { width: w },
@@ -233,7 +246,8 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
         }
     }
     items.extend(asm.bytes.get(cursor..)?.iter().copied().map(BodyItem::Byte));
-    fingerprint(&params, result, &items, version)
+    if opaque { crate::callee6502::opaque_fingerprint(&params, result, &items, version) }
+    else { fingerprint(&params, result, &items, version) }
 }
 
 #[cfg(test)]

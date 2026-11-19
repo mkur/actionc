@@ -44,6 +44,13 @@ Use `none` for an empty set. Omitting a direction leaves it unknown.
 return. `returns A=$A0` describes the returned byte. Both backends match the review to the selected implementation, ABI and referenced
 tables before using it.
 
+For a single `ASM OPAQUE` body, `reviewed-6502` uses a separate fingerprint
+of the argument and result ABI, payload bytes and local address relocations.
+Both backends use the declared contract at this boundary. Local label targets
+include the byte selector and offset. This format accepts numeric addresses
+and local labels. A symbolic external dependency requires a different review.
+An opaque call may declare `preserves` with its general write footprint open.
+
 A composed assembly review can call other reviewed routines by symbolic
 `JSR`. Its fingerprint includes each target's name, validated implementation
 fingerprint and declared guarantees. A stale child disables its callers'

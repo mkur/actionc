@@ -62,8 +62,7 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
     if !routine.frame.locals.is_empty()
         || !routine.frame.contains_source_asm
         || block.terminator != MirTerminator::Unreachable
-        || effects.opaque
-        || routine.effects.opaque
+        || (routine.effects.opaque && !effects.opaque)
         || !crate::mir6502::abi::direct_parameter_frame_matches(routine)
     {
         return None;
@@ -111,6 +110,10 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
                     items.push(BodyItem::Byte(b));
                 }
             }
+            MirMachineItem::Relocation { kind, target: MirInlineAsmTarget::InlineOffset(offset), addend, requires_zero_page, .. } if effects.opaque => {
+                items.push(BodyItem::Local { kind: *kind, offset: *offset, addend: *addend, requires_zp: *requires_zero_page });
+            }
+            MirMachineItem::Relocation { .. } if effects.opaque => return None,
             MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Absolute16, target: MirInlineAsmTarget::Routine(id),
                 addend: 0, requires_zero_page: false, ..
@@ -158,6 +161,10 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
             _ => return None,
         }
     }
+    if effects.opaque {
+        let hash = crate::callee6502::opaque_fingerprint(&params, result, &items, version)?;
+        return Some(routine.frame.callee_review.as_ref()?.bind_precondition(hash));
+    }
     if (effects.may_call_os || routine.effects.may_call_os) && !items.iter().any(|i| matches!(i, BodyItem::Call { .. })) {
         return None;
     }
@@ -184,6 +191,51 @@ mod tests {
             &crate::semantic::ir::lower_program(&ast, &model),
         ))
     }
+    #[test]
+    fn opaque_contract_matches_payload_local_relocations_and_abi_in_both_backends() {
+        let source = ";@actionc reviewed-6502 0000000000000000
+;@actionc abi-inputs-only
+;@actionc preserves $EA-$ED
+;@actionc returns A=$A0
+BYTE FUNC Leaf=*()
+ASM OPAQUE
+lda #>done-1
+pha
+lda #<done-1
+pha
+rts
+done:
+lda #7
+sta $A0
+rts
+ENDASM
+PROC Main() Leaf() RETURN";
+        let p = crate::mir6502::lower_program(&lower(source).unwrap()).unwrap();
+        let hash = body_fingerprint(&p, &p.routines[0], crate::callee6502::CONTRACT_VERSION).unwrap();
+        let source = source.replace("0000000000000000", &format!("{hash:016x}"));
+        for (src, matched) in [
+            (source.clone(), true),
+            (source.replace("lda #7", "lda #8"), false),
+            (source.replace("#<done-1", "#<done"), false),
+            (source.replace("#>done", "#<done"), false),
+            (source.replace("BYTE FUNC", "CARD FUNC"), false),
+        ] {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&src).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+            let sem = crate::semantic::ir::lower_program(&ast, &model);
+            let p = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+            let mir = reviewed_contract(&p, &p.routines[0]);
+            let classic = crate::codegen::projected_review_for_test(&sem, "Leaf");
+            assert_eq!(mir.is_some(), matched, "MIR: {src}");
+            assert_eq!(classic.is_some(), matched, "classic: {src}");
+            if let (Some(mir), Some(classic)) = (mir, classic) {
+                assert!(mir.abi_inputs_only && classic.abi_inputs_only);
+                assert_eq!(mir.preserves_zp, classic.preserves_zp);
+                assert!(mir.writes.is_none() && classic.writes.is_none());
+            }
+        }
+    }
+
     #[test]
     fn typed_jsr_binds_both_backends_to_current_child_guarantees() {
         let source = ";@actionc reviewed-6502 1111111111111111

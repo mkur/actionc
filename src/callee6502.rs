@@ -4,12 +4,41 @@ use crate::codegen::{AddressingMode, decode_6502_opcode};
 
 pub(crate) enum BodyItem<'a> {
     Byte(u8),
+    Local { kind: crate::asm6502::InlineAsmRelocationKind, offset: u16, addend: i32, requires_zp: bool },
     Call { name: &'a str, contract: u64 },
     Global {
         name: &'a str,
         extent: u16,
         addend: i32,
     },
+}
+
+/// An explicit ASM OPAQUE review binds the ABI and relocatable payload as
+/// data. Local offsets are independent of link origin. External symbolic
+/// dependencies require their own identity and are outside this projection.
+pub(crate) fn opaque_fingerprint(params: &[u8], result: u8, items: &[BodyItem<'_>], version: &[u8]) -> Option<u64> {
+    use crate::asm6502::InlineAsmRelocationKind::*;
+    if version == ENTRY_VERSION { return None; }
+    let mut hash = 0xcbf29ce484222325u64;
+    let mut add = |bytes: &[u8]| {
+        for &b in bytes { hash = (hash ^ u64::from(b)).wrapping_mul(0x100000001b3); }
+    };
+    add(b"actionc-6502-opaque-v1");
+    add(version);
+    add(params);
+    add(&[0, result]);
+    for item in items {
+        match item {
+            BodyItem::Byte(byte) => add(&[0, *byte]),
+            BodyItem::Local { kind, offset, addend, requires_zp } => {
+                add(&[1, match kind { Absolute16 => 0, Byte8 => 1, Low8 => 2, High8 => 3 }, u8::from(*requires_zp)]);
+                add(&offset.to_le_bytes());
+                add(&addend.to_le_bytes());
+            }
+            BodyItem::Call { .. } | BodyItem::Global { .. } => return None,
+        }
+    }
+    Some(hash)
 }
 
 pub(crate) fn fingerprint(
