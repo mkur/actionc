@@ -17,6 +17,7 @@ fn source_slot(base: MirStorageBase) -> MirStorageSlot {
 
 fn relocation(mem: MirMem) -> MirMachineItem {
     MirMachineItem::Relocation {
+        symbol_use: None,
         kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
         target: MirInlineAsmTarget::Memory(mem),
         addend: 0,

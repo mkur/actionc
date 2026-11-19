@@ -2365,6 +2365,7 @@ mod tests {
             .expect("SetSign machine payload")
             .items
             .push(MirMachineItem::Relocation {
+                symbol_use: None,
                 kind: InlineAsmRelocationKind::Absolute16,
                 target: MirInlineAsmTarget::Routine(multi),
                 addend: 0,

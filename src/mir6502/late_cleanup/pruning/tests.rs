@@ -202,6 +202,7 @@ fn structured_address_and_historical_spill_exposure_retain_declarations() {
     for item in [
         MirMachineItem::Name("spill0".into()),
         MirMachineItem::Relocation {
+            symbol_use: None,
             kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
             target: MirInlineAsmTarget::Memory(home()),
             addend: 0,

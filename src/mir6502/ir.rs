@@ -230,6 +230,9 @@ pub enum MirMachineItem {
         target: MirInlineAsmTarget,
         addend: i32,
         requires_zero_page: bool,
+        /// Assembler operand use for literal addresses and inline labels.
+        /// External symbols keep no opaque operand proof, even when lowered to a fixed address.
+        symbol_use: Option<crate::foreign::ForeignSymbolUse>,
         span: Span,
     },
 }

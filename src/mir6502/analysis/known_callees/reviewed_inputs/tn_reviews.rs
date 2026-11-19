@@ -140,6 +140,25 @@ fn opaque_getchar_uses_the_same_boundary_in_range_and_at_a_direct_call() {
     assert_eq!(classic.preserves_zp, facts.preserves_zp);
     assert!(facts.abi_inputs_only && facts.returns_a_equals_a0);
     assert!(facts.reads.is_none() && facts.writes.is_none());
+    let MirOp::MachineBlock { id, .. } = leaf.blocks[0].ops[0] else { panic!() };
+    let machine = p.machine_blocks.iter().find(|m| m.id == id).unwrap();
+    let inventory = machine_storage_observations(machine, leaf, &p).unwrap();
+    let addresses = |items: &[super::super::observations::StorageObservation]| {
+        items.iter().map(|item| {
+            assert_eq!(item.extent, super::super::observations::ObservationExtent::Bytes(1));
+            item.address.fixed(&p).unwrap()
+        }).collect::<BTreeSet<_>>()
+    };
+    assert_eq!(addresses(&inventory.reads), BTreeSet::from([0xe424, 0xe425]));
+    assert_eq!(addresses(&inventory.writes), BTreeSet::from([0xa0, 0x2fc]));
+    let mut stale = p.clone();
+    let changed = stale.machine_blocks.iter_mut().find(|m| m.id == id).unwrap();
+    let edited = changed.items.iter_mut().find_map(|item| match item {
+        MirMachineItem::Relocation { symbol_use: Some(usage), target: crate::mir6502::ir::MirInlineAsmTarget::Absolute(0xa0), .. } => Some(usage),
+        _ => None,
+    }).unwrap();
+    *edited = crate::foreign::ForeignSymbolUse::IndexedWrite;
+    assert!(reviewed_contract(&stale, leaf).is_none());
     let mut entries = MirAcyclicEntryAnalysis::at_origin(&p, 0x3000);
     let entry = entries.analyze(leaf.id).unwrap();
     assert_eq!(entry.inputs, Default::default());

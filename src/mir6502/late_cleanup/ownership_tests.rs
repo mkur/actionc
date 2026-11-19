@@ -494,6 +494,7 @@ fn typed_machine_reference_exposes_a_temporary_even_with_unknown_reads() {
         items: vec![
             MirMachineItem::Byte(0xad),
             MirMachineItem::Relocation {
+                symbol_use: None,
                 kind: crate::asm6502::InlineAsmRelocationKind::Absolute16,
                 target: MirInlineAsmTarget::Memory(home()),
                 addend: 0,

@@ -40,6 +40,20 @@ pub enum InlineAsmRelocationKind {
     High8,
 }
 
+impl InlineAsmRelocationKind {
+    pub(crate) fn from_foreign(encoding: crate::foreign::ForeignRelocationEncoding) -> Option<Self> {
+        use crate::foreign::ForeignRelocationEncoding::*;
+        use crate::target::{ByteSize, TargetId};
+        match encoding {
+            Address { width } if width.get() == 2 => Some(Self::Absolute16),
+            Unsigned { width: ByteSize::ONE } => Some(Self::Byte8),
+            TargetByte { target: TargetId::Atari6502, byte_index: 0 } => Some(Self::Low8),
+            TargetByte { target: TargetId::Atari6502, byte_index: 1 } => Some(Self::High8),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InlineAsmRelocationTarget {
     Symbol(String),

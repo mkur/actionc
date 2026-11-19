@@ -3484,7 +3484,7 @@ fn lower_machine_items(
                 required_address_bits,
                 span,
             } => {
-                let Some(kind) = lower_foreign_relocation_encoding(*encoding) else {
+                let Some(kind) = crate::asm6502::InlineAsmRelocationKind::from_foreign(*encoding) else {
                     diagnostics.push(MirDiagnostic::block(
                         routine,
                         block,
@@ -3497,6 +3497,7 @@ fn lower_machine_items(
                     target: lower_inline_asm_target(*target, routine_system_addresses_by_id),
                     addend: *addend,
                     requires_zero_page: *required_address_bits == Some(8),
+                    symbol_use: None,
                     span: *span,
                 })
             }
@@ -3528,7 +3529,7 @@ fn lower_inline_asm(
                 .map(MirMachineItem::Byte),
         );
         let target = lower_inline_asm_target(relocation.target, routine_system_addresses_by_id);
-        let Some(kind) = lower_foreign_relocation_encoding(relocation.encoding) else {
+        let Some(kind) = crate::asm6502::InlineAsmRelocationKind::from_foreign(relocation.encoding) else {
             diagnostics.push(MirDiagnostic::block(
                 routine,
                 block,
@@ -3541,6 +3542,8 @@ fn lower_inline_asm(
             target,
             addend: relocation.addend,
             requires_zero_page: relocation.required_address_bits == Some(8),
+            symbol_use: matches!(relocation.target, NirForeignCodeTarget::Absolute(_) | NirForeignCodeTarget::InlineOffset(_))
+                .then_some(relocation.symbol_use),
             span: relocation.span,
         });
         cursor = offset
@@ -3549,31 +3552,6 @@ fn lower_inline_asm(
     }
     items.extend(bytes[cursor..].iter().copied().map(MirMachineItem::Byte));
     Some(items)
-}
-
-fn lower_foreign_relocation_encoding(
-    encoding: crate::foreign::ForeignRelocationEncoding,
-) -> Option<crate::asm6502::InlineAsmRelocationKind> {
-    use crate::asm6502::InlineAsmRelocationKind;
-    use crate::foreign::ForeignRelocationEncoding;
-
-    match encoding {
-        ForeignRelocationEncoding::Address { width } if width == ByteSize::new(2) => {
-            Some(InlineAsmRelocationKind::Absolute16)
-        }
-        ForeignRelocationEncoding::Unsigned { width } if width == ByteSize::ONE => {
-            Some(InlineAsmRelocationKind::Byte8)
-        }
-        ForeignRelocationEncoding::TargetByte {
-            target: crate::target::TargetId::Atari6502,
-            byte_index: 0,
-        } => Some(InlineAsmRelocationKind::Low8),
-        ForeignRelocationEncoding::TargetByte {
-            target: crate::target::TargetId::Atari6502,
-            byte_index: 1,
-        } => Some(InlineAsmRelocationKind::High8),
-        _ => None,
-    }
 }
 
 fn lower_inline_asm_target(

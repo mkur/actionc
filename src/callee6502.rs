@@ -4,7 +4,10 @@ use crate::codegen::{AddressingMode, decode_6502_opcode};
 
 pub(crate) enum BodyItem<'a> {
     Byte(u8),
-    Local { kind: crate::asm6502::InlineAsmRelocationKind, offset: u16, addend: i32, requires_zp: bool },
+    OpaqueOperand {
+        local: bool, kind: crate::asm6502::InlineAsmRelocationKind, address: u16,
+        addend: i32, requires_zp: bool, usage: crate::foreign::ForeignSymbolUse,
+    },
     Call { name: &'a str, contract: u64 },
     Global {
         name: &'a str,
@@ -18,21 +21,27 @@ pub(crate) enum BodyItem<'a> {
 /// dependencies require their own identity and are outside this projection.
 pub(crate) fn opaque_fingerprint(params: &[u8], result: u8, items: &[BodyItem<'_>], version: &[u8]) -> Option<u64> {
     use crate::asm6502::InlineAsmRelocationKind::*;
+    use crate::foreign::ForeignSymbolUse::*;
     if version == ENTRY_VERSION { return None; }
     let mut hash = 0xcbf29ce484222325u64;
     let mut add = |bytes: &[u8]| {
         for &b in bytes { hash = (hash ^ u64::from(b)).wrapping_mul(0x100000001b3); }
     };
-    add(b"actionc-6502-opaque-v1");
+    add(b"actionc-6502-opaque-v2");
     add(version);
     add(params);
     add(&[0, result]);
     for item in items {
         match item {
             BodyItem::Byte(byte) => add(&[0, *byte]),
-            BodyItem::Local { kind, offset, addend, requires_zp } => {
-                add(&[1, match kind { Absolute16 => 0, Byte8 => 1, Low8 => 2, High8 => 3 }, u8::from(*requires_zp)]);
-                add(&offset.to_le_bytes());
+            BodyItem::OpaqueOperand { local, kind, address, addend, requires_zp, usage } => {
+                let usage = match usage {
+                    Address => 0, Constant => 1, Read => 2, Write => 3, ReadWrite => 4, IndexedRead => 5,
+                    IndexedWrite => 6, IndexedReadWrite => 7, Call => 8, Control => 9, PointerRead => 10,
+                };
+                add(&[1, u8::from(*local), match kind { Absolute16 => 0, Byte8 => 1, Low8 => 2, High8 => 3 },
+                    u8::from(*requires_zp), usage]);
+                add(&address.to_le_bytes());
                 add(&addend.to_le_bytes());
             }
             BodyItem::Call { .. } | BodyItem::Global { .. } => return None,

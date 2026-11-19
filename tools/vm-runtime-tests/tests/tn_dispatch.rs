@@ -483,7 +483,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
 struct KeyboardInput {
     get_vector: u16,
     keys: VecDeque<u8>,
-    drawing: [u16; 3],
+    drawing: [u16; 4],
 }
 
 impl VmRunHooks for KeyboardInput {
@@ -504,11 +504,17 @@ impl VmRunHooks for KeyboardInput {
 
 #[test]
 fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
-    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+    for (mode, runtime) in [CompileMode::Optimized, CompileMode::Mir6502].into_iter()
+        .flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].map(|runtime| (mode, runtime))) {
         let compiled = compile_file(root().join("samples/tn/modern/TN.ACT"),
-            &CompileOptions::for_mode(CompileMode::Mir6502).with_runtime(runtime)).unwrap();
+            &CompileOptions::for_mode(mode).with_runtime(runtime)).unwrap();
         let listing = compiled.source_listing();
         let routine = |name| routine_address(&listing, name);
+        if mode == CompileMode::Mir6502 {
+            for (label, width) in [("param_InputLine_string", 2), ("param_InputLine_maxlen", 1), ("param_InputLine_curpos", 1)] {
+                assert_zp_home(&listing, label, width);
+            }
+        }
         let (mut vm, profile) = fixed_point::vm_for(runtime);
         vm.load_bundled_altirra_os().unwrap();
         vm.load_atari_object_for_execution(profile, compiled.object_bytes()).unwrap();
@@ -516,7 +522,7 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
         let mut input = KeyboardInput {
             get_vector: vector,
             keys: VecDeque::new(),
-            drawing: [routine("Print"), routine("Relpos"), routine("Block")],
+            drawing: [routine("Print"), routine("Relpos"), routine("Block"), routine("Putchar")],
         };
         // Install a keyboard translation table and release BREAK, just as an
         // initialized OS supplies these to its K: service.
@@ -546,5 +552,15 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
             assert!(input.keys.is_empty());
             assert_eq!(vm.bus().ram().read_word(0xe8), 0x2000);
         }
+        // Keep all three InputLine arguments live across repeated keys. The
+        // first fills the buffer, the second exceeds maxlen, and EOL accepts.
+        let buffer = 0x7500u16;
+        let [lo, hi] = buffer.to_le_bytes();
+        vm.bus_mut().ram_mut().map(buffer, &[1, b'X', 0, 0xc9]).unwrap();
+        input.keys = [0, 1, 2].into();
+        vm = machine::call(vm, &mut input, routine("InputLine"), &[lo, hi, 2, 1]);
+        assert_eq!(vm.bus().ram().read(0xa0), 1, "{mode:?} {runtime:?}");
+        assert_eq!(machine::bytes(&vm, buffer, 4), [2, b'X', b'K', 0xc9]);
+        assert!(input.keys.is_empty());
     }
 }

@@ -12,6 +12,7 @@ fn global(id: u32, backing: MirGlobalBacking) -> MirGlobal {
 
 fn relocation(kind: Kind, target: Target, addend: i32, requires_zero_page: bool) -> MirMachineItem {
     MirMachineItem::Relocation {
+        symbol_use: None,
         kind, target, addend, requires_zero_page, span: crate::source::Span::new(0, 0),
     }
 }

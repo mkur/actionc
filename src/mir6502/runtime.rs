@@ -129,6 +129,7 @@ pub(super) fn resolve_helpers(
                         target: error_target.clone().expect("division error binding"),
                         addend: 0,
                         requires_zero_page: false,
+                        symbol_use: None,
                         span: crate::source::Span::new(0, 0),
                     });
                 } else if offset != body.error_operand + 1 {

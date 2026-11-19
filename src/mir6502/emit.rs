@@ -3720,6 +3720,7 @@ fn emit_machine_item(
             addend,
             requires_zero_page,
             span,
+            ..
         } => emit_inline_asm_relocation(
             ctx,
             routine,

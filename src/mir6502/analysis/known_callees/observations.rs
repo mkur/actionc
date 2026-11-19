@@ -114,7 +114,12 @@ pub(in crate::mir6502) fn machine_storage_observations(
         // An omitted direction still exposes the encoded addresses, just as
         // it did before the review. Its call effect stays unknown.
         let mut inventory = if facts.reads.is_none() || facts.writes.is_none() {
-            explicit_storage_observations(machine, routine, program)?
+            if routine.blocks.iter().flat_map(|b| &b.ops).any(|op|
+                matches!(op, MirOp::MachineBlock { id, effects } if *id == machine.id && effects.opaque)) {
+                opaque_operand_observations(machine)?
+            } else {
+                explicit_storage_observations(machine, routine, program)?
+            }
         } else {
             MachineStorageObservations::default()
         };
@@ -127,6 +132,45 @@ pub(in crate::mir6502) fn machine_storage_observations(
         return Some(inventory);
     }
     explicit_storage_observations(machine, routine, program)
+}
+
+/// The assembler classifies explicit address operands even for ASM OPAQUE.
+/// The matched fingerprint binds these uses. They identify storage that
+/// relocation must respect, independently of the unknown service effects.
+fn opaque_operand_observations(machine: &MirMachineBlock) -> Option<MachineStorageObservations> {
+    use crate::foreign::ForeignSymbolUse::*;
+    use crate::mir6502::ir::MirInlineAsmTarget;
+    let mut inventory = MachineStorageObservations::default();
+    for item in &machine.items {
+        let MirMachineItem::Relocation { target, addend, requires_zero_page, symbol_use, .. } = item else {
+            if matches!(item, MirMachineItem::Byte(_)) { continue; }
+            return None;
+        };
+        let usage = (*symbol_use)?;
+        if matches!(usage, Constant | Call | Control) { continue; }
+        let base = match target {
+            MirInlineAsmTarget::Absolute(address) => absolute_mem(*address),
+            MirInlineAsmTarget::InlineOffset(_) if usage == Address => continue,
+            _ => return None,
+        };
+        let indexed = matches!(usage, IndexedRead | IndexedWrite | IndexedReadWrite);
+        let extent = if *requires_zero_page && (indexed || usage == PointerRead) {
+            // The shared pointer-read class includes indexed-indirect X.
+            ObservationExtent::FullZeroPage
+        } else if indexed {
+            ObservationExtent::Bytes(256)
+        } else if usage == PointerRead {
+            ObservationExtent::PointerFetch
+        } else {
+            ObservationExtent::Bytes(1)
+        };
+        let observation = StorageObservation { address: StorageAddress {
+            base, addend: *addend, requires_zero_page: *requires_zero_page,
+        }, extent };
+        if !matches!(usage, Write | IndexedWrite) { inventory.reads.push(observation.clone()); }
+        if matches!(usage, Write | ReadWrite | IndexedWrite | IndexedReadWrite) { inventory.writes.push(observation); }
+    }
+    Some(inventory)
 }
 
 fn explicit_storage_observations(

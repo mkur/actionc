@@ -88,6 +88,15 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
     for item in &machine.items {
         match item {
             MirMachineItem::Byte(b) => items.push(BodyItem::Byte(*b)),
+            MirMachineItem::Relocation { kind, target, addend, requires_zero_page, symbol_use, .. } if effects.opaque => {
+                let (local, address) = match target {
+                    MirInlineAsmTarget::InlineOffset(offset) => (true, *offset),
+                    MirInlineAsmTarget::Absolute(address) => (false, *address),
+                    _ => return None,
+                };
+                items.push(BodyItem::OpaqueOperand { local, address, kind: *kind, addend: *addend,
+                    requires_zp: *requires_zero_page, usage: (*symbol_use)? });
+            }
             MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Byte8, target: MirInlineAsmTarget::Absolute(value),
                 addend: 0, requires_zero_page: false, ..
@@ -110,10 +119,6 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
                     items.push(BodyItem::Byte(b));
                 }
             }
-            MirMachineItem::Relocation { kind, target: MirInlineAsmTarget::InlineOffset(offset), addend, requires_zero_page, .. } if effects.opaque => {
-                items.push(BodyItem::Local { kind: *kind, offset: *offset, addend: *addend, requires_zp: *requires_zero_page });
-            }
-            MirMachineItem::Relocation { .. } if effects.opaque => return None,
             MirMachineItem::Relocation {
                 kind: InlineAsmRelocationKind::Absolute16, target: MirInlineAsmTarget::Routine(id),
                 addend: 0, requires_zero_page: false, ..
@@ -205,6 +210,7 @@ lda #<done-1
 pha
 rts
 done:
+jsr $D800
 lda #7
 sta $A0
 rts
@@ -219,12 +225,14 @@ PROC Main() Leaf() RETURN";
             (source.replace("#<done-1", "#<done"), false),
             (source.replace("#>done", "#<done"), false),
             (source.replace("BYTE FUNC", "CARD FUNC"), false),
+            (format!("PROC Service=$D800()\n{}", source.replace("jsr $D800", "jsr Service")), false),
         ] {
             let ast = crate::parser::parse(&crate::lexer::tokenize(&src).unwrap()).unwrap();
             let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
             let sem = crate::semantic::ir::lower_program(&ast, &model);
             let p = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
-            let mir = reviewed_contract(&p, &p.routines[0]);
+            let leaf = p.routines.iter().find(|r| r.name == "Leaf").unwrap();
+            let mir = reviewed_contract(&p, leaf);
             let classic = crate::codegen::projected_review_for_test(&sem, "Leaf");
             assert_eq!(mir.is_some(), matched, "MIR: {src}");
             assert_eq!(classic.is_some(), matched, "classic: {src}");
@@ -233,6 +241,22 @@ PROC Main() Leaf() RETURN";
                 assert_eq!(mir.preserves_zp, classic.preserves_zp);
                 assert!(mir.writes.is_none() && classic.writes.is_none());
             }
+        }
+    }
+
+    #[test]
+    fn reviewed_opaque_storage_observations_do_not_decode_payload_bytes() {
+        let source = ";@actionc reviewed-6502 0000000000000000\nPROC Probe=*()\nASM OPAQUE\ninc $E0\nrts\nENDASM";
+        let mut p = crate::mir6502::lower_program(&lower(source).unwrap()).unwrap();
+        // Unreachable data in the signed payload has no instruction meaning.
+        // An instruction decoder would reject this byte after the RTS.
+        p.machine_blocks[0].items.push(MirMachineItem::Byte(0x02));
+        let hash = body_fingerprint(&p, &p.routines[0], crate::callee6502::CONTRACT_VERSION).unwrap();
+        p.routines[0].frame.callee_review.as_mut().unwrap().fingerprint = hash;
+        let inventory = machine_storage_observations(&p.machine_blocks[0], &p.routines[0], &p).unwrap();
+        for accesses in [inventory.reads, inventory.writes] {
+            assert_eq!(accesses.len(), 1);
+            assert_eq!(accesses[0].address.fixed(&p), Some(0xe0));
         }
     }
 

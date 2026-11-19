@@ -45,10 +45,12 @@ return. `returns A=$A0` describes the returned byte. Both backends match the rev
 tables before using it.
 
 For a single `ASM OPAQUE` body, `reviewed-6502` uses a separate fingerprint
-of the argument and result ABI, payload bytes and local address relocations.
-Both backends use the declared contract at this boundary. Local label targets
-include the byte selector and offset. This format accepts numeric addresses
-and local labels. A symbolic external dependency requires a different review.
+of the argument and result ABI, payload bytes and typed address relocations.
+The relocation binds the target, byte selector, offset and operand use. Both
+backends use the declared contract at this boundary. MIR uses those relocations
+to identify explicit addresses even when a memory footprint is open.
+This format accepts numeric addresses and local labels. A symbolic external
+dependency requires a different review.
 An opaque call may declare `preserves` with its general write footprint open.
 
 A composed assembly review can call other reviewed routines by symbolic

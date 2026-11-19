@@ -2332,6 +2332,7 @@ mod tests {
         use crate::mir6502::ir::{MirInlineAsmTarget as Target, MirStatic, MirDataImage};
         use crate::asm6502::InlineAsmRelocationKind as Kind;
         let relocation = |kind, target, addend, requires_zero_page| MirMachineItem::Relocation {
+            symbol_use: None,
             kind, target, addend, requires_zero_page, span: crate::source::Span { start: 0, end: 0 },
         };
         let global = MirMem::Global { id: crate::nir::SymbolId(0), offset: 0 };

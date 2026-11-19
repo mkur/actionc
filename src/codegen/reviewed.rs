@@ -150,6 +150,19 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
         );
         let width = usize::try_from(rel.encoding.width().get()).ok()?;
         cursor = start.checked_add(width)?;
+        if opaque {
+            let (local, address) = match rel.target {
+                SemInlineAsmTarget::InlineOffset(offset) => (true, offset),
+                SemInlineAsmTarget::Absolute(address) => (false, address),
+                SemInlineAsmTarget::Symbol(_) => return None,
+            };
+            if !matches!(rel.required_address_bits, None | Some(8)) { return None; }
+            items.push(BodyItem::OpaqueOperand {
+                local, address, kind: crate::asm6502::InlineAsmRelocationKind::from_foreign(rel.encoding)?,
+                addend: rel.addend, requires_zp: rel.required_address_bits.is_some(), usage: rel.symbol_use,
+            });
+            continue;
+        }
         match (&rel.target, rel.encoding, rel.required_address_bits) {
             (SemInlineAsmTarget::Absolute(value), ForeignRelocationEncoding::Unsigned { width: ByteSize::ONE }, None)
                 if rel.addend == 0 => items.push(BodyItem::Byte(u8::try_from(*value).ok()?)),
@@ -170,19 +183,6 @@ fn classic_body(program: &SemProgram, routine: &SemRoutine, version: &[u8],
             ) if rel.addend == 0 => {
                 items.push(BodyItem::Byte(u8::try_from(*addr).ok()?));
             }
-            (SemInlineAsmTarget::InlineOffset(offset), encoding, required) if opaque => {
-                use crate::asm6502::InlineAsmRelocationKind::*;
-                let kind = match encoding {
-                    ForeignRelocationEncoding::Address { width } if width.get() == 2 => Absolute16,
-                    ForeignRelocationEncoding::Unsigned { width: ByteSize::ONE } => Byte8,
-                    ForeignRelocationEncoding::TargetByte { byte_index: 0, .. } => Low8,
-                    ForeignRelocationEncoding::TargetByte { byte_index: 1, .. } => High8,
-                    _ => return None,
-                };
-                if !matches!(required, None | Some(8)) { return None; }
-                items.push(BodyItem::Local { kind, offset: *offset, addend: rel.addend, requires_zp: required.is_some() });
-            }
-            (SemInlineAsmTarget::Symbol(_), ..) if opaque => return None,
             (
                 SemInlineAsmTarget::Symbol(symbol),
                 ForeignRelocationEncoding::Address { width: w },
