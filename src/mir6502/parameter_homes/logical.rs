@@ -75,6 +75,32 @@ impl<'a> LogicalHomes<'a> {
         )
     }
 
+    /// An access occupies the instruction itself, including a dead store
+    /// that would overwrite another live value. Backedges are in the CFG solution.
+    pub fn locals_interfere(&self, left: LocalId, right: LocalId) -> bool {
+        let keys = |id| self.keys.range(ObjectByte::Local(id, 0)..=ObjectByte::Local(id, u16::MAX))
+            .map(|(_, &key)| key).collect::<Vec<_>>();
+        let (left_keys, right_keys) = (keys(left), keys(right));
+        if left_keys.is_empty() || right_keys.is_empty() { return true; }
+        for block in &self.routine.blocks {
+            let mut previous = MirSite::BlockEntry { block: block.id };
+            let operations = block.ops.iter().enumerate().map(|(op_index, op)|
+                (MirSite::Op { block: block.id, op_index }, classify_op(op).memory))
+                .chain(std::iter::once((MirSite::Terminator { block: block.id }, classify_terminator(&block.terminator).memory)));
+            for (site, memory) in operations {
+                let occupies = |id, keys: &[MirHomeByte]| {
+                    keys.iter().any(|&key| self.live.live_after(key, site) != Ok(false)
+                        || self.live.live_after(key, previous) != Ok(false))
+                        || memory.direct_writes.iter().chain(&memory.direct_reads)
+                            .any(|r| matches!(r.base, MirMem::Local { id: other, .. } if other == id))
+                };
+                if occupies(left, &left_keys) && occupies(right, &right_keys) { return true; }
+                previous = site;
+            }
+        }
+        false
+    }
+
     pub fn live_after(&self, mem: &MirMem, site: MirSite) -> Option<bool> {
         self.live
             .live_after(*self.keys.get(&ObjectByte::from_mem(mem, 0)?)?, site)

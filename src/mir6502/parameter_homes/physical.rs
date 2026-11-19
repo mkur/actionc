@@ -187,24 +187,28 @@ fn check(
 ) -> Result<(), Vec<MirDiagnostic>> {
     let overlaps =
         |address: u16, bytes: u16| (0..bytes).any(|i| object.contains(address.wrapping_add(i)));
-    if observations.iter().any(|&(a, n)| overlaps(a, n)) {
-        return Err(error(
-            "numeric observation overlaps an old or proposed home",
-        ));
+    if let Some(&(base, size)) = observations.iter().find(|&&(a, n)| overlaps(a, n)) {
+        return Err(error(&format!(
+            "numeric observation overlaps an old or proposed home: ${base:04X} ({size} bytes), {:?} at ${:04X} ({} bytes)",
+            object.object, object.address, object.bytes
+        )));
     }
     let Some(inventory) = memory.source_storage() else {
         return Err(error("missing source-storage inventory"));
     };
-    if inventory.iter().any(|other| {
-        // Different invocations may reuse compiler-chosen ZP homes. Explicit
-        // aliases and fixed declarations have no such permission.
+    if let Some(other) = inventory.iter().find(|other| {
+        // Cross-invocation reuse and disjoint local lifetimes have already
+        // passed residence verification. Fixed declarations still take precedence.
         let invocation_home = matches!(other.binding,
-            Some(SourceBinding::Parameter(MirParamHome::ZeroPage(_)))
+            Some(SourceBinding::Parameter(MirParamHome::ZeroPage(_) | MirParamHome::Lanes(_)))
             | Some(SourceBinding::Local(MirLocalHome::ZeroPage(_))))
             && matches!((&object.object, &other.object),
-                (SourceObject::Routine { owner: a, .. }, SourceObject::Routine { owner: b, .. }) if a != b);
+                (SourceObject::Routine { owner: a, base: first, .. }, SourceObject::Routine { owner: b, base: second, .. })
+                    if a != b || (matches!(object.binding, Some(SourceBinding::Local(MirLocalHome::ZeroPage(_))))
+                        && matches!((first, second), (MirStorageBase::Local(_), MirStorageBase::Local(_)))));
         other.object != object.object && !invocation_home && overlaps(other.address, other.bytes)
-    }) { return Err(error("source declaration aliases an old or proposed home")); }
+    }) { return Err(error(&format!("source declaration aliases an old or proposed home: {:?} at ${:04X}, {:?} at ${:04X}",
+        other.object, other.address, object.object, object.address))); }
     Ok(())
 }
 

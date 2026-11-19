@@ -1,6 +1,8 @@
 //! Deterministic, whole-parameter ZP placement. The frame reservation is shared
 //! with existing temporary allocation; final expansion checks the lifetime.
 use super::*;
+mod contenders;
+pub(super) use contenders::allocate;
 
 pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine, addresses: &ObjectAddressControl<'_>) -> Option<Vec<MirParamBinding>> {
     // A single read-only byte already has the optimal legacy forwarding path.
@@ -36,12 +38,7 @@ pub(super) fn bindings_avoiding(
             // Reuse an incoming fixed lane first, then ABI-window storage and
             // the normal virtual pool. Persistent pointer consumers can also
             // use AA/AB or AE/AF. AC/AD remains the copy-and-rebase scratch pair.
-            let incoming = (0..width).find_map(|lane| {
-                match super::super::abi::action_arg_home(offset + lane, MirWidth::Byte) {
-                    MirArgHome::FixedZeroPage(slot) => slot.0.checked_sub(lane as u8),
-                    _ => None,
-                }
-            });
+            let incoming = incoming_lane(offset, width);
             let start = forbidden(&MirMem::Param { id, offset: 0 }, width)
                 .and_then(|forbidden| pick(routine, &excluding(used, &forbidden), width, incoming, total, offset));
             if let Some(start) = start {
@@ -124,6 +121,18 @@ fn used_bytes(program: &MirProgram, routine: &MirRoutine, forbidden: &BTreeSet<u
         used[usize::from(slot.0)] = true;
     }
     used
+}
+
+fn incoming_lane(offset: u16, width: u16) -> Option<u8> {
+    (0..width).find_map(|lane| match super::super::abi::action_arg_home(offset + lane, MirWidth::Byte) {
+        MirArgHome::FixedZeroPage(slot) => slot.0.checked_sub(lane as u8),
+        _ => None,
+    })
+}
+
+/// Universe of bytes the source-home picker can assign for this ABI.
+pub(super) fn pool_bytes() -> impl Iterator<Item = u8> {
+    (0xa0..=0xa3).chain(0xaa..=0xab).chain(0xae..=0xaf).chain(SARGS_HOME_POOL)
 }
 
 fn pick(

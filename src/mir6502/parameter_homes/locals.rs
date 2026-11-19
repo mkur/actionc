@@ -32,12 +32,14 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
     let mut errors = Vec::new();
     let mut fail = |message| errors.push(MirDiagnostic::routine(&routine.name, message));
     let mut ids = BTreeSet::new();
-    let mut occupied: BTreeSet<_> = routine
+    let occupied: BTreeSet<_> = routine
         .frame
         .resident_bytes()
         .into_iter()
         .filter_map(|(m, s)| matches!(m, MirMem::Param { .. }).then_some(s.0))
         .collect();
+    let mut local_users = std::collections::BTreeMap::<u8, Vec<LocalId>>::new();
+    let logical = std::cell::LazyCell::new(|| super::logical::LogicalHomes::new(routine));
     for binding in bindings {
         if !ids.insert(binding.local) {
             fail("duplicate local binding");
@@ -67,9 +69,12 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             continue;
         }
         for byte in u16::from(start.0)..u16::from(start.0) + slot.storage_size {
-            if !occupied.insert(byte as u8) {
-                fail("source-object zero-page bindings overlap");
+            let users = local_users.entry(byte as u8).or_default();
+            if occupied.contains(&(byte as u8)) || users.iter().any(|other|
+                logical.as_ref().is_none_or(|facts| facts.locals_interfere(binding.local, *other))) {
+                fail("live source-object zero-page bindings overlap");
             }
+            users.push(binding.local);
             if !routine
                 .frame
                 .fixed_zero_page

@@ -58,7 +58,7 @@ pub(super) fn check(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine,
     }
     // Pointer-dependent word operations have separate staging recipes. A pair
     // of direct word loads feeding a direct arithmetic store qualifies on its own.
-    if (!mixed || selected.is_none()) && has_pointer_reads(routine) {
+    if (!calls || !mixed || selected.is_none()) && has_pointer_reads(routine) {
         for block in &routine.blocks {
             for (op_index, op) in block.ops.iter().enumerate() {
                 if matches!(op, MirOp::Binary { left, right, width: MirWidth::Word, .. }

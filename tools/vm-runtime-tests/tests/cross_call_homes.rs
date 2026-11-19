@@ -1320,3 +1320,30 @@ fn caller_word_survives_reviewed_row_writes_across_a_loop() {
         }
     }
 }
+
+#[test]
+fn loop_locals_can_reuse_one_pool_byte_on_both_runtimes() {
+    let reserves = (0xa0..=0xa3).chain(0xe0..=0xee)
+        .map(|byte| format!("r{byte}=${byte:02X}")).collect::<Vec<_>>().join(",");
+    let text = format!("BYTE {reserves} BYTE input=$700,out=$701
+        PROC Run() BYTE first,second
+          first=input WHILE first DO out==+first first==-1 OD
+          second=input WHILE second DO out==+second second==-1 OD
+        RETURN PROC Main() Run() RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = arithmetic_output(&text, runtime);
+        let locals: Vec<_> = output.map.storage_symbols.iter().filter(|symbol|
+            symbol.scope == actionc::codegen::CodegenSymbolScope::Routine("Run".into())
+            && matches!(symbol.name.as_str(), "first" | "second")).collect();
+        assert_eq!(locals.len(), 2);
+        assert!(locals.iter().all(|s| s.address == 0xef), "{runtime:?} {locals:?}");
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Run").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for input in [1u8, 4, 0, 7] {
+            vm.bus_mut().ram_mut().map(0x700, &[input, 0]).unwrap();
+            vm = machine::call(vm, &mut NoHooks, entry, &[]);
+            assert_eq!(vm.bus().ram().read(0x701), input * (input + 1));
+        }
+    }
+}

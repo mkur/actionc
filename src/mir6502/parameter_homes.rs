@@ -319,22 +319,18 @@ fn try_proposal(
 /// locals and numeric direct accesses that do not have a global declaration.
 fn source_zero_page(program: &MirProgram, routine: &MirRoutine) -> BTreeSet<u8> {
     use super::analysis::effects::{classify_op, classify_terminator};
-    let mut owned: BTreeSet<_> = (0..=255u16)
-        .filter(|byte| {
-            program.globals.iter().any(|g| {
-                matches!(g.backing,
-            MirGlobalBacking::Absolute(address) if byte.wrapping_sub(address) < g.storage_size)
-            }) || program
-                .routines
-                .iter()
-                .flat_map(|r| r.frame.params.iter().chain(&r.frame.locals))
-                .any(|slot| {
-                    matches!(slot.base, MirStorageBase::Absolute(address)
-                if byte.wrapping_sub(address) < slot.storage_size)
-                })
-        })
-        .map(|b| b as u8)
-        .collect();
+    let declarations = program.globals.iter().filter_map(|g| match g.backing {
+        MirGlobalBacking::Absolute(start) => Some((start, g.storage_size)), _ => None,
+    }).chain(program.routines.iter().flat_map(|r| r.frame.params.iter().chain(&r.frame.locals))
+        .filter_map(|slot| match slot.base {
+            MirStorageBase::Absolute(start) => Some((start, slot.storage_size)), _ => None,
+        }));
+    let mut owned = BTreeSet::new();
+    for (start, bytes) in declarations {
+        let end = u32::from(start) + u32::from(bytes);
+        owned.extend((u32::from(start)..end.min(256)).map(|byte| byte as u8));
+        owned.extend((0..end.saturating_sub(65536).min(256)).map(|byte| byte as u8));
+    }
     for block in &routine.blocks {
         for op in &block.ops {
             match op {

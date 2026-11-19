@@ -144,7 +144,7 @@ pub(super) fn propose_configured(
             }
             // Candidate objects are checked individually below by the existing
             // ownership-aware binding selectors. Explicit ranges remain here.
-            let writes = facts.home_writes_at(routine, *site, call).map(|writes| (0..=255u8)
+            let writes = facts.home_writes_at(routine, *site, call).map(|writes| zero_page::pool_bytes()
                 .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
                 .collect::<BTreeSet<_>>()).and_then(|mut writes| {
                     if let Some(chains) = &chains
@@ -185,21 +185,22 @@ pub(super) fn propose_configured(
                         super::super::analysis::effects::MirHomeByte::FixedZeroPage(s) => Some(s.0), _ => None,
                     }).collect()
             };
-            call_writes.push((*site, writes, results));
+            call_writes.push((*site, *call, writes, results));
         }
         let retained = &input.routines[index];
         let Some(actual) = selected.routines.iter().find(|r| r.id == id) else { continue };
         let expanded = std::cell::LazyCell::new(|| expanded::ExpandedConflicts::new(actual, &mut facts));
+        let observes_pointees = physical::has_pointee_writes(input, retained);
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
-            let mut forbidden = if physical::has_pointee_writes(input, retained) {
+            let mut forbidden = if observes_pointees {
                 observed_zp.clone()
             } else { BTreeSet::new() };
             forbidden.extend(&fixed_inputs);
             if let Some(plan) = views.get(&id) {
                 forbidden.extend(&plan.setup_writes);
             }
-            for (site, writes, results) in &call_writes {
+            for (site, call, writes, results) in &call_writes {
                 let crosses = (0..width).any(|offset| {
                     let lane = match *mem {
                         MirMem::Param { id, .. } => MirMem::Param { id, offset },
@@ -220,7 +221,7 @@ pub(super) fn propose_configured(
                     Err(reason) => {
                         trace.event("cross-call-home-ineligible", || serde_json::json!({
                             "routine": routine.name, "home": format!("{mem:?}"),
-                            "site": format!("{site:?}"), "reason": reason,
+                            "site": format!("{site:?}"), "callee": call_name(selected, call), "reason": reason,
                         }));
                         return None;
                     }
@@ -247,14 +248,15 @@ pub(super) fn propose_configured(
         let ordinary_params = selected.routines.iter().find(|r| r.id == routine.id).is_some_and(|r|
             r.frame.params.iter().any(|p| matches!(p.base, MirStorageBase::Param(id)
                 if r.frame.parameter_has_memory(id) && matches!(r.frame.parameter_home(id), None | Some(MirParamHome::Inline)))));
-        let mut changed = false;
-        if ordinary_params && candidate.frame.parameter_homes.is_none()
+        let mut changed = acyclic && lifetimes && zero_page::allocate(input, &mut candidate,
+            ordinary_params, &addresses, &forbidden, trace);
+        if !(acyclic && lifetimes) && ordinary_params && candidate.frame.parameter_homes.is_none()
             && let Some(bindings) = zero_page::bindings_avoiding(input, &candidate, &forbidden, &addresses)
         {
             install_bindings(&mut candidate, bindings);
             changed = true;
         }
-        if candidate.frame.local_homes.is_none() && let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
+        if !(acyclic && lifetimes) && candidate.frame.local_homes.is_none() && let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
             candidate.frame.local_homes = Some(bindings);
             for (_, slot) in candidate.frame.resident_bytes() {
                 if !candidate.frame.fixed_zero_page.contains(&slot) {
@@ -279,6 +281,16 @@ pub(super) fn propose_configured(
         }
     }
     proposal
+}
+
+fn call_name(program: &MirProgram, call: &MirOp) -> Option<String> {
+    match call {
+        MirOp::Call { target: MirCallTarget::Routine(id), .. } =>
+            program.routines.iter().find(|r| r.id == *id).map(|r| r.name.clone()),
+        MirOp::Call { target, .. } => Some(format!("{target:?}")),
+        MirOp::RuntimeHelper { helper, .. } => Some(format!("{helper:?}")),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
