@@ -55,3 +55,5 @@ candidates across the row write. Forcing a live local into `$A1` must fail.
 Passing the local's address to `Store` must invoke the addressable-storage rules.
 Other calls in `Copy` and final image cost can still determine its placement.
 [Home selection](../src/mir6502/parameter_homes/cross_call.rs) · [Residence verification](../src/mir6502/parameter_homes/lifetimes.rs)
+
+The [implementation plan](MIR6502_PRIVATE_ZP_HOME_PLACEMENT_IMPLEMENTATION_PLAN.md) gives the commit sequence and acceptance checks.
