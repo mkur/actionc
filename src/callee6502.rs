@@ -201,14 +201,60 @@ impl<Id: Ord + Copy> ReviewDependencies<Id> {
 
 pub(crate) const ENTRY_VERSION: &[u8] = b"actionc-6502-abi-inputs-v1";
 
-/// One-based formal parameter numbers. A zero count covers either zero
-/// or 256 bytes according to the reviewed loop.
+/// Buffer extent in bytes. Count parameters are one-based in a source review.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BufferLength<P = u16> {
+    Fixed(u16),
+    Count { parameter: P, zero_means_256: bool },
+}
+
+impl<P: Copy> BufferLength<P> {
+    pub(crate) fn map_parameter<T>(
+        self,
+        locate: impl FnOnce(P) -> Option<T>,
+    ) -> Option<BufferLength<T>> {
+        Some(match self {
+            Self::Fixed(bytes) => BufferLength::Fixed(bytes),
+            Self::Count { parameter, zero_means_256 } => BufferLength::Count {
+                parameter: locate(parameter)?,
+                zero_means_256,
+            },
+        })
+    }
+
+    pub(crate) fn upper_bound(self, read: impl FnOnce(P) -> Option<u8>) -> u16 {
+        match self {
+            Self::Fixed(bytes) => bytes,
+            Self::Count { parameter, zero_means_256 } => {
+                buffer_length(read(parameter), zero_means_256)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ArgumentBuffer {
     pub pointer: u16,
-    pub count: u16,
-    pub zero_means_256: bool,
+    pub length: BufferLength,
     pub write: bool,
+}
+
+impl ArgumentBuffer {
+    fn hash_fields(self, mut add: impl FnMut(&[u8])) {
+        add(&self.pointer.to_le_bytes());
+        match self.length {
+            BufferLength::Count { parameter, zero_means_256 } => {
+                add(&parameter.to_le_bytes());
+                add(&[self.write as u8, zero_means_256 as u8]);
+            }
+            BufferLength::Fixed(bytes) => {
+                // Zero cannot name a one-based count parameter.
+                add(&0u16.to_le_bytes());
+                add(&bytes.to_le_bytes());
+                add(&[self.write as u8]);
+            }
+        }
+    }
 }
 
 /// Upper bound for a reviewed byte count, including an unknown ABI value.
@@ -287,6 +333,19 @@ impl<Id> Review<Id> {
     }
 
     pub(crate) fn bind_precondition(&self, hash: u64) -> u64 {
+        if self.facts.buffers.iter().any(|b| matches!(b.length, BufferLength::Fixed(_))) {
+            let mut hash = hash;
+            let mut add = |bytes: &[u8]| {
+                for &byte in bytes {
+                    hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+                }
+            };
+            add(b"fixed-buffer-v1");
+            for buffer in &self.facts.buffers {
+                buffer.hash_fields(&mut add);
+            }
+            return hash;
+        }
         let Some(range) = self.facts.indirect_writes else { return hash };
         range.start.to_le_bytes().into_iter().chain(range.end.to_le_bytes()).fold(hash,
             |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3))
@@ -304,7 +363,10 @@ impl<Id> Review<Id> {
         }
         self.facts.buffers.iter().all(|b| {
             width(b.pointer) == Some(2)
-                && width(b.count) == Some(1)
+                && match b.length {
+                    BufferLength::Fixed(bytes) => bytes != 0,
+                    BufferLength::Count { parameter, .. } => width(parameter) == Some(1),
+                }
                 && (if b.write {
                     self.facts.writes.is_some()
                 } else {
@@ -335,8 +397,7 @@ impl<Id> Review<Id> {
         for r in f.preserves_zp { add(&[r.start, r.end]); }
         add(&(f.buffers.len() as u64).to_le_bytes());
         for b in f.buffers {
-            add(&b.pointer.to_le_bytes()); add(&b.count.to_le_bytes());
-            add(&[b.write as u8, b.zero_means_256 as u8]);
+            b.hash_fields(&mut add);
         }
         for ranges in [f.reads, f.writes] {
             add(&[ranges.is_some() as u8]);

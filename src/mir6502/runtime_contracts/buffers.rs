@@ -25,6 +25,7 @@ pub(in crate::mir6502) fn argument_values(program: &MirProgram, routine: &MirRou
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::mir6502) enum BufferExtent {
+    Fixed(u16),
     /// Includes the length byte. The length is read through this argument.
     String { length_pointer_byte: u16 },
     Count { argument_byte: u16 },
@@ -45,6 +46,7 @@ impl BufferAccess {
         values: Option<(&MirMachineValueAvailability, MirSite)>,
     ) -> (Option<u16>, u16) {
         let bytes = match self.extent {
+            BufferExtent::Fixed(bytes) => bytes,
             BufferExtent::String { .. } => 256,
             BufferExtent::ByteCount { argument_byte, zero_means_256 } =>
                 crate::callee6502::buffer_length(argument_byte_value(program, call, argument_byte, values), zero_means_256),

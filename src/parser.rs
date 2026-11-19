@@ -3573,12 +3573,18 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
         "RETURNS A=$A0" => Some(ActioncAnnotation::ReturnsAEqualsA0),
         _ if normalized.starts_with("READS-BUFFER ") || normalized.starts_with("WRITES-BUFFER ") => {
             let parts: Vec<_> = normalized.split_whitespace().collect();
-            let [direction, pointer, count, zero] = parts.as_slice() else { return None };
-            let pointer = pointer.parse::<u16>().ok()?;
-            let count = count.parse::<u16>().ok()?;
-            let zero_means_256 = match *zero { "ZERO=256" => true, "ZERO=0" => false, _ => return None };
+            use crate::callee6502::BufferLength;
+            let [direction, pointer, tail @ ..] = parts.as_slice() else { return None };
+            let length = match tail {
+                [fixed] => BufferLength::Fixed(fixed.strip_prefix("BYTES=")?.parse().ok()?),
+                [count, zero] => BufferLength::Count {
+                    parameter: count.parse().ok()?,
+                    zero_means_256: match *zero { "ZERO=256" => true, "ZERO=0" => false, _ => return None },
+                },
+                _ => return None,
+            };
             Some(ActioncAnnotation::Buffer(crate::callee6502::ArgumentBuffer {
-                pointer, count, zero_means_256, write: *direction == "WRITES-BUFFER",
+                pointer: pointer.parse().ok()?, length, write: *direction == "WRITES-BUFFER",
             }))
         }
         _ if normalized.starts_with("REQUIRES INDIRECT-WRITES ") => {

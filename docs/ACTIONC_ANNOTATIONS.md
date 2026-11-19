@@ -131,6 +131,12 @@ begins at that address and includes exactly the specified number of bytes,
 including the stated interpretation of zero. List all additional fixed
 accesses in the matching `reads-only` or `writes-only` clause.
 
+A fixed-size access uses `writes-buffer P bytes=N` or `reads-buffer P bytes=N`.
+Here `N` is a positive 16-bit byte extent from the address passed on entry.
+For example, `writes-only $A0-$A1` with `writes-buffer 1 bytes=1` bounds
+every write to those two scratch bytes and the byte addressed by argument 1.
+Reads can be left open independently.
+
 For example, a reverse copy with arguments `(CARD dst, src BYTE count)`
 declares `reads-buffer 2 3 zero=256` and `writes-buffer 1 3 zero=256`.
 The buffer review accepts conditional branches to instruction boundaries

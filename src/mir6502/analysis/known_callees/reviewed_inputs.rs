@@ -204,9 +204,7 @@ fn machine_fingerprint(program: &MirProgram, routine: &MirRoutine, version: &[u8
         return None;
     }
     let hash = fingerprint(&params, result, &items, version)?;
-    if version == crate::callee6502::RANGE_VERSION {
-        Some(routine.frame.callee_review.as_ref()?.bind_precondition(hash))
-    } else { Some(hash) }
+    Some(routine.frame.callee_review.as_ref().map_or(hash, |review| review.bind_precondition(hash)))
 }
 
 #[cfg(test)]
@@ -226,6 +224,45 @@ mod tests {
             &crate::semantic::ir::lower_program(&ast, &model),
         ))
     }
+    #[test]
+    fn fixed_buffer_review_matches_both_backends_and_binds_the_extent() {
+        let source = include_str!("../../../../fixtures/runtime/reviewed_fixed_store.act");
+        let source = format!("{source}\nPROC Main() Store($7100,3) RETURN");
+        let p = crate::mir6502::lower_program(&lower(&source).unwrap()).unwrap();
+        let leaf = &p.routines[0];
+        let review = leaf.frame.callee_review.as_ref().unwrap();
+        let hash = body_fingerprint(&p, leaf, review.version()).unwrap();
+        assert_eq!(format!("{:016x}", review.fingerprint), format!("{hash:016x}"));
+        for (src, matched) in [
+            (source.clone(), true),
+            (source.replace("bytes=1", "bytes=2"), false),
+            (source.replace("ldy #$00", "ldy #$01"), false),
+        ] {
+            let ast = crate::parser::parse(&crate::lexer::tokenize(&src).unwrap()).unwrap();
+            let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+            let sem = crate::semantic::ir::lower_program(&ast, &model);
+            let classic = crate::codegen::projected_review_for_test(&sem, "Store");
+            let p = crate::mir6502::lower_program(&crate::nir::lower_program(&sem)).unwrap();
+            let mir = reviewed_contract(&p, &p.routines[0]);
+            assert_eq!(classic.is_some(), matched);
+            assert_eq!(mir.is_some(), matched);
+            if let (Some(classic), Some(mir)) = (classic, mir) {
+                assert_eq!(classic.buffers, mir.buffers);
+                assert!(mir.reads.is_none());
+                assert_eq!(MirKnownCalleeSummaries::analyze_for_rewriting(&p)
+                    .get(p.routines[0].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+            }
+        }
+        for invalid in [
+            source.replace("bytes=1", "bytes=0"),
+            source.replace("bytes=1", "bytes=65536"),
+            source.replace("1 bytes=1", "2 bytes=1"),
+            source.replace(";@actionc writes-only $A0-$A1", ""),
+        ] {
+            assert!(lower(&invalid).is_err(), "{invalid}");
+        }
+    }
+
     #[test]
     fn opaque_contract_matches_payload_local_relocations_and_abi_in_both_backends() {
         let source = ";@actionc reviewed-6502 0000000000000000

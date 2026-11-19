@@ -1,0 +1,15 @@
+;@actionc reviewed-6502 99c57fc17b23abe6
+;@actionc abi-inputs-only
+;@actionc entry-reads abi
+;@actionc writes-only $A0-$A1
+;@actionc writes-buffer 1 bytes=1
+;@actionc preserves X
+PROC Store=*(CARD p BYTE value)
+ASM
+  sta $A0
+  stx $A1
+  tya
+  ldy #$00
+  sta ($A0),y
+  rts
+ENDASM

@@ -328,7 +328,10 @@ fn reviewed_copy_instantiates_the_declared_count_and_declines_unsafe_addresses()
     assert!(super::super::ReviewedBuffers::from_facts(routine, &collision).unwrap()
         .writes(registers, &cells(Some(6)), &memory(), &[]).is_none());
     let mut zero = facts.clone();
-    for b in &mut zero.buffers { b.zero_means_256 = false; }
+    for b in &mut zero.buffers {
+        let crate::callee6502::BufferLength::Count { zero_means_256, .. } = &mut b.length else { panic!("expected a counted span") };
+        *zero_means_256 = false;
+    }
     assert_eq!(super::super::ReviewedBuffers::from_facts(routine, &zero).unwrap()
         .writes([None; 3], &cells(Some(0)), &memory(), &[]).unwrap(), (0xa0..=0xa2).collect());
 }

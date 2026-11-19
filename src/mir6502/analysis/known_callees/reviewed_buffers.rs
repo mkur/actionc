@@ -1,6 +1,6 @@
 //! Instantiate a reviewed argument-relative footprint in one caller's state.
 use super::*;
-use crate::callee6502::{CallFacts, DataRange};
+use crate::callee6502::{BufferLength, CallFacts, DataRange};
 use crate::mir6502::analysis::address_ranges::{AbiByte, CoherentWordRange};
 use crate::mir6502::analysis::record_bases::MirPhysicalMemory;
 use crate::mir6502::ir::{MirParamLane, MirWidth};
@@ -10,8 +10,7 @@ use crate::mir6502::runtime_contracts::buffers::{BufferAccess, BufferExtent, arg
 struct Buffer {
     low: AbiByte,
     high: AbiByte,
-    count: AbiByte,
-    zero_means_256: bool,
+    length: BufferLength<AbiByte>,
     write: bool,
 }
 
@@ -52,8 +51,7 @@ impl ReviewedBuffers {
                 Some(Buffer {
                     low: lane(b.pointer, 0, 2)?,
                     high: lane(b.pointer, 1, 2)?,
-                    count: lane(b.count, 0, 1)?,
-                    zero_means_256: b.zero_means_256,
+                    length: b.length.map_parameter(|param| lane(param, 0, 1))?,
                     write: b.write,
                 })
             })
@@ -103,7 +101,7 @@ impl ReviewedBuffers {
         // all known register/ABI bytes. Never combine unrelated endpoint lanes.
         super::bounded_memory::validate_word_lanes(ranges, &registers, cells)?;
         for b in &self.buffers {
-            let count = crate::callee6502::buffer_length(read(b.count), b.zero_means_256);
+            let count = b.length.upper_bound(read);
             if count == 0 {
                 continue;
             }
@@ -152,9 +150,11 @@ fn buffer_accesses(
         .map(|b| {
             Some(BufferAccess {
                 pointer_byte: offset(b.pointer)?,
-                extent: BufferExtent::ByteCount {
-                    argument_byte: offset(b.count)?,
-                    zero_means_256: b.zero_means_256,
+                extent: match b.length {
+                    BufferLength::Fixed(bytes) => BufferExtent::Fixed(bytes),
+                    BufferLength::Count { parameter, zero_means_256 } => BufferExtent::ByteCount {
+                        argument_byte: offset(parameter)?, zero_means_256,
+                    },
                 },
                 write: b.write,
             })
@@ -197,6 +197,11 @@ pub(super) fn residence_writes(
             continue;
         }
         let address = address?;
+        if matches!(buffer.extent, BufferExtent::Fixed(_)) {
+            // The review bounds all writes relative to the entry address.
+            numeric.push((address, size));
+            continue;
+        }
         // A write into a pointer or count carrier can redirect later loop
         // iterations. Include read-only carriers (e.g. MovePage's $A3/$A4).
         for range in facts.reads.as_ref()?.iter().chain(facts.writes.as_ref()?) {
