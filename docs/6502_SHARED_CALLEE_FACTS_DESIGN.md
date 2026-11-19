@@ -168,12 +168,16 @@ TN's `Close`, `Xio`, `Open`, `Bget` and `Bput` accept ordinary ABI arguments.
 The block transfers pass the buffer and 16-bit length to `_BlockIO` under
 its private convention. All five leave reads and writes open because both
 the installed device and the error handler can modify memory before returning.
-For TN's selected entry, `Close` also forwards the installed handler's
-normal-return preservation for the source-home pool. The wrapper review relies
-on CIOV using OS scratch outside that pool. The EOF arm of `NavError` preserves the pool,
+For TN's selected entry, `Close` forwards the installed handler's
+normal-return preservation for the source-home pool. `Open` and `Bget` use
+`$A1` as scratch. `Bget` also excludes the transfer destination specified
+by its buffer address and 16-bit byte count. Its shared review keeps that
+conditional guarantee distinct from unconditional byte preservation, so a
+consumer can use it when it knows the call's destination.
+These reviews rely on CIOV using OS scratch outside the pool. The EOF arm of `NavError` preserves the pool,
 and the recovery arm discards the caller's stack. SemIR resolves the callback
 cell and installation. The shared 6502 review matches the entry block and
-projects the same unconditional return facts into classic and NIR for that
+projects the same return facts into classic and NIR for that
 program. The general memory effects still include I/O and callback activity.
 [Installed callback review](ACTIONC_ANNOTATIONS.md#installed-callbacks)
 

@@ -633,6 +633,20 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
                 if matches!(command, 5 | 7 | 11) {
                     assert_eq!(vm.cpu().registers().a, command, "I/O accumulator at CIOV");
                 }
+                if command == 7 {
+                    let ram = vm.bus_mut().ram_mut();
+                    let iocb = 0x0340 + u16::from(self.iocb);
+                    let buf = ram.read_word(iocb + 4);
+                    let requested = ram.read_word(iocb + 8);
+                    let transferred = match ram.read(DEVICE + 1) {
+                        1 => requested,
+                        0x88 => requested.min(2),
+                        _ => 0,
+                    };
+                    for offset in 0..transferred {
+                        ram.write(buf.wrapping_add(offset), 0x52);
+                    }
+                }
                 vm.set_pc(DEVICE);
             }
             Ok(())
@@ -652,24 +666,46 @@ fn cio_wrappers_pass_the_iocb_and_dispatch_returning_errors() {
             let ioerr = global_address(&listing, "Ioerr");
             let pool: Vec<u8> = (0xa0..=0xa3).chain(0xaa..=0xab).chain(0xae..=0xaf).chain(0xe0..=0xef).collect();
             ram.write_word(vector, routine_address(&listing, "NavError"));
-            for status in [1, 0x88] {
-                let ram = vm.bus_mut().ram_mut();
-                for &byte in &pool { ram.write(u16::from(byte), byte ^ status); }
-                ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap();
-                let mut hook = CioVector { calls: 0, iocb: 0x10 };
-                vm = machine::call(vm, &mut hook, routine_address(&listing, "Close"), &[1]);
-                assert_eq!(hook.calls, 1);
-                assert_eq!(vm.bus().ram().read(ioerr), status);
-                for &byte in &pool {
-                    assert_eq!(vm.bus().ram().read(u16::from(byte)), byte ^ status, "{mode:?} {runtime:?} ${byte:02X}");
+            let [lo, hi] = FILENAME.to_le_bytes();
+            let [buf_lo, buf_hi] = 0x72abu16.to_le_bytes();
+            for (name, args) in [
+                ("Close", &[1u8][..]),
+                ("Open", &[1, lo, hi, 6, 0]),
+                ("Bget", &[1, buf_lo, buf_hi, 1, 1]),
+                ("Bget", &[1, 0xec, 0, 1, 0]),
+                ("Bget", &[1, 0xec, 0, 0, 0]),
+            ] {
+                for status in [1, 0x88] {
+                    let ram = vm.bus_mut().ram_mut();
+                    for &byte in &pool { ram.write(u16::from(byte), byte ^ status); }
+                    ram.map(0x72aa, &[0x77; 259]).unwrap();
+                    ram.map(DEVICE, &[0xa0, status, 0x60]).unwrap();
+                    let mut hook = CioVector { calls: 0, iocb: 0x10 };
+                    vm = machine::call(vm, &mut hook, routine_address(&listing, name), args);
+                    let ram = vm.bus().ram();
+                    assert_eq!(hook.calls, 1);
+                    assert_eq!(ram.read(ioerr), status);
+                    for &byte in &pool {
+                        let expected = match byte {
+                            0xa1 if name != "Close" => args[1], // STX scratch
+                            0xa3 if name != "Close" => args[3], // caller stages the ABI argument
+                            0xec if name == "Bget" && args[1] == 0xec && args[3] != 0 => 0x52,
+                            _ => byte ^ status,
+                        };
+                        assert_eq!(ram.read(u16::from(byte)), expected, "{name} {mode:?} {runtime:?} ${byte:02X}");
+                    }
+                    if name == "Bget" && args[1] == buf_lo {
+                        let count = if status == 1 { 257 } else { 2 };
+                        assert_eq!(ram.read(0x72aa), 0x77);
+                        assert_eq!(ram.read(0x72ab + count - 1), 0x52);
+                        assert_eq!(ram.read(0x72ab + count), 0x77);
+                    }
                 }
             }
             let ram = vm.bus_mut().ram_mut();
             ram.write_word(vector, HANDLER);
             // A replacement returning handler can clobber a pool byte.
             ram.map(HANDLER, &[0xe6, 0xac, 0xe6, 0xec, 0x60]).unwrap();
-            let [lo, hi] = FILENAME.to_le_bytes();
-            let [buf_lo, buf_hi] = 0x72abu16.to_le_bytes();
             for (name, cmd, args) in [
                 ("Close", 12, &[1u8][..]),
                 ("Xio", 33, &[2, 33, 6, 9, lo, hi]),

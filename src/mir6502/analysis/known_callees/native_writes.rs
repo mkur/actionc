@@ -69,6 +69,12 @@ fn fixed_pair(routine: &MirRoutine, pair: MirPointerPair) -> Option<u8> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum CountWidth {
+    Byte { zero_means_256: bool },
+    Word,
+}
+
 /// A pending write is relative to the incoming ABI stream. The physical
 /// carrier matters for a multibyte store which rereads its pointer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -78,7 +84,7 @@ pub(in crate::mir6502) struct FormalWrite {
     bytes: u16,
     carrier: Option<u8>,
     // Count and implementation scratch travel with a forwarded copy destination.
-    count: Option<(u16, bool)>,
+    count: Option<(u16, CountWidth)>,
     reviewed_copy: Option<RoutineId>,
 }
 
@@ -92,7 +98,8 @@ impl FormalWrite {
         let (bytes, count) = match buffer.extent {
             BufferExtent::Fixed(bytes) => (bytes, None),
             BufferExtent::ByteCount { argument_byte, zero_means_256 } =>
-                (crate::callee6502::buffer_length(None, zero_means_256), Some((argument_byte, zero_means_256))),
+                (crate::callee6502::buffer_length(None, zero_means_256), Some((argument_byte, CountWidth::Byte { zero_means_256 }))),
+            BufferExtent::Count { argument_byte } => (u16::MAX, Some((argument_byte, CountWidth::Word))),
             _ => return None,
         };
         Some(Self { argument: buffer.pointer_byte, offset: 0, bytes, carrier: None,
@@ -102,17 +109,31 @@ impl FormalWrite {
     fn at_call(mut self, program: &MirProgram, routine: &MirRoutine, call: &MirOp,
         known: &MirKnownCalleeSummaries, values: &MirMachineValueAvailability, site: MirSite,
     ) -> Self {
-        let Some((offset, zero_means_256)) = self.count.take() else { return self; };
+        let Some((offset, width)) = self.count.take() else { return self; };
         let MirOp::Call { args, .. } = call else { return self; };
         let staged = args.iter().all(|a| a.width == MirWidth::Byte);
-        let value = crate::mir6502::runtime_contracts::buffers::argument_byte_value(
-            program, call, offset, MirWidth::Byte, staged.then_some((values, site)));
-        self.bytes = crate::callee6502::buffer_length(value, zero_means_256);
-        if value.is_none() && staged
-            && let Some(lane) = crate::mir6502::abi::argument_lanes(args.len().try_into().unwrap_or(u16::MAX))
-                .and_then(|lanes| lanes.get(usize::from(offset)).copied())
-            && let Some(Origin::Input(input)) = origin(TracePurpose::Preservation, program, routine, known, site, lane.into()) {
-            self.count = Some((input, zero_means_256));
+        let state = staged.then_some((values, site));
+        use crate::mir6502::runtime_contracts::buffers::{argument_byte_value, argument_word};
+        let count = match width {
+            CountWidth::Word => argument_word(program, call, offset, state),
+            CountWidth::Byte { zero_means_256 } => argument_byte_value(program, call, offset, MirWidth::Byte, state)
+                .map(|n| crate::callee6502::buffer_length(Some(n), zero_means_256)),
+        };
+        if let Some(bytes) = count {
+            self.bytes = bytes;
+        } else if staged {
+            let input = |i: u16| {
+                let lanes = crate::mir6502::abi::argument_lanes(args.len().try_into().ok()?)?;
+                let lane = *lanes.get(usize::from(i))?;
+                match origin(TracePurpose::Preservation, program, routine, known, site, lane.into())? {
+                    Origin::Input(n) => Some(n),
+                    _ => None,
+                }
+            };
+            if let Some(low) = input(offset)
+                && (width != CountWidth::Word || offset.checked_add(1).and_then(input) == low.checked_add(1)) {
+                self.count = Some((low, width));
+            }
         }
         self
     }

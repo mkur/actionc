@@ -204,6 +204,8 @@ fn reviewed_buffers_require_typed_formals_and_a_complete_fixed_direction() {
     for src in [lf.clone(), lf.replace('\n', "\r\n")] {
         let mut nir = lower(&src).unwrap();
         actionc::nir::verify_program(&nir).unwrap();
+        let word_count = lower(&src.replace("1 3 zero=256", "1 count16=2")).unwrap();
+        actionc::nir::verify_program(&word_count).unwrap();
         let review = nir.routines[0].entry.callee_review.as_mut().unwrap();
         assert_eq!(review.facts.buffers.len(), 2);
         review.facts.buffers[0].pointer = 3;
@@ -213,6 +215,8 @@ fn reviewed_buffers_require_typed_formals_and_a_complete_fixed_direction() {
             src.replace("2 3 zero=256", "3 2 zero=256"),
             src.replace("2 3 zero=256", "4 3 zero=256"),
             src.replace("2 3 zero=256", "2 3 zero=1"),
+            src.replace("1 3 zero=256", "1 count16=3"),
+            src.replace("1 3 zero=256", "1 count16=0"),
             src.replace(";@actionc writes-only $A0-$A2", ""),
         ] {
             assert!(lower(&bad).is_none(), "{bad}");

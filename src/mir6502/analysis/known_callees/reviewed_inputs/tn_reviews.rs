@@ -342,7 +342,7 @@ fn both_tn_store_reviews_publish_the_same_fixed_byte_write() {
 }
 
 #[test]
-fn close_forwards_only_a_current_entry_installed_callback() {
+fn cio_preservation_requires_the_current_entry_installed_callback() {
     use crate::semantic::ir::{SemExprKind, SemItem, SemProgram, SemRoutine, SemStmt};
     fn routine<'a>(sem: &'a mut SemProgram, name: &str) -> &'a mut SemRoutine {
         sem.modules.iter_mut().flat_map(|m| &mut m.items).find_map(|item| match item {
@@ -350,14 +350,25 @@ fn close_forwards_only_a_current_entry_installed_callback() {
         }).unwrap()
     }
     fn check(sem: &SemProgram, strong: bool) {
-        let classic = crate::codegen::projected_review_for_test(sem, "Close").unwrap();
         let mir = crate::mir6502::lower_program(&crate::nir::lower_program(sem)).unwrap();
-        let close = mir.routines.iter().find(|r| r.name == "Close").unwrap();
-        let facts = reviewed_contract(&mir, close).unwrap();
-        assert!(classic.abi_inputs_only && facts.abi_inputs_only);
-        assert_eq!(classic.preserves_zp, facts.preserves_zp);
-        assert_eq!(facts.preserves_zp.iter().any(|r| r.start <= 0xec && 0xed <= r.end), strong);
-        assert!(facts.reads.is_none() && facts.writes.is_none());
+        for name in ["Close", "Open", "Bget"] {
+            let classic = crate::codegen::projected_review_for_test(sem, name).unwrap();
+            let routine = mir.routines.iter().find(|r| r.name == name).unwrap();
+            let facts = reviewed_contract(&mir, routine).unwrap();
+            assert!(classic.abi_inputs_only && facts.abi_inputs_only);
+            assert_eq!(classic.preserves_zp, facts.preserves_zp);
+            assert_eq!(classic.preserves_outside_buffers, facts.preserves_outside_buffers);
+            let preserved = if name == "Bget" {
+                assert!(facts.preserves_zp.is_empty());
+                facts.preserves_outside_buffers.as_ref().unwrap()
+            } else {
+                assert!(facts.preserves_outside_buffers.is_none());
+                &facts.preserves_zp
+            };
+            assert_eq!(preserved.iter().any(|r| r.start <= 0xec && 0xed <= r.end), strong, "{name}");
+            assert_eq!(preserved.iter().any(|r| r.start <= 0xa1 && 0xa1 <= r.end), strong && name == "Close");
+            assert!(facts.reads.is_none() && facts.writes.is_none());
+        }
     }
 
     let program = tn_semir();
@@ -387,4 +398,50 @@ fn close_forwards_only_a_current_entry_installed_callback() {
     let mut other = program;
     routine(&mut other, "NavInit").callback_reviews.clear();
     check(&other, false);
+}
+
+#[test]
+fn tn_bget_excludes_the_destination_of_each_call() {
+    use crate::callee6502::{ArgumentBuffer, BufferLength};
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
+    let mut ast = crate::includes::load_program_with_includes(path).unwrap();
+    let probes = "BYTE ARRAY transferData(257) BYTE POINTER transferBuffer=[@transferData]
+        PROC IndirectRead() Bget(1,transferBuffer,$0101) RETURN
+        PROC OneByte() Bget(1,$EC,1) RETURN
+        PROC EmptyRead() Bget(1,$EC,0) RETURN
+        PROC FullRead() Bget(1,$EC,$0100) RETURN";
+    let mut probes = crate::parser::parse(&crate::lexer::tokenize(probes).unwrap()).unwrap();
+    ast.modules.last_mut().unwrap().items.append(&mut probes.modules[0].items);
+    let model = crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern()).unwrap();
+    let mut sem = crate::semantic::ir::lower_program(&ast, &model);
+    sem.select_program_entry("NavInit").unwrap();
+    let nir = crate::nir::optimize_program(&crate::nir::lower_program(&sem)).unwrap();
+    let p = crate::mir6502::lower_program(&nir).unwrap();
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    let bget = p.routines.iter().find(|r| r.name == "Bget").unwrap();
+    let facts = reviewed_contract(&p, bget).unwrap();
+    assert_eq!(facts.buffers, [ArgumentBuffer { pointer: 2, length: BufferLength::WordCount(3), write: true }]);
+    assert_eq!(known.get(bget.id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+    let mut stale = p.clone();
+    let changed = stale.routines.iter_mut().find(|r| r.id == bget.id).unwrap();
+    changed.frame.callee_review.as_mut().unwrap().facts.buffers[0].pointer = 3;
+    assert!(reviewed_contract(&stale, stale.routines.iter().find(|r| r.id == bget.id).unwrap()).is_none());
+    let buffer = super::super::reviewed_buffers::buffer_accesses(bget, facts).unwrap()[0];
+    for (name, ec, ed) in [("IndirectRead", true, true), ("OneByte", false, true),
+        ("EmptyRead", true, true), ("FullRead", false, false)] {
+        let caller = p.routines.iter().find(|r| r.name == name).unwrap();
+        let (site, call) = caller.blocks.iter().find_map(|b| b.ops.iter().enumerate().find_map(|(op_index, op)|
+            matches!(op, MirOp::Call { target: MirCallTarget::Routine(id), .. } if *id == bget.id)
+                .then_some((MirSite::Op { block: b.id, op_index }, op)))).unwrap();
+        let values = crate::mir6502::runtime_contracts::buffers::argument_values(&p, caller).unwrap();
+        if name != "IndirectRead" {
+            let count = match name { "OneByte" => 1, "EmptyRead" => 0, "FullRead" => 256, _ => unreachable!() };
+            assert_eq!(buffer.project(&p, call, None), (Some(0xec), count), "{name} {call:?}");
+        }
+        let writes = known.writes_at_site(&p, caller, call, &values, site);
+        for (byte, expected) in [(0xec, ec), (0xed, ed), (0xa1, false)] {
+            assert_eq!(writes.preserves_private_fixed_byte(MirFixedZpSlot(byte), known.fixed_storage()),
+                expected, "{name} ${byte:02x}: {writes:?}");
+        }
+    }
 }

@@ -3576,6 +3576,7 @@ fn parse_actionc_annotation(text: &str) -> Option<ActioncAnnotation> {
             use crate::callee6502::BufferLength;
             let [direction, pointer, tail @ ..] = parts.as_slice() else { return None };
             let length = match tail {
+                [word] if word.starts_with("COUNT16=") => BufferLength::WordCount(word.strip_prefix("COUNT16=")?.parse().ok()?),
                 [fixed] => BufferLength::Fixed(fixed.strip_prefix("BYTES=")?.parse().ok()?),
                 [count, zero] => BufferLength::Count {
                     parameter: count.parse().ok()?,

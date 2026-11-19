@@ -623,8 +623,11 @@ ASM OPAQUE
   jmp _Cio
 ENDASM
 
-;@actionc reviewed-6502 d19b79041d42ff1f
+; CIO may fill up to len bytes at buf, including on a partial read.
+;@actionc reviewed-6502 9d67b2c9aceb8317
 ;@actionc abi-inputs-only
+;@actionc writes-buffer 2 count16=3
+;@actionc preserves-via ErrorHandler $A0 $A2-$A3 $AA-$AB $AE-$AF $E0-$EF
 PROC Bget=*(BYTE chn CARD buf, len)
 ASM OPAQUE
   stx $A1

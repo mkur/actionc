@@ -26,14 +26,13 @@ impl SemProgram {
                 == installation.installed_prefix
             && dispatches_through(self, routine, forwarded.vector, &mut HashSet::new())
         {
+            let preserved = review.facts.preserves_outside_buffers.as_mut()
+                .unwrap_or(&mut review.facts.preserves_zp);
             for a in &forwarded.bytes {
                 for b in &installation.bytes {
                     let (start, end) = (a.start.max(b.start), a.end.min(b.end));
                     if start <= end {
-                        review
-                            .facts
-                            .preserves_zp
-                            .push(AnnotationZeroPageRange { start, end });
+                        preserved.push(AnnotationZeroPageRange { start, end });
                     }
                 }
             }

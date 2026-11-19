@@ -131,6 +131,11 @@ begins at that address and includes exactly the specified number of bytes,
 including the stated interpretation of zero. List all additional fixed
 accesses in the matching `reads-only` or `writes-only` clause.
 
+`writes-buffer 2 count16=3` describes a destination at the address in
+parameter 2 and a 16-bit byte count in parameter 3. Zero has an empty span.
+A device can transfer fewer bytes than requested, including on EOF. Both
+argument positions and the count convention participate in the fingerprint.
+
 A fixed-size access uses `writes-buffer P bytes=N` or `reads-buffer P bytes=N`.
 Here `N` is a positive 16-bit byte extent from the address passed on entry.
 For example, `writes-only $A0-$A1` with `writes-buffer 1 bytes=1` bounds
@@ -183,6 +188,15 @@ The identity includes the block's bytes, typed relocations and claimed ranges.
 The compiler also checks that the wrapper's reviewed call chain dispatches
 through the named vector. Both backends receive the intersection of the reviewed
 ranges. If any check fails, the wrapper retains its unconditional ABI facts.
+
+When a wrapper also declares a destination buffer, its forwarded bytes survive
+only outside that buffer. This form can leave the general write footprint open.
+TN's `Bget` writes the low address byte to `$A1`, then asks CIO to transfer
+into the caller's buffer. MIR6502 combines the forwarded ranges with the
+destination of each call. Consumers that lack a destination keep the write
+footprint unknown. For a multi-byte numeric destination, the current allocator
+also needs enough information about implementation scratch to exclude a
+transfer that could overwrite its own pointer or count.
 
 ### Reviewed indirect destinations
 

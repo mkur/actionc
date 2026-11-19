@@ -204,30 +204,34 @@ pub(crate) const ENTRY_VERSION: &[u8] = b"actionc-6502-abi-inputs-v1";
 
 /// Buffer extent in bytes. Count parameters are one-based in a source review.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BufferLength<P = u16> {
+pub enum BufferLength<P = u16, W = P> {
     Fixed(u16),
     Count { parameter: P, zero_means_256: bool },
+    WordCount(W),
 }
 
-impl<P: Copy> BufferLength<P> {
-    pub(crate) fn map_parameter<T>(
+impl<P: Copy, W: Copy> BufferLength<P, W> {
+    pub(crate) fn map_parameters<T, V>(
         self,
-        locate: impl FnOnce(P) -> Option<T>,
-    ) -> Option<BufferLength<T>> {
+        byte: impl FnOnce(P) -> Option<T>,
+        word: impl FnOnce(W) -> Option<V>,
+    ) -> Option<BufferLength<T, V>> {
         Some(match self {
             Self::Fixed(bytes) => BufferLength::Fixed(bytes),
+            Self::WordCount(parameter) => BufferLength::WordCount(word(parameter)?),
             Self::Count { parameter, zero_means_256 } => BufferLength::Count {
-                parameter: locate(parameter)?,
+                parameter: byte(parameter)?,
                 zero_means_256,
             },
         })
     }
 
-    pub(crate) fn upper_bound(self, read: impl FnOnce(P) -> Option<u8>) -> u16 {
+    pub(crate) fn upper_bound(self, byte: impl FnOnce(P) -> Option<u8>, word: impl FnOnce(W) -> Option<u16>) -> u16 {
         match self {
             Self::Fixed(bytes) => bytes,
+            Self::WordCount(parameter) => word(parameter).unwrap_or(u16::MAX),
             Self::Count { parameter, zero_means_256 } => {
-                buffer_length(read(parameter), zero_means_256)
+                buffer_length(byte(parameter), zero_means_256)
             }
         }
     }
@@ -247,6 +251,10 @@ impl ArgumentBuffer {
             BufferLength::Count { parameter, zero_means_256 } => {
                 add(&parameter.to_le_bytes());
                 add(&[self.write as u8, zero_means_256 as u8]);
+            }
+            BufferLength::WordCount(parameter) => {
+                add(&parameter.to_le_bytes());
+                add(&[self.write as u8, 2]); // Distinct from both byte-count zero conventions.
             }
             BufferLength::Fixed(bytes) => {
                 // Zero cannot name a one-based count parameter.
@@ -287,6 +295,8 @@ pub struct CallFacts<Id> {
     pub reads: Option<Vec<DataRange<Id>>>,
     pub writes: Option<Vec<DataRange<Id>>>,
     pub preserves_zp: Vec<crate::ast::AnnotationZeroPageRange>,
+    /// Normal-return guarantee only for bytes outside all declared destination spans.
+    pub preserves_outside_buffers: Option<Vec<crate::ast::AnnotationZeroPageRange>>,
     pub preserves_regs: crate::ast::AnnotationRegisterSet,
     pub returns_a_equals_a0: bool,
 }
@@ -310,6 +320,7 @@ impl<Id> Default for CallFacts<Id> {
             reads: None,
             writes: None,
             preserves_zp: Vec::new(),
+            preserves_outside_buffers: None,
             preserves_regs: Default::default(),
             returns_a_equals_a0: false,
         }
@@ -334,14 +345,15 @@ impl<Id> Review<Id> {
     }
 
     pub(crate) fn bind_precondition(&self, hash: u64) -> u64 {
-        if self.facts.buffers.iter().any(|b| matches!(b.length, BufferLength::Fixed(_))) {
+        let word_counted = self.facts.buffers.iter().any(|b| matches!(b.length, BufferLength::WordCount(_)));
+        if word_counted || self.facts.buffers.iter().any(|b| matches!(b.length, BufferLength::Fixed(_))) {
             let mut hash = hash;
             let mut add = |bytes: &[u8]| {
                 for &byte in bytes {
                     hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
                 }
             };
-            add(b"fixed-buffer-v1");
+            add(if word_counted { b"word-buffer-v1" } else { b"fixed-buffer-v1" });
             for buffer in &self.facts.buffers {
                 buffer.hash_fields(&mut add);
             }
@@ -362,17 +374,17 @@ impl<Id> Review<Id> {
             && (range.start > range.end || self.facts.writes.is_none() || !self.facts.buffers.is_empty()) {
             return false;
         }
+        if self.facts.preserves_outside_buffers.is_some() && !self.facts.buffers.iter().any(|b| b.write) {
+            return false;
+        }
         self.facts.buffers.iter().all(|b| {
             width(b.pointer) == Some(2)
                 && match b.length {
                     BufferLength::Fixed(bytes) => bytes != 0,
                     BufferLength::Count { parameter, .. } => width(parameter) == Some(1),
+                    BufferLength::WordCount(parameter) => width(parameter) == Some(2),
                 }
-                && (if b.write {
-                    self.facts.writes.is_some()
-                } else {
-                    self.facts.reads.is_some()
-                })
+                && if b.write { self.facts.writes.is_some() || self.facts.preserves_outside_buffers.is_some() } else { self.facts.reads.is_some() }
         })
     }
 
@@ -396,6 +408,11 @@ impl<Id> Review<Id> {
         }
         add(&(f.preserves_zp.len() as u64).to_le_bytes());
         for r in f.preserves_zp { add(&[r.start, r.end]); }
+        if let Some(ranges) = f.preserves_outside_buffers {
+            add(b"preserves-outside-buffers");
+            add(&(ranges.len() as u64).to_le_bytes());
+            for r in ranges { add(&[r.start, r.end]); }
+        }
         add(&(f.buffers.len() as u64).to_le_bytes());
         for b in f.buffers {
             b.hash_fields(&mut add);
@@ -457,6 +474,7 @@ impl<Id> Review<Id> {
                 buffers: f.buffers.clone(),
                 abi_inputs_only: f.abi_inputs_only,
                 preserves_zp: f.preserves_zp.clone(),
+                preserves_outside_buffers: f.preserves_outside_buffers.clone(),
                 preserves_regs: f.preserves_regs,
                 returns_a_equals_a0: f.returns_a_equals_a0,
                 reads: match &f.reads {
@@ -538,12 +556,16 @@ pub(crate) fn declaration(
         }
         if facts.buffers.iter().any(|b| {
             if b.write {
-                facts.writes.is_none()
+                facts.writes.is_none() && !forwards_callback
             } else {
                 facts.reads.is_none()
             }
         }) {
-            return Err("a reviewed buffer needs a fixed footprint for the same access direction");
+            return Err("a reviewed buffer needs a fixed footprint for the same access direction or a forwarded destination guarantee");
+        }
+        if forwards_callback && facts.buffers.iter().any(|b| b.write) {
+            // The selected handler may supply a nonempty guarantee during linking.
+            facts.preserves_outside_buffers = Some(Vec::new());
         }
         return Ok(Some(Review { fingerprint, facts }));
     }

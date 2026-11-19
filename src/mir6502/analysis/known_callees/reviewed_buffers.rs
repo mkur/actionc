@@ -10,7 +10,7 @@ use crate::mir6502::runtime_contracts::buffers::{BufferAccess, BufferExtent, arg
 struct Buffer {
     low: AbiByte,
     high: AbiByte,
-    length: BufferLength<AbiByte>,
+    length: BufferLength<AbiByte, [AbiByte; 2]>,
     write: bool,
 }
 
@@ -51,7 +51,10 @@ impl ReviewedBuffers {
                 Some(Buffer {
                     low: lane(b.pointer, 0, 2)?,
                     high: lane(b.pointer, 1, 2)?,
-                    length: b.length.map_parameter(|param| lane(param, 0, 1))?,
+                    length: b.length.map_parameters(
+                        |param| lane(param, 0, 1),
+                        |param| Some([lane(param, 0, 2)?, lane(param, 1, 2)?]),
+                    )?,
                     write: b.write,
                 })
             })
@@ -101,7 +104,7 @@ impl ReviewedBuffers {
         // all known register/ABI bytes. Never combine unrelated endpoint lanes.
         super::bounded_memory::validate_word_lanes(ranges, &registers, cells)?;
         for b in &self.buffers {
-            let count = b.length.upper_bound(read);
+            let count = b.length.upper_bound(read, |[lo, hi]| Some(u16::from_le_bytes([read(lo)?, read(hi)?])));
             if count == 0 {
                 continue;
             }
@@ -152,6 +155,7 @@ pub(super) fn buffer_accesses(
                 pointer_byte: offset(b.pointer)?,
                 extent: match b.length {
                     BufferLength::Fixed(bytes) => BufferExtent::Fixed(bytes),
+                    BufferLength::WordCount(parameter) => BufferExtent::Count { argument_byte: offset(parameter)? },
                     BufferLength::Count { parameter, zero_means_256 } => BufferExtent::ByteCount {
                         argument_byte: offset(parameter)?, zero_means_256,
                     },
@@ -186,7 +190,16 @@ pub(super) fn residence_writes(
     };
     crate::mir6502::abi::canonical_call_lanes(callee, args).ok()?;
     crate::mir6502::abi::validate_direct_call_result(callee, call).ok()?;
-    let fixed = reviewed_bytes(facts.writes.as_deref())?;
+    // A partial review protects only the explicitly forwarded bytes after
+    // excluding the actual destinations. Missing callback evidence stays open.
+    let opaque_preserves = facts.preserves_outside_buffers.as_ref()
+        .filter(|ranges| !ranges.is_empty())
+        .map(|ranges| ranges.iter().flat_map(|r| r.start..=r.end).collect());
+    let fixed = match facts.writes.as_deref() {
+        Some(ranges) => reviewed_bytes(Some(ranges))?,
+        None if opaque_preserves.is_some() => Vec::new(),
+        None => return None,
+    };
     let formals = buffer_accesses(callee, facts)?.iter().filter(|b| b.write)
         .map(|buffer| FormalWrite::from_reviewed(buffer, callee.id)).collect::<Option<BTreeSet<_>>>()?;
     if formals.is_empty() { return Some(MirKnownMemoryWrites::Exact(fixed)); }
@@ -196,7 +209,7 @@ pub(super) fn residence_writes(
         formals,
         ordinary: false,
         caller_dependent: false,
-        opaque_preserves: None,
+        opaque_preserves,
     })
 }
 

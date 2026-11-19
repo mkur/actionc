@@ -68,10 +68,15 @@ lifetimes. [Shared callee contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
   unnecessary for placing the three private locals. Calling the same writer
   with `$00A2` also occupies `$A2`. Passing `@mem` exposes `mem` itself.
   [Tag](../samples/tn/modern/TN.ACT#L355)
-- The installed-callback review lets `Copy.mem`, `len` and `files` cross
-  `Close(1)`. The first remaining call without pool preservation for these
-  values is the following `Open(1, fname, OPEN_READ, 0)`.
-  [File routines](../samples/tn/modern/LIB.ACT#L576) · [Copy loop](../samples/tn/modern/TN.ACT#L910)
+- `Close` preserves the source-home pool when TN's reviewed error handler is
+  installed. `Open` and `Bget` use `$A1` as scratch, and their callers stage
+  an argument at `$A3`. In `Bget(1, mem, len)`, CIO writes through the address
+  held in `mem`. The compiler controls the separate home storing that address.
+  The allocator currently leaves `Copy.mem`, `len` and `files` inline because
+  it cannot determine the destination when the call loads the advancing cursor
+  from the local `mem`. An explicit one-byte destination at `$EC` excludes
+  `$EC` while allowing adjacent pool bytes at that call.
+  [File routines](../samples/tn/modern/LIB.ACT#L559) · [Copy loop](../samples/tn/modern/TN.ACT#L910)
 - `Copy.j` holds the source drive across the first `SwapWin()`. On that
   path, `SetWin(n, 0)` copies two nine-byte panel records. Those ordinary
   copies can coexist with a private caller home. `SetWin`'s physical homes
