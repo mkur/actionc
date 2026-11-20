@@ -553,10 +553,8 @@ fn promote_home(routine: &mut NirRoutine, facts: &NirStorageFacts, next_temp: &m
         return false;
     };
     let access = HomeAccess::analyze(routine, &cfg, facts, &ty);
-    let needs_entry_value = matches!(facts.id, NirStorageId::Param(_))
-        || access.live_in.get(&entry).copied().unwrap_or(false);
     let mut definitions = access.definition_blocks;
-    let seed = needs_entry_value.then(|| fresh_temp(next_temp));
+    let seed = matches!(facts.id, NirStorageId::Param(_)).then(|| fresh_temp(next_temp));
     if seed.is_some() {
         definitions.insert(entry);
     }
@@ -648,33 +646,34 @@ fn rename_block(
 
     for mut op in original_ops {
         rewrite_op_values(&mut op, &replacements);
+        if let NirOp::Store { place, src, ty } = &op
+            && direct_storage_id(place) == Some(context.storage)
+        {
+            if ty.width != context.ty.width || !store_value_fits_home(src, &context.ty) {
+                return false;
+            }
+            current = coerce_to_home_type(src.clone(), &mut rewritten, context);
+            if current.is_none() {
+                return false;
+            }
+            continue;
+        }
+        // Until an assignment or a block parameter supplies an SSA value,
+        // memory is authoritative, including across calls that can change it.
+        let Some(value) = &current else {
+            rewritten.push(op);
+            continue;
+        };
         match &op {
             NirOp::Load { dest, place, .. }
                 if direct_storage_id(place) == Some(context.storage) =>
             {
-                let Some(value) = current.clone() else {
-                    return false;
-                };
-                replacements.insert(*dest, value);
-            }
-            NirOp::Store { place, src, ty, .. }
-                if direct_storage_id(place) == Some(context.storage) =>
-            {
-                if ty.width != context.ty.width || !store_value_fits_home(src, &context.ty) {
-                    return false;
-                }
-                current = coerce_to_home_type(src.clone(), &mut rewritten, context);
-                if current.is_none() {
-                    return false;
-                }
+                replacements.insert(*dest, value.clone());
             }
             NirOp::Binary { .. }
                 if super::optimizer::binary_may_fault(&op) && !context.private_invocation =>
             {
-                let Some(value) = current.clone() else {
-                    return false;
-                };
-                rewritten.push(sync_store(context, value));
+                rewritten.push(sync_store(context, value.clone()));
                 let result = op_result(&op);
                 rewritten.push(op);
                 if let Some(result) = result {
@@ -693,10 +692,7 @@ fn rename_block(
                     context.routine_id,
                 );
                 if reads {
-                    let Some(value) = current.clone() else {
-                        return false;
-                    };
-                    rewritten.push(sync_store(context, value));
+                    rewritten.push(sync_store(context, value.clone()));
                 }
                 let result = op_result(&op);
                 rewritten.push(op);
@@ -726,10 +722,7 @@ fn rename_block(
                         context.ty.width,
                     );
                 if reads {
-                    let Some(value) = current.clone() else {
-                        return false;
-                    };
-                    rewritten.push(sync_store(context, value));
+                    rewritten.push(sync_store(context, value.clone()));
                 }
                 rewritten.push(op);
                 if writes {
@@ -742,10 +735,7 @@ fn rename_block(
                 }
             }
             NirOp::Unsupported { .. } => {
-                let Some(value) = current.clone() else {
-                    return false;
-                };
-                rewritten.push(sync_store(context, value));
+                rewritten.push(sync_store(context, value.clone()));
                 rewritten.push(op);
                 let dest = fresh_temp(context.next_temp);
                 rewritten.push(reload(context, dest));
@@ -774,19 +764,16 @@ fn rename_block(
     if context.value_needed_at_exit
         && !terminal_fault
         && is_observable_exit(&routine.blocks[block_index].terminator)
+        && let Some(value) = current.clone()
     {
-        let Some(value) = current.clone() else {
-            return false;
-        };
         rewritten.push(sync_store(context, value));
     }
-    if !append_phi_arguments(
+    append_phi_arguments(
         &mut routine.blocks[block_index].terminator,
-        current.as_ref(),
-        &context.phi_temps,
-    ) {
-        return false;
-    }
+        current.clone(),
+        &mut rewritten,
+        context,
+    );
     routine.blocks[block_index].ops = rewritten;
 
     let children = context.dominance.children(block_id).to_vec();
@@ -815,17 +802,24 @@ impl RenameContext<'_> {
 
 fn append_phi_arguments(
     terminator: &mut NirTerminator,
-    current: Option<&NirValue>,
-    phi_temps: &BTreeMap<BlockId, TempId>,
-) -> bool {
-    let append = |edge: &mut NirEdge| {
-        if phi_temps.contains_key(&edge.target) {
-            let Some(value) = current else {
-                return false;
-            };
+    mut current: Option<NirValue>,
+    ops: &mut Vec<NirOp>,
+    context: &mut RenameContext<'_>,
+) {
+    let mut append = |edge: &mut NirEdge| {
+        if context.phi_temps.contains_key(&edge.target) {
+            // A join can have an assigned predecessor and a memory-backed
+            // predecessor. Read the latter after any calls on that path.
+            let value = current.get_or_insert_with(|| {
+                let dest = fresh_temp(context.next_temp);
+                ops.push(reload(context, dest));
+                NirValue::Temp {
+                    id: dest,
+                    ty: context.ty.clone(),
+                }
+            });
             edge.args.push(value.clone());
         }
-        true
     };
     match terminator {
         NirTerminator::Goto(edge) => append(edge),
@@ -833,11 +827,14 @@ fn append_phi_arguments(
             then_edge,
             else_edge,
             ..
-        } => append(then_edge) && append(else_edge),
+        } => {
+            append(then_edge);
+            append(else_edge);
+        }
         NirTerminator::Open
         | NirTerminator::Fallthrough
         | NirTerminator::Return(_)
-        | NirTerminator::Exit => true,
+        | NirTerminator::Exit => {}
     }
 }
 
@@ -962,6 +959,12 @@ impl HomeAccess {
                     NirOp::Store { place, .. } if direct_storage_id(place) == Some(facts.id) => {
                         defines = true;
                         definition_blocks.insert(block.id);
+                    }
+                    NirOp::Binary { .. }
+                        if super::optimizer::binary_may_fault(op)
+                            && !facts.is_proven_private_to_invocation() =>
+                    {
+                        uses_before_definition |= !defines;
                     }
                     NirOp::Call {
                         callee, effects, ..
@@ -1579,7 +1582,15 @@ mod tests {
     #[test]
     fn promotes_a_hot_loop_home_with_one_pruned_block_parameter() {
         let program = program(vec![
-            block(0, vec![store(0)], NirTerminator::Goto(edge(1))),
+            block(
+                0,
+                Vec::new(),
+                NirTerminator::Branch {
+                    condition: NirValue::ConstU8(1),
+                    then_edge: edge(4),
+                    else_edge: edge(5),
+                },
+            ),
             block(
                 1,
                 (0..MIN_HOT_HOME_LOADS as u32).map(load).collect(),
@@ -1591,14 +1602,25 @@ mod tests {
             ),
             block(2, vec![store(1)], NirTerminator::Goto(edge(1))),
             block(3, Vec::new(), NirTerminator::Return(None)),
+            block(4, vec![store(0)], NirTerminator::Goto(edge(1))),
+            block(
+                5,
+                vec![recursive_unknown_call()],
+                NirTerminator::Goto(edge(3)),
+            ),
         ]);
 
         let promoted =
             promote_program(&program, NirPromotionPolicy::Conservative).expect("promote loop home");
         let routine = &promoted.routines[0];
+        assert!(routine.blocks[0].ops.is_empty());
+        assert!(matches!(
+            routine.blocks[5].ops.as_slice(),
+            [NirOp::Call { .. }]
+        ));
         assert_eq!(routine.blocks[1].params.len(), 1);
         assert!(matches!(
-            &routine.blocks[0].terminator,
+            &routine.blocks[4].terminator,
             NirTerminator::Goto(NirEdge { args, .. }) if args.len() == 1
         ));
         assert!(matches!(
@@ -1609,6 +1631,59 @@ mod tests {
             |op| !matches!(op, NirOp::Load { place, .. } | NirOp::Store { place, .. }
                 if direct_storage_id(place) == Some(NirStorageId::Local(LocalId(0))))
         ));
+    }
+
+    #[test]
+    fn a_shared_observer_joins_the_assigned_value_with_memory_after_a_call() {
+        let mut assigned = vec![store(41)];
+        assigned.extend((0..MIN_HOT_HOME_LOADS as u32).map(load));
+        let fault = NirOp::Binary {
+            dest: TempId(10),
+            ty: byte_type(),
+            op: NirBinaryOp::Div,
+            left: NirValue::ConstU8(7),
+            right: NirValue::Temp {
+                id: TempId(9),
+                ty: byte_type(),
+            },
+        };
+        for observer in [recursive_unknown_call(), fault] {
+            let input = program(vec![
+                block(
+                    0,
+                    vec![volatile_load_barrier(9)],
+                    NirTerminator::Branch {
+                        condition: NirValue::ConstU8(1),
+                        then_edge: edge(1),
+                        else_edge: edge(2),
+                    },
+                ),
+                block(
+                    1,
+                    vec![recursive_unknown_call()],
+                    NirTerminator::Goto(edge(3)),
+                ),
+                block(2, assigned.clone(), NirTerminator::Goto(edge(3))),
+                block(3, vec![observer.clone()], NirTerminator::Return(None)),
+            ]);
+            let promoted = promote_program(&input, NirPromotionPolicy::Conservative).unwrap();
+            let blocks = &promoted.routines[0].blocks;
+            let [NirOp::Call { .. }, NirOp::Load { dest, place, .. }] = &blocks[1].ops[..] else {
+                panic!("expected the incoming memory value after the call")
+            };
+            assert_eq!(place, &local_place());
+            assert!(matches!(&blocks[1].terminator, NirTerminator::Goto(edge)
+                if matches!(&edge.args[..], [NirValue::Temp { id, .. }] if id == dest)));
+            assert!(matches!(&blocks[2].terminator, NirTerminator::Goto(edge)
+                if matches!(&edge.args[..], [NirValue::IntegerConst { bits: 41, .. }])));
+            let [param] = &blocks[3].params[..] else {
+                panic!("expected a live join")
+            };
+            assert!(
+                matches!(&blocks[3].ops[..], [NirOp::Store { place, src: NirValue::Temp { id, .. }, .. }, op, ..]
+                if place == &local_place() && id == &param.dest && op == &observer)
+            );
+        }
     }
 
     #[test]

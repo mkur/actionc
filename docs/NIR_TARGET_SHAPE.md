@@ -521,10 +521,15 @@ private to its current invocation only while no address-forming operation
 requires its storage. Unknown and recursive calls cannot name that private
 dynamic instance, so its value may remain promoted or forwarded across the
 call; a recursive callee's equal lexical `LocalId` denotes a different object.
-Routine-static homes keep the shared-cell call barrier. Address-taking,
-aliases, volatile or aggregate access, explicit effect regions, and foreign
-visibility conservatively retain an addressable home. Every storage pass
-re-verifies NIR, including activation/duration consistency, after rewriting.
+Routine-static homes keep the shared-cell call barrier. Until a path assigns
+a promoted local, calls observe and update its existing memory cell directly.
+When that path joins one with a promoted assignment, a live block parameter
+takes the memory value after the last call on the incoming path. A pending
+promoted value is written back before an observer, including a possible
+arithmetic fault. Address-taking, aliases, volatile or aggregate access, explicit
+effect regions, and foreign visibility conservatively retain an addressable home.
+Every storage pass re-verifies NIR, including activation/duration consistency,
+after rewriting.
 
 NIR does not assign a stack offset. MIR68K and MIR65816 independently select
 register homes, frame objects, stack or software-frame layouts, prologues,
