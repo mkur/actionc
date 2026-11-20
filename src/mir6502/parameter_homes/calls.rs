@@ -150,6 +150,7 @@ impl<'a> ResidenceCalls<'a> {
         self.known.fixed_storage().clone()
     }
 
+    #[cfg(test)]
     pub fn writes(&mut self, call: &MirOp) -> Result<MirKnownMemoryWrites, &'static str> {
         self.writes_at(call, None)
     }

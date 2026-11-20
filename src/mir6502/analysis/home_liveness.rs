@@ -105,8 +105,19 @@ pub(in crate::mir6502) struct MirHomeLiveness {
 
 impl MirHomeLiveness {
     pub(in crate::mir6502) fn analyze(routine: &MirRoutine, cfg: &MirCfg) -> Self {
-        let universe = collect_home_universe(routine);
-        let transfers = collect_home_transfers(routine, &universe);
+        Self::with_entry_reads(routine, cfg, &BTreeMap::new())
+    }
+
+    /// A call can require fixed inputs in addition to its explicit arguments.
+    /// Keep the reaching physical values live up to those particular calls.
+    pub(in crate::mir6502) fn with_entry_reads(routine: &MirRoutine, cfg: &MirCfg,
+        reads: &BTreeMap<(MirBlockId, usize), BTreeSet<MirHomeByte>>) -> Self {
+        let mut universe = collect_home_universe(routine);
+        universe.extend(reads.values().flatten().copied());
+        let mut transfers = collect_home_transfers(routine, &universe);
+        for (&(block, index), inputs) in reads {
+            transfers.get_mut(&block).expect("call belongs to the routine").ops[index].reads.extend(inputs);
+        }
         let boundaries = routine
             .blocks
             .iter()

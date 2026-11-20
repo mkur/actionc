@@ -880,6 +880,8 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                     spills: Vec::new(),
                     virtual_zero_page: Vec::new(),
                     fixed_zero_page: fixed_zero_page_slots(&blocks),
+                    named_zp_reservations: Vec::new(),
+                    spill_zp_slots: Vec::new(),
                     zero_page_allocations: Vec::new(),
                 },
                 temps: routine

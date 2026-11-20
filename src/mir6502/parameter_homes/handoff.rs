@@ -407,9 +407,7 @@ pub(super) fn propose(input: &MirProgram, selected: &MirProgram) -> Option<MirPr
         let result = proposal.get_or_insert_with(|| input.clone());
         let r = &mut result.routines[index];
         for slot in reserved {
-            if !r.frame.fixed_zero_page.contains(&slot) {
-                r.frame.fixed_zero_page.push(slot);
-            }
+            r.frame.reserve_named_lane(slot);
         }
         r.frame.parameter_homes = Some(bindings);
         r.frame.parameter_handoff = Some(facts.contract());

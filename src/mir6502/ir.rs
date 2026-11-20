@@ -388,6 +388,11 @@ pub struct MirFrame {
     pub virtual_zero_page: Vec<MirZpSlot>,
     pub fixed_zero_page: Vec<MirFixedZpSlot>,
     pub zero_page_allocations: Vec<MirZpAllocation>,
+    /// Physical bytes first reserved by source-home placement. Pre-existing
+    /// fixed and runtime reservations remain exclusive.
+    pub named_zp_reservations: Vec<MirFixedZpSlot>,
+    /// Virtual slots created for private byte spills after core coloring.
+    pub spill_zp_slots: Vec<MirZpSlot>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -462,6 +467,13 @@ impl MirParamHome {
 pub(super) const SARGS_HOME_POOL: std::ops::RangeInclusive<u8> = 0xe0..=0xef;
 
 impl MirFrame {
+    pub(super) fn reserve_named_lane(&mut self, slot: MirFixedZpSlot) {
+        if !self.fixed_zero_page.contains(&slot) {
+            self.fixed_zero_page.push(slot);
+            self.named_zp_reservations.push(slot);
+        }
+    }
+
     pub(super) fn abi_parameter_bytes(&self) -> Option<u16> {
         self.params.iter().try_fold(0u16, |n, p| n.checked_add(p.abi_byte_width()?))
     }

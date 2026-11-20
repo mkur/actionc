@@ -28,7 +28,12 @@ pub(super) fn ordinary(addresses: &ObjectAddressControl<'_>, routine: &MirRoutin
         && addresses.compiler_controls_address(routine.id, &MirMem::Local { id, offset: 0 })
 }
 
+#[cfg(test)]
 pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
+    verify_bindings_with_sharing(routine, &super::spills::shared_frame_bytes(routine))
+}
+
+pub(super) fn verify_bindings_with_sharing(routine: &MirRoutine, shared: &BTreeSet<u8>) -> Vec<MirDiagnostic> {
     let Some(bindings) = &routine.frame.local_homes else {
         return vec![];
     };
@@ -87,7 +92,7 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             }
             if routine.frame.zero_page_allocations.iter().any(|a| {
                 byte >= u16::from(a.start.0) && byte < u16::from(a.start.0) + u16::from(a.size)
-            }) {
+            }) && !shared.contains(&(byte as u8)) {
                 fail("local zero-page binding overlaps a virtual allocation");
             }
         }

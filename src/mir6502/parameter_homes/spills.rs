@@ -4,6 +4,8 @@ use super::*;
 mod interference;
 mod contexts;
 mod hazards;
+mod frame;
+pub(in crate::mir6502) use frame::shared_frame_bytes;
 use contexts::Contexts;
 use hazards::Hazards;
 use interference::Byte;
@@ -38,11 +40,11 @@ pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, orig
     let Ok(observations) = physical::numeric_observations(program, None) else {
         return Vec::new();
     };
-    let mut contexts = Contexts::new(program);
+    let mut calls = ResidenceCalls::at_origin(program, MirCalleeEntryStage::ActualEntry, origin);
+    let mut contexts = Contexts::new(program, &mut calls);
     contexts.reserved.extend((0xe0..=0xef).filter(|&byte| observations.iter().any(|&(start, bytes)|
         u16::from(byte).wrapping_sub(start) < bytes)));
     let ownership = StorageOwnership::new(program);
-    let mut calls = ResidenceCalls::at_origin(program, MirCalleeEntryStage::ActualEntry, origin);
     let mut result = Vec::new();
     for r in &program.routines {
         if r.abi != MirRoutineAbi::Action || r.frame.spills.is_empty() {
@@ -56,7 +58,7 @@ pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, orig
         };
         if !contexts.frames.contains_key(&r.id) { continue; }
         let mut used = super::source_zero_page(program, r);
-        used.extend(r.frame.fixed_zero_page.iter().map(|s| s.0));
+        used.extend(r.frame.fixed_zero_page.iter().filter(|s| !r.frame.named_zp_reservations.contains(s)).map(|s| s.0));
         for a in &r.frame.zero_page_allocations {
             used.extend((0..a.size).map(|i| a.start.0.wrapping_add(i)));
         }
@@ -87,7 +89,7 @@ pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, orig
                     .blocks
                     .iter()
                     .any(|b| lifetimes.temps.live_out(b.id).is_some_and(|s| s.contains(home)))
-                || !byte_accesses_only(r, *spill)
+                || !byte_accesses_only(r, &mem)
             {
                 continue;
             }
@@ -96,7 +98,6 @@ pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, orig
             let Some(byte) = (0xe0..=0xef).find(|b| !used.contains(b)
                 && hazards.allows(range, *b) && contexts.fits(r.id, key, *b)) else { continue };
             contexts.bind(r.id, key, byte);
-            used.insert(byte);
             result.push(Placement {
                 owner: r.id,
                 spill: *spill,
@@ -109,19 +110,14 @@ pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, orig
     result
 }
 
-fn byte_accesses_only(r: &MirRoutine, spill: MirSpillId) -> bool {
-    r.blocks.iter().all(|b| {
-        b.ops
-            .iter()
-            .map(|op| classify_op(op).memory)
-            .chain(std::iter::once(classify_terminator(&b.terminator).memory))
-            .all(|m| {
-                m.direct_reads.iter().chain(&m.direct_writes).all(|range| {
-                    !matches!(range.base, MirMem::Spill { id, .. } if id == spill)
-                        || range.bytes == 1
-                })
-            })
-    })
+// Direct stores/loads can be remapped as one byte. A two-byte pointer
+// consumer, indexed base or escaped address needs its original extent.
+fn byte_accesses_only(r: &MirRoutine, byte: &MirMem) -> bool {
+    r.blocks.iter().all(|b| b.ops.iter().map(|op| classify_op(op).memory)
+        .chain(std::iter::once(classify_terminator(&b.terminator).memory))
+        .all(|m| !m.address_references.contains(byte)
+            && m.direct_reads.iter().chain(&m.direct_writes)
+                .all(|range| &range.base != byte || range.bytes == 1)))
 }
 
 pub(in crate::mir6502) fn place_at(
@@ -139,6 +135,7 @@ pub(in crate::mir6502) fn place_at(
         let remap: BTreeMap<_, _> = homes.iter().map(|p| (p.spill, p.slot)).collect();
         for p in homes {
             r.frame.virtual_zero_page.push(p.slot);
+            r.frame.spill_zp_slots.push(p.slot);
             r.frame.zero_page_allocations.push(MirZpAllocation {
                 slot: p.slot,
                 start: p.fixed,
@@ -179,8 +176,9 @@ pub(in crate::mir6502) fn verify_at(
         (&old.program, &old.memory),
         (&new.program, &new.memory),
     ])?;
-    let contexts = Contexts::new(&new.program);
     let mut calls = ResidenceCalls::at_origin(&new.program, MirCalleeEntryStage::ActualEntry, origin);
+    let contexts = Contexts::new(&new.program, &mut calls);
+    let ownership = StorageOwnership::new(&new.program);
     let mut hazards = BTreeMap::new();
     for p in homes {
         let bad = |reason| {
@@ -196,7 +194,7 @@ pub(in crate::mir6502) fn verify_at(
             .iter()
             .find(|r| r.id == p.owner)
             .ok_or_else(|| bad("missing caller"))?;
-        if !r
+        if ownership.role(r.id, &MirMem::ZeroPage(p.slot)) != StorageRole::Temporary || !r.frame.spill_zp_slots.contains(&p.slot) || !r
             .frame
             .zero_page_allocations
             .iter()
@@ -254,6 +252,11 @@ pub(in crate::mir6502) fn verify_at(
         }
         let key = Byte::Home(MirHomeByte::VirtualZeroPage { slot: p.slot, offset: 0 });
         let frame = contexts.frames.get(&r.id).ok_or_else(|| bad("missing final frame"))?;
+        let entry = r.blocks.first().and_then(|b| frame.temps.live_in(b.id));
+        let Byte::Home(home) = key else { unreachable!() };
+        if entry.is_none_or(|set| set.contains(home)) || !byte_accesses_only(r, &MirMem::ZeroPage(p.slot)) {
+            return Err(bad("final spill is live on entry, exposed, or wider than one byte"));
+        }
         let range = frame.get(key).ok_or_else(|| bad("missing final spill lifetime"))?;
         let hazards = hazards.entry(r.id).or_insert_with(|| Hazards::new(r, &mut calls, Some(&new.memory)));
         if !contexts.fits(r.id, key, p.fixed.0) || !hazards.allows(range, p.fixed.0) {

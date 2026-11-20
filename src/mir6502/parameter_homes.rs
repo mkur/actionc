@@ -136,9 +136,7 @@ fn install_bindings(routine: &mut MirRoutine, bindings: Vec<MirParamBinding>) {
                 .storage_size;
             for lane in 0..width {
                 let slot = MirFixedZpSlot(start.0 + lane as u8);
-                if !routine.frame.fixed_zero_page.contains(&slot) {
-                    routine.frame.fixed_zero_page.push(slot);
-                }
+                routine.frame.reserve_named_lane(slot);
             }
         }
     }
@@ -419,7 +417,11 @@ pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine:
 }
 
 pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
-    let mut errors = locals::verify_bindings(routine);
+    verify_bindings_with_sharing(routine, &spills::shared_frame_bytes(routine))
+}
+
+pub(super) fn verify_bindings_with_sharing(routine: &MirRoutine, shared: &BTreeSet<u8>) -> Vec<MirDiagnostic> {
+    let mut errors = locals::verify_bindings_with_sharing(routine, shared);
     let Some(bindings) = &routine.frame.parameter_homes else {
         return errors;
     };
@@ -498,7 +500,7 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
                     if routine.frame.zero_page_allocations.iter().any(|a| {
                         byte >= u16::from(a.start.0)
                             && byte < u16::from(a.start.0) + u16::from(a.size)
-                    }) {
+                    }) && !shared.contains(&(byte as u8)) {
                         fail("parameter zero-page binding overlaps a virtual allocation");
                     }
                 }

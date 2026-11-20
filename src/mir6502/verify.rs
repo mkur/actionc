@@ -453,8 +453,9 @@ impl MirVerifier<'_> {
         routine_ids: &BTreeSet<RoutineId>,
         machine_ids: &BTreeSet<MirMachineBlockId>,
     ) {
-        self.verify_frame_inits(routine);
-        self.diagnostics.extend(super::parameter_homes::verify_bindings(routine));
+        let shared = super::parameter_homes::spills::shared_frame_bytes(routine);
+        self.verify_frame_inits(routine, &shared);
+        self.diagnostics.extend(super::parameter_homes::verify_bindings_with_sharing(routine, &shared));
         if self.phase != MirPhase::PreMaterialization && routine.frame.parameter_homes.is_some()
             && routine.frame.abi_parameter_bytes().is_some_and(|n| n > crate::action_abi::MAX_DIRECT_PARAM_CAPTURE_BYTES)
             && (!matches!(routine.blocks.first().and_then(|b| b.ops.first()), Some(MirOp::SArgsCapture { .. }))
@@ -746,7 +747,7 @@ impl MirVerifier<'_> {
         }
     }
 
-    fn verify_frame_inits(&mut self, routine: &MirRoutine) {
+    fn verify_frame_inits(&mut self, routine: &MirRoutine, shared: &BTreeSet<u8>) {
         for param in &routine.frame.params {
             self.verify_storage_slot(&routine.name, &format!("p{}", param.id.0), param);
             if param.abi_byte_width().is_none() {
@@ -810,7 +811,7 @@ impl MirVerifier<'_> {
                 continue;
             };
             for byte in allocation.start.0..=end {
-                if !used_bytes.insert(byte) {
+                if !used_bytes.insert(byte) && !shared.contains(&byte) {
                     self.diagnostics.push(MirDiagnostic::routine(
                         &routine.name,
                         format!(

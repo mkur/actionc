@@ -278,9 +278,7 @@ pub(in crate::mir6502::parameter_homes) fn allocate(
     {
         routine.frame.local_homes = Some(locals);
         for (_, slot) in routine.frame.resident_bytes() {
-            if !routine.frame.fixed_zero_page.contains(&slot) {
-                routine.frame.fixed_zero_page.push(slot);
-            }
+            routine.frame.reserve_named_lane(slot);
         }
         changed = true;
     }

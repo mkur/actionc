@@ -261,9 +261,7 @@ pub(super) fn propose_configured(
         if !(acyclic && lifetimes) && candidate.frame.local_homes.is_none() && let Some(bindings) = zero_page::local_bindings(input, &candidate, &forbidden, &addresses) {
             candidate.frame.local_homes = Some(bindings);
             for (_, slot) in candidate.frame.resident_bytes() {
-                if !candidate.frame.fixed_zero_page.contains(&slot) {
-                    candidate.frame.fixed_zero_page.push(slot);
-                }
+                candidate.frame.reserve_named_lane(slot);
             }
             changed = true;
         }

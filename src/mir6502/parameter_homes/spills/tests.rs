@@ -42,6 +42,12 @@ fn spill_shares_a_source_home_in_an_unrelated_routine() {
     install_bindings(outer, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(first.fixed) }]);
     let next = discover(&p, true).into_iter().find(|h| h.owner == first.owner && h.spill == first.spill).unwrap();
     assert_eq!(next.fixed, first.fixed);
+    // An escaped entry may run while the other routine's value is live.
+    let outer = p.routines.iter_mut().find(|r| r.name == "Outer").unwrap();
+    outer.blocks[0].ops.push(MirOp::Move { dst: MirDef::Reg(MirReg::A),
+        src: MirValue::RoutineAddrByte { id: first.owner, byte: 0 }, width: MirWidth::Byte });
+    assert!(!discover(&p, true).iter().any(|p|
+        p.owner == first.owner && p.spill == first.spill && p.fixed == first.fixed));
 }
 
 #[test]
@@ -61,11 +67,11 @@ fn a_second_nested_call_while_the_parameter_is_live_blocks_sharing() {
     let load = MirOp::Load { dst: MirDef::Reg(MirReg::A),
         src: MirAddr::Direct(MirMem::Param { id: param, offset: 0 }), width: MirWidth::Byte };
     *body = vec![load, call.clone()];
-    let chosen = |p: &MirProgram| discover(p, true).into_iter().find(|p| p.owner == h.owner && p.spill == h.spill).unwrap().fixed;
-    assert_eq!(chosen(&p), h.fixed);
+    let chosen = |p: &MirProgram| discover(p, true).into_iter().find(|p| p.owner == h.owner && p.spill == h.spill).map(|p| p.fixed);
+    assert_eq!(chosen(&p), Some(h.fixed));
     let body = &mut p.routines.iter_mut().find(|r| r.name == "Outer").unwrap().blocks[0].ops;
     body.insert(0, call);
-    assert_ne!(chosen(&p), h.fixed);
+    assert_ne!(chosen(&p), Some(h.fixed));
 }
 
 #[test]
@@ -292,4 +298,69 @@ fn spill_interference_tracks_dead_stores_word_lanes_and_loop_calls() {
         assert!(lives.get(lane).unwrap().across_calls.is_empty());
     }
     assert!(lives.get(Byte::Home(MirHomeByte::VirtualZeroPage { slot: other, offset: 2 })).is_none());
+}
+
+#[test]
+fn one_frame_shares_only_disjoint_spill_local_and_parameter_lanes() {
+    let n = nir_with_caller("\nPROC Witness(BYTE x) BYTE y y=x TouchByte(y) RETURN\nPROC Entry() Witness(1) RETURN");
+    let input = crate::mir6502::lower_program(&n).unwrap();
+    let frame = input.routines.iter().find(|r| r.name == "Witness").unwrap().frame.clone();
+    let template = crate::mir6502::materialize_program(input, &crate::mir6502::Mir6502Config {
+        enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized()
+    }).unwrap();
+    let emit = |p| crate::mir6502::finalize_output(&n, p, 0x3000, crate::runtime::Runtime::ActionCart,
+        &crate::mir6502::trace::Trace::disabled()).unwrap();
+    let fixed = MirFixedZpSlot(0xef);
+    let load = |mem| MirOp::Load { dst: MirDef::Reg(MirReg::A), src: MirAddr::Direct(mem), width: MirWidth::Byte };
+    let save = |mem| MirOp::Store { dst: MirAddr::Direct(mem), src: MirValue::Def(MirDef::Reg(MirReg::A)), width: MirWidth::Byte };
+    for kind in ["spill", "local", "param"] {
+        let mut p = template.clone();
+        let index = p.routines.iter().position(|r| r.name == "Witness").unwrap();
+        let r = &mut p.routines[index];
+        let call = r.blocks.iter().flat_map(|b| &b.ops).find(|op| matches!(op, MirOp::Call { .. })).unwrap().clone();
+        r.frame = frame.clone();
+        let MirStorageBase::Param(param) = r.frame.params[0].base else { panic!() };
+        let local = crate::nir::LocalId(0);
+        let mut declaration = r.frame.params[0].clone();
+        declaration.id = MirStorageId(42);
+        declaration.name = Some("witness".into());
+        declaration.base = MirStorageBase::Local(local);
+        r.frame.locals = vec![declaration];
+        let first = match kind {
+            "param" => {
+                install_bindings(r, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(fixed) }]);
+                MirMem::Param { id: param, offset: 0 }
+            }
+            "local" => {
+                r.frame.local_homes = Some(vec![MirLocalBinding { local, home: MirLocalHome::ZeroPage(fixed) }]);
+                r.frame.reserve_named_lane(fixed);
+                MirMem::Local { id: local, offset: 0 }
+            }
+            _ => MirMem::Spill { id: MirSpillId(40), offset: 0 },
+        };
+        let second = MirMem::Spill { id: MirSpillId(41), offset: 0 };
+        r.frame.spills = if kind == "spill" { vec![MirSpillId(40), MirSpillId(41)] } else { vec![MirSpillId(41)] };
+        r.frame.fixed_zero_page.extend((0xe0..0xef).map(MirFixedZpSlot));
+        r.blocks = [vec![save(first.clone())], vec![load(first.clone()), save(second.clone())],
+            vec![call, load(second)]].into_iter().enumerate().map(|(i,ops)| MirBlock {
+            id: MirBlockId(i as u32), label: format!("body{i}"), params: vec![], ops,
+            terminator: if i == 2 { MirTerminator::Return } else { MirTerminator::Jump(MirEdge::plain(MirBlockId(i as u32 + 1))) },
+        }).collect();
+        let old = emit(p.clone());
+        let homes = place_at(&mut p, true, 0x3000, &crate::mir6502::trace::Trace::disabled());
+        let selected: Vec<_> = homes.iter().filter(|h| h.owner == p.routines[index].id).collect();
+        assert_eq!(selected.len(), if kind == "spill" { 2 } else { 1 }, "{kind}");
+        assert!(selected.iter().all(|h| h.fixed == fixed), "{kind}");
+        crate::mir6502::verify_program(&p, MirPhase::PreEmission).unwrap();
+        let new = emit(p.clone());
+        verify_at(&homes, &old, &new, &old.program, &old, 0x3000).unwrap();
+        // Reading the first occupant again after storing the second makes the
+        // overlap illegal. Leave both physical bindings in place to test replay.
+        let first = if kind == "spill" { MirMem::ZeroPage(selected[0].slot) } else { first };
+        p.routines[index].blocks[2].ops.push(load(first));
+        assert!(crate::mir6502::verify_program(&p, MirPhase::PreEmission).is_err(), "{kind}");
+        let mut bad = new;
+        bad.program = p;
+        assert!(verify_at(&homes, &old, &bad, &old.program, &old, 0x3000).is_err(), "{kind}");
+    }
 }
