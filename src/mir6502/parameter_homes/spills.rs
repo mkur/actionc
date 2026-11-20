@@ -2,6 +2,11 @@
 //! existing placement trial, after core coloring, before late decisions replay.
 use super::*;
 mod interference;
+mod contexts;
+mod hazards;
+use contexts::Contexts;
+use hazards::Hazards;
+use interference::Byte;
 use crate::mir6502::{
     analysis::{
         cfg::MirCfg,
@@ -22,24 +27,22 @@ pub(in crate::mir6502) struct Placement {
     fixed: MirFixedZpSlot,
 }
 
-/// The first slice reserves each byte for the entire invocation and requires
-/// every call to preserve it. No sharing, save/restore or recursive summaries.
-pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<Placement> {
+#[cfg(test)]
+fn discover(program: &MirProgram, multiple: bool) -> Vec<Placement> {
+    discover_at(program, multiple, 0x3000)
+}
+
+pub(in crate::mir6502) fn discover_at(program: &MirProgram, multiple: bool, origin: u16) -> Vec<Placement> {
     // A known missing inventory must not invalidate unrelated source-home
     // candidates in the shared batch. Decodable symbolic operands may wait for layout.
     let Ok(observations) = physical::numeric_observations(program, None) else {
         return Vec::new();
     };
-    // Final spill verification requires disjointness from *all* source storage,
-    // including resident objects in siblings. Reserve those bytes across the
-    // program, along with numeric observations already known before layout.
-    let mut reserved: BTreeSet<u8> = program.routines.iter()
-        .flat_map(|r| r.frame.resident_bytes()).map(|(_, slot)| slot.0).collect();
-    reserved.extend((0xe0..=0xef).filter(|&byte| observations.iter().any(|&(start, bytes)|
+    let mut contexts = Contexts::new(program);
+    contexts.reserved.extend((0xe0..=0xef).filter(|&byte| observations.iter().any(|&(start, bytes)|
         u16::from(byte).wrapping_sub(start) < bytes)));
     let ownership = StorageOwnership::new(program);
-    let mut calls = ResidenceCalls::new(program, MirCalleeEntryStage::ActualEntry);
-    let fixed = calls.fixed_storage();
+    let mut calls = ResidenceCalls::at_origin(program, MirCalleeEntryStage::ActualEntry, origin);
     let mut result = Vec::new();
     for r in &program.routines {
         if r.abi != MirRoutineAbi::Action || r.frame.spills.is_empty() {
@@ -51,38 +54,15 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
         let Some(entry) = cfg.entry() else {
             continue;
         };
-        let Some(lifetimes) = interference::FrameLives::new(r, &cfg) else { continue };
+        if !contexts.frames.contains_key(&r.id) { continue; }
         let mut used = super::source_zero_page(program, r);
-        used.extend(&reserved);
         used.extend(r.frame.fixed_zero_page.iter().map(|s| s.0));
         for a in &r.frame.zero_page_allocations {
             used.extend((0..a.size).map(|i| a.start.0.wrapping_add(i)));
         }
-        let mut call_count = 0;
-        let safe = r.blocks.iter().flat_map(|b| &b.ops).all(|op| {
-            if matches!(op, MirOp::Call { .. }) {
-                call_count += 1;
-                let Ok(writes) = calls.writes(op) else {
-                    return false;
-                };
-                used.extend(
-                    (0..=255u8).filter(|s| !writes.preserves_fixed_byte(MirFixedZpSlot(*s), &fixed)),
-                );
-                return true;
-            }
-            let e = classify_op(op);
-            !matches!(
-                op,
-                MirOp::RuntimeHelper { .. }
-                    | MirOp::SArgsCapture { .. }
-                    | MirOp::MachineBlock { .. }
-                    | MirOp::Barrier { .. }
-            ) && !e.memory.opaque
-                && (!e.memory.indirect_writes || writes_ordinary_pointee(op))
-        });
-        if !safe || call_count == 0 || (!multiple && call_count > 1) {
-            continue;
-        }
+        let call_count = r.blocks.iter().flat_map(|b| &b.ops).filter(|op| matches!(op, MirOp::Call { .. })).count();
+        if call_count == 0 || (!multiple && call_count > 1) { continue; }
+        let hazards = Hazards::new(r, &mut calls, None);
         let mut next = r
             .frame
             .virtual_zero_page
@@ -99,6 +79,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
                 id: *spill,
                 offset: 0,
             };
+            let lifetimes = &contexts.frames[&r.id];
             if ownership.role(r.id, &mem) != StorageRole::Temporary
                 || !remapping::spill_uses_zero_offset_only(r, *spill)
                 || lifetimes.temps.live_in(entry).is_none_or(|s| s.contains(home))
@@ -110,9 +91,11 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
             {
                 continue;
             }
-            let Some(byte) = (0xe0..=0xef).find(|b| !used.contains(b)) else {
-                break;
-            };
+            let key = Byte::Home(home);
+            let Some(range) = lifetimes.get(key) else { continue };
+            let Some(byte) = (0xe0..=0xef).find(|b| !used.contains(b)
+                && hazards.allows(range, *b) && contexts.fits(r.id, key, *b)) else { continue };
+            contexts.bind(r.id, key, byte);
             used.insert(byte);
             result.push(Placement {
                 owner: r.id,
@@ -141,12 +124,13 @@ fn byte_accesses_only(r: &MirRoutine, spill: MirSpillId) -> bool {
     })
 }
 
-pub(in crate::mir6502) fn place(
+pub(in crate::mir6502) fn place_at(
     program: &mut MirProgram,
     multiple: bool,
+    origin: u16,
     trace: &super::super::trace::Trace,
 ) -> Vec<Placement> {
-    let placements = discover(program, multiple);
+    let placements = discover_at(program, multiple, origin);
     for r in &mut program.routines {
         let homes: Vec<_> = placements.iter().filter(|p| p.owner == r.id).collect();
         if homes.is_empty() {
@@ -179,12 +163,13 @@ pub(in crate::mir6502) fn place(
 
 /// Recheck against the final candidate, including late scratch selection and
 /// callee changes. A physical write never defines the protected logical value.
-pub(in crate::mir6502) fn verify(
+pub(in crate::mir6502) fn verify_at(
     homes: &[Placement],
     old: &Executable,
     new: &Executable,
     source: &MirProgram,
     fallback: &Executable,
+    origin: u16,
 ) -> Result<(), Vec<MirDiagnostic>> {
     let observations = physical::resolve_sources(&[
         (source, &fallback.memory),
@@ -194,8 +179,9 @@ pub(in crate::mir6502) fn verify(
         (&old.program, &old.memory),
         (&new.program, &new.memory),
     ])?;
-    let mut calls = ResidenceCalls::new(&new.program, MirCalleeEntryStage::ActualEntry);
-    let fixed = calls.fixed_storage();
+    let contexts = Contexts::new(&new.program);
+    let mut calls = ResidenceCalls::at_origin(&new.program, MirCalleeEntryStage::ActualEntry, origin);
+    let mut hazards = BTreeMap::new();
     for p in homes {
         let bad = |reason| {
             vec![MirDiagnostic {
@@ -257,7 +243,7 @@ pub(in crate::mir6502) fn verify(
             }
         }
         if !old.memory.source_storage_disjoint(old_addr)
-            || !new.memory.source_storage_disjoint(address)
+            || !contexts.source_allows(&new.memory, p.fixed.0)
             || observations.iter().any(|&(start, bytes)| {
                 [old_addr, address]
                     .iter()
@@ -266,46 +252,12 @@ pub(in crate::mir6502) fn verify(
         {
             return Err(bad("explicit observation overlaps old or proposed home"));
         }
-        for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            if matches!(op, MirOp::Call { .. }) {
-                if !calls
-                    .writes(op)
-                    .is_ok_and(|w| w.preserves_fixed_byte(p.fixed, &fixed))
-                {
-                    return Err(bad("callee no longer preserves home"));
-                }
-                continue;
-            }
-            let e = classify_op(op);
-            if matches!(
-                op,
-                MirOp::RuntimeHelper { .. }
-                    | MirOp::SArgsCapture { .. }
-                    | MirOp::MachineBlock { .. }
-                    | MirOp::Barrier { .. }
-            ) || e.memory.opaque
-                || (e.memory.indirect_writes && !writes_ordinary_pointee(op))
-            {
-                return Err(bad("unsupported expanded effects"));
-            }
-            for range in &e.memory.direct_writes {
-                if range.base == MirMem::ZeroPage(p.slot) && range.bytes == 1 {
-                    continue;
-                }
-                let start = new
-                    .memory
-                    .address(r.id, &range.base)
-                    .ok_or_else(|| bad("unresolved write"))?;
-                if address.wrapping_sub(start) < range.bytes {
-                    return Err(bad("physical write overlaps home"));
-                }
-            }
-            if e.addresses
-                .pair_writes
-                .contains(&MirHomeByte::FixedZeroPage(p.fixed))
-            {
-                return Err(bad("pointer scratch overlaps home"));
-            }
+        let key = Byte::Home(MirHomeByte::VirtualZeroPage { slot: p.slot, offset: 0 });
+        let frame = contexts.frames.get(&r.id).ok_or_else(|| bad("missing final frame"))?;
+        let range = frame.get(key).ok_or_else(|| bad("missing final spill lifetime"))?;
+        let hazards = hazards.entry(r.id).or_insert_with(|| Hazards::new(r, &mut calls, Some(&new.memory)));
+        if !contexts.fits(r.id, key, p.fixed.0) || !hazards.allows(range, p.fixed.0) {
+            return Err(bad("live byte overlaps another occupant or physical access"));
         }
     }
     Ok(())

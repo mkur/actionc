@@ -42,6 +42,7 @@ pub(super) mod compare_branch;
 mod copies;
 pub(super) mod copy_values;
 mod constructor_storage;
+pub(in crate::mir6502) use constructor_storage::escaped_routines;
 pub(super) mod scalar_captures;
 mod copy_loops;
 mod dead_spills;

@@ -134,7 +134,7 @@ pub(super) fn resume_output(
     // core replay or coloring. Retain its unmodified layout for observation checks.
     let spill_baseline = spill_fallback.map(|_| program.clone());
     let spill_homes = if spill_fallback.is_some() {
-        super::parameter_homes::spills::place(&mut program, config.enable_multiple_leaf_call_homes, trace)
+        super::parameter_homes::spills::place_at(&mut program, config.enable_multiple_leaf_call_homes, origin, trace)
     } else { Vec::new() };
     super::verify::verify_program_at_origin(&program, MirPhase::PostMaterialization, origin)?;
     let mut preservation = super::late_cleanup::preservation::Preservation::new(
@@ -164,8 +164,8 @@ pub(super) fn resume_output(
         // Re-emitting the unmodified core provides authoritative addresses for
         // the original spill identities, before downstream cleanup can retire them.
         let old = super::finalize_output(nir, before, origin, runtime, trace)?;
-        super::parameter_homes::spills::verify(&spill_homes, &old, &candidate,
-            spill_source.as_ref().unwrap(), spill_fallback.unwrap())?;
+        super::parameter_homes::spills::verify_at(&spill_homes, &old, &candidate,
+            spill_source.as_ref().unwrap(), spill_fallback.unwrap(), origin)?;
     }
     Ok(candidate)
 }

@@ -580,7 +580,7 @@ fn destination_param(r: &MirRoutine, b: &MirBlock, i: usize, a: &MirAddr) -> Opt
     }
 }
 
-fn escaped_routines(p: &MirProgram) -> BTreeSet<RoutineId> {
+pub(in crate::mir6502) fn escaped_routines(p: &MirProgram) -> BTreeSet<RoutineId> {
     let mut escaped = BTreeSet::new();
     for s in &p.statics {
         visit_data_image_routines(&s.image, &mut escaped);

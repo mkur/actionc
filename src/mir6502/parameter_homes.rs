@@ -75,7 +75,7 @@ pub(super) fn select_output(
     if config.enable_cross_call_home_selection {
         if let Some(proposal) = cross_call::propose_configured(&selected.input, &selected.executable.program,
             &resume.core.checkpoint.input.config, origin, trace).or_else(|| {
-                (!spills::discover(&selected.executable.program, config.enable_multiple_leaf_call_homes).is_empty())
+                (!spills::discover_at(&selected.executable.program, config.enable_multiple_leaf_call_homes, origin).is_empty())
                     .then(|| (*selected.input).clone())
             }) {
             selected = try_proposal(nir, selected, &resume, proposal,

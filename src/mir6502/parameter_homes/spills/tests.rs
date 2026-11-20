@@ -29,7 +29,7 @@ fn program() -> MirProgram {
 }
 
 #[test]
-fn spill_selection_respects_a_source_home_even_in_an_unrelated_routine() {
+fn spill_shares_a_source_home_in_an_unrelated_routine() {
     let n = nir_with_caller("\nBYTE FUNC Outer(BYTE keep) TouchByte(keep) RETURN(keep)");
     let input = crate::mir6502::lower_program(&n).unwrap();
     let mut p = crate::mir6502::materialize_program(input, &crate::mir6502::Mir6502Config {
@@ -41,7 +41,43 @@ fn spill_selection_respects_a_source_home_even_in_an_unrelated_routine() {
     let MirStorageBase::Param(param) = outer.frame.params[0].base else { panic!() };
     install_bindings(outer, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(first.fixed) }]);
     let next = discover(&p, true).into_iter().find(|h| h.owner == first.owner && h.spill == first.spill).unwrap();
-    assert_ne!(next.fixed, first.fixed);
+    assert_eq!(next.fixed, first.fixed);
+}
+
+#[test]
+fn a_second_nested_call_while_the_parameter_is_live_blocks_sharing() {
+    let n = nir_with_caller("\nPROC Wrapper() Hold() RETURN\nBYTE FUNC Outer(BYTE keep) Wrapper() RETURN(keep)");
+    let input = crate::mir6502::lower_program(&n).unwrap();
+    let mut p = crate::mir6502::materialize_program(input, &crate::mir6502::Mir6502Config {
+        enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized()
+    }).unwrap();
+    let h = discover(&p, true).into_iter().find(|h|
+        p.routines.iter().any(|r| r.id == h.owner && r.name == "Hold")).unwrap();
+    let outer = p.routines.iter_mut().find(|r| r.name == "Outer").unwrap();
+    let MirStorageBase::Param(param) = outer.frame.params[0].base else { panic!() };
+    install_bindings(outer, vec![MirParamBinding { param, home: MirParamHome::ZeroPage(h.fixed) }]);
+    let body = &mut outer.blocks[0].ops;
+    let call = body.iter().find(|op| matches!(op, MirOp::Call { .. })).unwrap().clone();
+    let load = MirOp::Load { dst: MirDef::Reg(MirReg::A),
+        src: MirAddr::Direct(MirMem::Param { id: param, offset: 0 }), width: MirWidth::Byte };
+    *body = vec![load, call.clone()];
+    let chosen = |p: &MirProgram| discover(p, true).into_iter().find(|p| p.owner == h.owner && p.spill == h.spill).unwrap().fixed;
+    assert_eq!(chosen(&p), h.fixed);
+    let body = &mut p.routines.iter_mut().find(|r| r.name == "Outer").unwrap().blocks[0].ops;
+    body.insert(0, call);
+    assert_ne!(chosen(&p), h.fixed);
+}
+
+#[test]
+fn an_unknown_call_before_initialization_leaves_the_spill_byte_available() {
+    let mut p = program();
+    let h = discover(&p, true).remove(0);
+    let r = p.routines.iter_mut().find(|r| r.id == h.owner).unwrap();
+    let mut call = r.blocks.iter().flat_map(|b| &b.ops).find(|op| matches!(op, MirOp::Call { .. })).unwrap().clone();
+    let MirOp::Call { target, .. } = &mut call else { unreachable!() };
+    *target = MirCallTarget::Routine(RoutineId(999));
+    r.blocks[0].ops.insert(0, call);
+    assert!(discover(&p, true).iter().any(|p| p.spill == h.spill && p.fixed == h.fixed));
 }
 
 #[test]
@@ -62,7 +98,7 @@ fn loop_carried_byte_spills_use_preserved_free_lanes() {
     {
         assert!(calls.writes(call).unwrap().preserves_fixed_byte(h.fixed, &fixed));
     }
-    place(&mut p, true, &crate::mir6502::trace::Trace::disabled());
+    place_at(&mut p, true, 0x3000, &crate::mir6502::trace::Trace::disabled());
     crate::mir6502::verify_program(&p, MirPhase::PostMaterialization).unwrap();
     let r = p.routines.iter().find(|r| r.id == h.owner).unwrap();
     assert!(!r.frame.spills.contains(&h.spill));
@@ -149,9 +185,9 @@ fn final_spill_proof_rechecks_callees_scratch_and_numeric_observers() {
     let p = program();
     let old = executable(p.clone());
     let mut new = p;
-    let homes = place(&mut new, true, &crate::mir6502::trace::Trace::disabled());
+    let homes = place_at(&mut new, true, 0x3000, &crate::mir6502::trace::Trace::disabled());
     assert_eq!(homes.len(), 1);
-    assert!(verify(&homes, &old, &executable(new.clone()), &old.program, &old).is_ok());
+    assert!(verify_at(&homes, &old, &executable(new.clone()), &old.program, &old, 0x3000).is_ok());
     let h = &homes[0];
     let previous = old
         .memory
@@ -183,8 +219,12 @@ fn final_spill_proof_rechecks_callees_scratch_and_numeric_observers() {
                 }
             })
             .unwrap();
-        r.blocks[0].ops.insert(
-            0,
+        let (block, index) = if !callee && !numeric {
+            r.blocks.iter().enumerate().find_map(|(b, block)|
+                block.ops.iter().position(|op| matches!(op, MirOp::Call { .. })).map(|i| (b, i))).unwrap()
+        } else { (0, 0) };
+        r.blocks[block].ops.insert(
+            index,
             MirOp::Store {
                 dst: MirAddr::Direct(if numeric {
                     MirMem::Absolute(byte)
@@ -196,7 +236,7 @@ fn final_spill_proof_rechecks_callees_scratch_and_numeric_observers() {
             },
         );
         assert!(
-            verify(&homes, &old, &bad, &old.program, &old).is_err(),
+            verify_at(&homes, &old, &bad, &old.program, &old, 0x3000).is_err(),
             "callee={callee} numeric={numeric}"
         );
     }
