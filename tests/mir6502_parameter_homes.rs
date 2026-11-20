@@ -16,6 +16,107 @@ fn nir(source: &str) -> actionc::nir::NirProgram {
     ))
     .unwrap()
 }
+
+#[test]
+fn reviewed_asm_parameters_use_the_abi_without_reserving_inline_bytes() {
+    use actionc::codegen::CodegenSymbolScope;
+    let source = format!(
+        "{}\nPROC Main() Store($7100,3) RETURN",
+        include_str!("../fixtures/runtime/reviewed_fixed_store.act")
+    );
+    let stale = source.replace("99c57fc17b23abe6", "0000000000000000");
+    let no_entry_fact = source
+        .replace(";@actionc abi-inputs-only", "")
+        .replace(";@actionc entry-reads abi", "");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let mut image_sizes = Vec::new();
+        for (src, expected_bytes) in [(&source, 0), (&stale, 3), (&no_entry_fact, 3)] {
+            let output = mir6502::generate_output_with_config_and_runtime(
+                &nir(src),
+                0x3000,
+                &Mir6502Config::optimized(),
+                runtime,
+            )
+            .unwrap();
+            let scope = CodegenSymbolScope::Routine("Store".into());
+            let home_bytes: u16 = output
+                .map
+                .storage_symbols
+                .iter()
+                .filter(|s| s.scope == scope)
+                .map(|s| s.size)
+                .sum();
+            assert_eq!(home_bytes, expected_bytes);
+            let signature = output
+                .map
+                .routine_signatures
+                .iter()
+                .find(|r| r.name == "Store")
+                .unwrap();
+            assert_eq!(
+                signature.params.iter().map(|p| p.width).collect::<Vec<_>>(),
+                [2, 1]
+            );
+            let code = output
+                .map
+                .routine_ranges
+                .iter()
+                .find(|r| r.name == "Store")
+                .unwrap();
+            assert_eq!(
+                &output.bytes[usize::from(code.start - output.origin)
+                    ..usize::from(code.end - output.origin)],
+                &[0x85, 0xa0, 0x86, 0xa1, 0x98, 0xa0, 0x00, 0x91, 0xa0, 0x60]
+            );
+            image_sizes.push(output.bytes.len());
+        }
+        assert_eq!(image_sizes[0] + 3, image_sizes[1]);
+    }
+}
+
+#[test]
+fn reviewed_asm_parameter_with_a_data_relocation_keeps_its_home() {
+    use mir6502::{
+        MirDataImage, MirDataRelocation, MirDataRelocationKind, MirDataRelocationTarget, MirStatic,
+        MirStorageBase,
+    };
+    let n = nir(include_str!(
+        "../fixtures/runtime/reviewed_conversion_home.act"
+    ));
+    let mut program = mir6502::lower_program(&n).unwrap();
+    let leaf = program
+        .routines
+        .iter()
+        .find(|r| r.name == "DoubleByte")
+        .unwrap();
+    let owner = leaf.id;
+    let MirStorageBase::Param(id) = leaf.frame.params[0].base else {
+        panic!("missing ch")
+    };
+    program.statics.push(MirStatic {
+        id: actionc::nir::SymbolId(1000),
+        name: "address".into(),
+        ty: "Card".into(),
+        image: MirDataImage {
+            bytes: vec![0; 2],
+            relocations: vec![MirDataRelocation {
+                offset: 0,
+                kind: MirDataRelocationKind::Word16,
+                target: MirDataRelocationTarget::Param { routine: owner, id },
+                addend: 0,
+                span: actionc::source::Span { start: 0, end: 0 },
+            }],
+        },
+        display: "address".into(),
+        alignment: 1,
+        mutable: false,
+        section: "data".into(),
+    });
+    let result = mir6502::materialize_program(program, &Mir6502Config::optimized()).unwrap();
+    let leaf = result.routines.iter().find(|r| r.id == owner).unwrap();
+    assert_eq!(leaf.frame.params[0].base, MirStorageBase::Param(id));
+}
+
 #[test]
 fn register_parameters_save_final_bytes_without_upstream_search() {
     let n = nir(include_str!("../fixtures/runtime/parameter_registers.act"));

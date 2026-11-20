@@ -1472,6 +1472,7 @@ fn materialize_core(
             peephole_stats.record_many(routine.id, "aggregate-copy-loop-selected", selected);
         }
         refine_terminal_indirect_jump_effects(&mut program);
+        abi::elide_reviewed_asm_param_homes(&mut program, &mut peephole_stats);
         }
         if config.enable_peepholes && config.enable_parameter_home_selection
             && let Some(checkpoint) = checkpoint

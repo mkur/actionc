@@ -95,6 +95,13 @@ deleting or moving operations cover the entire invocation, including any
 observable I/O. The ordinary call and return account for implicit stack
 traffic. [TN assembly](../samples/tn/modern/LIB.ACT)
 
+MIR6502 also uses the reviewed entry when laying out the callee. A matched
+ABI-only entry can keep its parameter widths and incoming lanes without
+reserving inline slots. The whole-entry review excludes assembly operands
+that name a parameter. A data relocation that exposes a frame address keeps
+that frame allocated. For `Ascii`, the caller supplies `ch` in A and the
+callee writes its result to `$A0`. Both transfers use the ABI directly.
+
 ## What the caller still has to prove
 
 Consider `s(i) = Ascii(s(i))` with the destination pointer already in

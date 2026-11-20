@@ -963,21 +963,22 @@ PROC Main() Paint() RETURN
         out.bytes[usize::from(paint.start - out.origin)..usize::from(paint.end - out.origin)].to_vec()
     };
     let full = compile(source);
-    let spill = full.map.storage_symbols.iter().find(|s| s.name == "spill0").unwrap().address;
-    let [lo, hi] = spill.to_le_bytes();
-    let stores_spill = |bytes: &[u8]| bytes.windows(3).any(|w| w == [0x8d, lo, hi]);
+    let spill_address = |out: &actionc::codegen::CodegenOutput|
+        out.map.storage_symbols.iter().find(|s| s.name == "spill0").unwrap().address;
+    let stores_spill = |out: &actionc::codegen::CodegenOutput| {
+        let [lo, hi] = spill_address(out).to_le_bytes();
+        code(out).windows(3).any(|w| w == [0x8d, lo, hi])
+    };
     let bytes = code(&full);
-    assert!(!stores_spill(&bytes));
+    assert!(!stores_spill(&full));
     let call = bytes.iter().position(|b| *b == 0x20).unwrap();
     assert_eq!(&bytes[call + 3..], &[0xa0, 1, 0x91, 0xac, 0x60]);
-    for src in [
-        source.replace(read_clause, ""),
-        source.replace(read_clause, &format!("{read_clause} ${spill:04X}")),
-        source.replace("and #3", "and #2"),
-    ] {
-        let out = compile(&src);
-        assert_eq!(out.map.storage_symbols.iter().find(|s| s.name == "spill0").unwrap().address, spill);
-        assert!(stores_spill(&code(&out)), "{src}");
+    let spill = spill_address(&full);
+    let alias = compile(&source.replace(read_clause, &format!("{read_clause} ${spill:04X}")));
+    assert_eq!(spill_address(&alias), spill);
+    assert!(stores_spill(&alias));
+    for src in [source.replace(read_clause, ""), source.replace("and #3", "and #2")] {
+        assert!(stores_spill(&compile(&src)), "{src}");
     }
 }
 

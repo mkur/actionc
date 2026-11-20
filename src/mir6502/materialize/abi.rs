@@ -5,12 +5,52 @@ use crate::mir6502::analysis::effects::{MirMemoryRange, classify_op, classify_te
 use crate::mir6502::ir::{
     MirAddr, MirBlock, MirByteIndexedSource, MirCallTarget, MirCond,
     MirDataRelocationTarget, MirDef, MirFixedZpSlot, MirMachineBlock,
-    MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirReg,
+    MirMem, MirMemoryEffect, MirMemoryRegionKind, MirOp, MirProgram, MirReg,
     MirRoutine, MirRoutineAbi, MirRuntimeHelper, MirStorageBase, MirStorageClass, MirStorageInit,
     MirTerminator, MirValue, MirWidth,
 };
 use crate::nir::ParamId;
 use std::collections::BTreeSet;
+
+/// A reviewed machine entry takes its arguments directly from the Action ABI.
+/// Keep the signature and its lane widths, but omit unobservable frame storage.
+pub(super) fn elide_reviewed_asm_param_homes(
+    program: &mut MirProgram,
+    stats: &mut MirPeepholeStats,
+) {
+    use crate::mir6502::analysis::{known_callees, private_cells};
+
+    for index in 0..program.routines.len() {
+        let routine = &program.routines[index];
+        if routine.frame.params.is_empty() || routine.frame.parameter_homes.is_some() {
+            continue;
+        }
+        let abi_only = if routine.frame.callee_review.is_some() {
+            known_callees::reviewed_contract(program, routine)
+                .is_some_and(|facts| facts.abi_inputs_only || facts.physical_abi_inputs)
+        } else {
+            routine.frame.abi_inputs_only_review.is_some_and(|expected| {
+                known_callees::abi_inputs_review_fingerprint(program, routine) == Some(expected)
+            })
+        };
+        // The review matches the whole entry and excludes operands naming a
+        // parameter. Initializers elsewhere can still take a frame address.
+        if !abi_only || private_cells::frame_exposed_in_data(program, routine.id) {
+            continue;
+        }
+        let routine = &mut program.routines[index];
+        for slot in &mut routine.frame.params {
+            if let MirStorageBase::Param(id) = slot.base {
+                slot.base = MirStorageBase::ParamAbiOnly(id);
+                stats.record_many(
+                    routine.id,
+                    "reviewed-asm-param-home-elided",
+                    usize::from(slot.storage_size),
+                );
+            }
+        }
+    }
+}
 
 pub(super) fn prepend_action_abi_param_prologue(
     routine: &mut crate::mir6502::ir::MirRoutine,
