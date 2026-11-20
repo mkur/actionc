@@ -17,7 +17,8 @@ pub(in crate::mir6502) fn native_numeric_observations(
     let mut calls = BTreeMap::<_, Vec<_>>::new();
     let mut trackers = BTreeMap::new();
     for routine in &program.routines {
-        let origins = std::cell::LazyCell::new(|| formal_origins(program, routine, &known));
+        let origins = std::cell::LazyCell::new(|| formal_origins(
+            program, routine, &known, TracePurpose::NumericObservation));
         if routine
             .frame
             .callee_review
@@ -60,7 +61,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
                         excluded_bases: Default::default(),
                         count: None, reviewed_copy: None,
                     };
-                    retained_base(program, routine, site, ptr, write).map(|base| (base, write))
+                    retained_base(program, routine, &known.fixed_storage, site, ptr, write).map(|base| (base, write))
                 } else if destination(op).is_some() {
                     trackers
                         .entry(routine.id)
@@ -135,6 +136,6 @@ fn observe(
             ranges.insert((n.wrapping_add(write.offset), write.bytes));
         }
         Base::Formal(argument) => pending.push((owner, FormalWrite { argument, ..write })),
-        Base::Object => {}
+        Base::Image | Base::Object => {}
     }
 }

@@ -443,6 +443,25 @@ impl MirKnownCalleeSummaries {
         self.scalar_entries_ignoring_flags.contains(&routine)
     }
 
+    /// Bottom-up discovery has already chosen this callee's prospective homes.
+    /// Re-evaluate an unresolved native writer with those bindings. The final
+    /// expanded lifetime verifier builds fresh summaries from emitted candidates.
+    pub(in crate::mir6502) fn plan_writer_homes(&mut self, program: &MirProgram,
+        selected: &MirRoutine, planned: &MirRoutine) {
+        if !self.native_pointer_writes || selected.frame.contains_source_asm
+            || !matches!(self.get(selected.id).map(|s| s.writes()), Some(MirKnownMemoryWrites::Unknown))
+            || !selected.blocks.iter().flat_map(|b| &b.ops).any(super::effects::writes_ordinary_pointee) {
+            return;
+        }
+        let mut routine = selected.clone();
+        routine.frame.parameter_homes.clone_from(&planned.frame.parameter_homes);
+        routine.frame.local_homes.clone_from(&planned.frame.local_homes);
+        let writes = summarize_mir_routine(&routine, self, Some(program), program).writes;
+        if writes.has_formal_writes() {
+            self.routines.get_mut(&selected.id).expect("existing summary").writes = writes;
+        }
+    }
+
     pub(in crate::mir6502) fn get(&self, routine: RoutineId) -> Option<&MirKnownCalleeExitSummary> {
         self.routines.get(&routine)
     }
@@ -861,7 +880,8 @@ fn summarize_routine_writes(
     values: &MirMachineValueAvailability,
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
-    let formal_origins = std::cell::LazyCell::new(|| native_writes::formal_origins(program, routine, callees));
+    let formal_origins = std::cell::LazyCell::new(|| native_writes::formal_origins(
+        program, routine, callees, native_writes::TracePurpose::Preservation));
     let buffer_values = (normal.is_some() && routine.blocks.iter().flat_map(|b| &b.ops)
         .any(|op| crate::mir6502::runtime_contracts::library::may_write_buffer(op)
             || (callees.native_pointer_writes && matches!(op, MirOp::Call { target, .. }

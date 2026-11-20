@@ -393,3 +393,24 @@ fn range_loop_uses_the_opaque_keyboard_preservation_for_its_pointer() {
     let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
     assert_eq!(known.get(id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
 }
+
+#[test]
+fn each_call_discharges_forwarded_and_aliased_write_arguments() {
+    let mut p = materialized("PROC Paint(BYTE a,b,count BYTE POINTER dst)
+          WHILE count DO dst^==+1 count==-1 OD RETURN
+        PROC Forward(BYTE POINTER p) Paint(1,2,2,p) RETURN
+        PROC Good() BYTE c Forward(@c) RETURN
+        PROC Bad() Forward($EE) RETURN
+        PROC Either(BYTE POINTER first, second BYTE which)
+          IF which THEN first^=1 ELSE second^=2 FI RETURN
+        PROC Aliased() Either($A2,$A2,1) RETURN
+        PROC Main() Good() Bad() Aliased() RETURN");
+    bind_capture(&mut p.routines[0], 0xea);
+    let facts = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    let writes = |name| facts.get(p.routines.iter().find(|r| r.name == name).unwrap().id).unwrap().writes();
+    assert!(writes("Forward").has_formal_writes());
+    assert!(writes("Good").preserves_private_fixed_byte(MirFixedZpSlot(0xef), facts.fixed_storage()), "{:?}", writes("Good"));
+    assert_eq!(writes("Bad"), &MirKnownMemoryWrites::Unknown);
+    assert!(matches!(writes("Aliased"), MirKnownMemoryWrites::Pointee { numeric, .. }
+        if numeric == &[(0xa2, 1)]), "{:?}", writes("Aliased"));
+}

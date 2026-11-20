@@ -37,6 +37,7 @@ struct FormalOrigins<'a> {
     program: &'a MirProgram,
     routine: &'a MirRoutine,
     known: &'a MirKnownCalleeSummaries,
+    purpose: TracePurpose,
     cfg: MirCfg,
     inputs: Origins,
 }
@@ -45,10 +46,14 @@ pub(in super::super) fn formal_origins(
     program: &MirProgram,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
+    purpose: TracePurpose,
 ) -> BTreeMap<MirSite, EntryByte> {
     let Some(params) = &routine.frame.direct_parameter_abi else {
         return BTreeMap::new();
     };
+    if !params.iter().any(|p| p.width().bytes() == 2) {
+        return BTreeMap::new();
+    }
     let Some(lanes) =
         crate::mir6502::abi::parameter_bytes(params).and_then(crate::mir6502::abi::argument_lanes)
     else {
@@ -75,6 +80,7 @@ pub(in super::super) fn formal_origins(
         routine,
         known,
         cfg,
+        purpose,
         inputs,
     };
     let facts = solve_dataflow(&problem.cfg, &problem);
@@ -194,6 +200,14 @@ impl FormalOrigins<'_> {
             }
             state.retain(|lane, origin| match lane {
                 Lane::Reg(r) => !effects.may_clobber_reg_compat(*r),
+                // A possible numeric observation survives a call in the
+                // inventory even when preservation cannot be established.
+                Lane::Cell(_)
+                    if self.purpose == TracePurpose::NumericObservation
+                        && matches!(op, MirOp::Call { .. }) =>
+                {
+                    true
+                }
                 Lane::Cell(MirMem::FixedZeroPage(slot)) => {
                     if writes.preserves_fixed_byte(*slot, &self.known.fixed_storage) {
                         return true;

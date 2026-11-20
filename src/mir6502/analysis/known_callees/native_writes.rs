@@ -182,7 +182,7 @@ fn physical_cell(
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum TracePurpose {
+pub(super) enum TracePurpose {
     Preservation,
     NumericObservation,
 }
@@ -387,6 +387,7 @@ fn origin(
 enum Base {
     Numeric(u16),
     Formal(u16),
+    Image,
     Object,
 }
 
@@ -432,7 +433,7 @@ fn paired_origin(
             None
         }
         (Origin::Address(m, 0), Origin::Address(other, 1)) if m == other => {
-            address_base(program, routine, &m, offset, bytes)
+            address_base(program, routine, &known.fixed_storage, &m, offset, bytes)
         }
         _ => None,
     }
@@ -441,6 +442,7 @@ fn paired_origin(
 fn address_base(
     program: &MirProgram,
     routine: &MirRoutine,
+    fixed: &MirFixedStorage,
     m: &MirMem,
     offset: u16,
     bytes: u16,
@@ -449,7 +451,16 @@ fn address_base(
         return Some(Base::Numeric(base));
     }
     let pointer = super::super::bounded_pointers::Pointer::named(program, routine, m)?;
-    pointer.add(offset)?.covers(bytes).then_some(Base::Object)
+    if !pointer.add(offset)?.covers(bytes) { return None; }
+    let in_image = match *m {
+        MirMem::Local { id, .. } => routine.frame.inline_local(id),
+        MirMem::Param { id, .. } => routine.frame.inline_parameter(id),
+        MirMem::Static { .. } => true,
+        MirMem::Global { id, .. } => program.globals.iter().any(|g| g.id == id
+            && matches!(g.backing, MirGlobalBacking::Ordinary { .. })),
+        _ => false,
+    };
+    if in_image && fixed.image_above_zp() { Some(Base::Image) } else { Some(Base::Object) }
 }
 
 /// Before ABI staging a whole pointer operand is authoritative. In particular,
@@ -457,6 +468,7 @@ fn address_base(
 fn retained_base(
     program: &MirProgram,
     routine: &MirRoutine,
+    fixed: &MirFixedStorage,
     site: MirSite,
     value: &MirValue,
     write: FormalWrite,
@@ -549,7 +561,7 @@ fn retained_base(
         }
         _ => return None,
     };
-    address_base(program, routine, &mem, write.offset, write.bytes)
+    address_base(program, routine, fixed, &mem, write.offset, write.bytes)
 }
 
 fn record_base(
@@ -593,7 +605,7 @@ fn record_base(
             pending.insert(FormalWrite { argument, ..write });
         }
         Base::Object if write.excluded_bases != ExcludedBases::default() => return None,
-        Base::Object => {}
+        Base::Image | Base::Object => {}
     }
     Some(())
 }
@@ -656,7 +668,7 @@ impl MirKnownCalleeSummaries {
                 site,
                 write,
             )?;
-            *ordinary |= matches!(base, Base::Object);
+            *ordinary |= matches!(base, Base::Object | Base::Image);
             record_base(program, base, write, numeric, formals)?;
         }
         Some(writes)
@@ -691,7 +703,7 @@ impl MirKnownCalleeSummaries {
             found
         })?;
         Some(if arg.width == MirWidth::Word {
-            retained_base(program, routine, site, &arg.value, write)?
+            retained_base(program, routine, &self.fixed_storage, site, &arg.value, write)?
         } else {
             match crate::mir6502::runtime_contracts::buffers::argument_word(
                 program,

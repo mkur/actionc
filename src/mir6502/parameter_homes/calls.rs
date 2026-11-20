@@ -49,6 +49,10 @@ impl<'a> ResidenceCalls<'a> {
         crate::mir6502::runtime_contracts::sargs_capture(self.program, routine, op)
     }
 
+    pub(super) fn plan_writer_homes(&mut self, selected: &MirRoutine, planned: &MirRoutine) {
+        self.known.plan_writer_homes(self.program, selected, planned);
+    }
+
     fn entry(&mut self, target: RoutineId) -> Option<Arc<MirCalleeEntryFact>> {
         if let Some(analysis) = &mut self.acyclic { return analysis.analyze(target); }
         self.entries.entry(target).or_insert_with(||

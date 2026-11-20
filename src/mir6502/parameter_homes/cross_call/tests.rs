@@ -518,3 +518,38 @@ fn default_leaf_places_private_local_with_an_address_taken_sibling() {
         assert_eq!(matches!(routine.frame.local_home(id), Some(MirLocalHome::ZeroPage(_))), placed);
     }
 }
+
+#[test]
+fn expanded_write_through_call_checks_each_live_word_lane() {
+    let source = "PROC Paint(BYTE a,b,count BYTE POINTER dst)
+          WHILE count DO dst^==+1 count==-1 OD RETURN
+        CARD FUNC Hold(CARD keep) Paint(1,2,2,$E4) RETURN(keep)
+        PROC Main() Hold(5) RETURN";
+    let (mut input, _) = programs(source);
+    let paint = &mut input.routines[0];
+    let mut slot = 0xea;
+    let bindings = paint.frame.params.iter().map(|p| {
+        let MirStorageBase::Param(param) = p.base else { unreachable!() };
+        let home = MirParamHome::ZeroPage(MirFixedZpSlot(slot));
+        slot += p.storage_size as u8;
+        MirParamBinding { param, home }
+    }).collect();
+    install_bindings(paint, bindings);
+    for (slot, allowed) in [(0xe2, true), (0xe3, false), (0xe4, false)] {
+        let mut candidate = input.clone();
+        let holder = &mut candidate.routines[1];
+        let MirStorageBase::Param(param) = holder.frame.params[0].base else { unreachable!() };
+        install_bindings(holder, vec![MirParamBinding {
+            param, home: MirParamHome::ZeroPage(MirFixedZpSlot(slot)),
+        }]);
+        let result = mir::materialize_program(candidate, &Default::default());
+        if allowed {
+            result.unwrap();
+        } else {
+            let errors = result.unwrap_err();
+            assert!(errors.iter().any(|e| e.routine.as_deref() == Some("Hold")
+                && e.message.contains("physical write clobbers live source-object home FixedZeroPage(MirFixedZpSlot(228))")),
+                "home at ${slot:02x}: {errors:?}");
+        }
+    }
+}

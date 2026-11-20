@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(in crate::mir6502) struct MirFixedStorage {
+    image_above_zp: bool,
     globals: BTreeMap<SymbolId, u16>,
     above_zp_sizes: BTreeMap<SymbolId, u16>,
 }
@@ -18,6 +19,7 @@ impl MirFixedStorage {
 
     pub(super) fn at_origin(program: &MirProgram, origin: u16) -> Self {
         Self {
+            image_above_zp: origin >= 0x100,
             globals: program.globals.iter().filter_map(|global| {
                 fixed_storage_address(program, &MirMem::Global { id: global.id, offset: 0 })
                     .map(|address| (global.id, address))
@@ -29,6 +31,8 @@ impl MirFixedStorage {
             ).map(|g| (g.id, g.logical_size(g.storage_size))).collect(),
         }
     }
+
+    pub(super) fn image_above_zp(&self) -> bool { self.image_above_zp }
 
     pub(in crate::mir6502) fn address(&self, memory: &MirMem) -> Option<u16> {
         match *memory {

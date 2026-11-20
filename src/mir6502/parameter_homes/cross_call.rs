@@ -274,6 +274,7 @@ pub(super) fn propose_configured(
                 "call_count": calls.len(),
             }));
             if let Some(bytes) = planned.get_mut(&id) {
+                facts.plan_writer_homes(actual, &candidate);
                 bytes.extend(candidate.frame.resident_bytes().iter().map(|(_, slot)| slot.0));
                 trace.event("cross-call-planned-subtree", || serde_json::json!({
                     "routine": routine.name, "routine_id": id.0, "resident_bytes": bytes,
