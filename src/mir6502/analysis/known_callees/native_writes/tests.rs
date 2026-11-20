@@ -314,3 +314,28 @@ fn reviewed_and_native_row_writes_keep_numeric_destinations_and_scratch() {
         &MirKnownMemoryWrites::Unknown
     );
 }
+
+#[test]
+fn write_through_join_requires_both_entry_pointer_bytes() {
+    let mut p = materialized("BYTE out=$680
+        PROC Draw(BYTE a,b,c BYTE POINTER dst) BYTE which
+          IF a THEN which=b ELSE which=c FI
+          IF which THEN dst^==+1 FI RETURN
+        PROC Main() Draw(1,2,3,$7100) RETURN");
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    let draw = &p.routines[0];
+    let summary = known.get(draw.id).unwrap();
+    assert!(matches!(summary.writes(), MirKnownMemoryWrites::Pointee { formals, .. }
+        if formals.iter().any(|w| (w.argument, w.offset, w.bytes) == (3, 0, 1))), "{summary:?} {draw:?}");
+    assert!(summary.reads().may_read_caller_private_byte(0x7100, known.fixed_storage()));
+    let target = draw.frame.params.last().unwrap().base.clone();
+    let MirStorageBase::Param(id) = target else { unreachable!() };
+    let branch = p.routines[0].blocks.iter_mut().find(|b| b.ops.iter().any(|op|
+        matches!(op, MirOp::Store { dst: MirAddr::Direct(MirMem::Local { .. }), .. }))).unwrap();
+    branch.ops.push(MirOp::Store {
+        dst: MirAddr::Direct(MirMem::Param { id, offset: 1 }),
+        src: MirValue::ConstU8(0x82), width: MirWidth::Byte,
+    });
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    assert_eq!(known.get(p.routines[0].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+}

@@ -861,6 +861,7 @@ fn summarize_routine_writes(
     values: &MirMachineValueAvailability,
 ) -> MirKnownMemoryWrites {
     let mut writes = MirKnownMemoryWrites::exact();
+    let formal_origins = std::cell::LazyCell::new(|| native_writes::formal_origins(program, routine, callees));
     let buffer_values = (normal.is_some() && routine.blocks.iter().flat_map(|b| &b.ops)
         .any(|op| crate::mir6502::runtime_contracts::library::may_write_buffer(op)
             || (callees.native_pointer_writes && matches!(op, MirOp::Call { target, .. }
@@ -882,7 +883,8 @@ fn summarize_routine_writes(
                     MirSite::Op { block: block.id, op_index }));
             } else if callees.native_pointer_writes && super::effects::writes_ordinary_pointee(op) {
                 let site = MirSite::Op { block: block.id, op_index };
-                let Some(store) = native_writes::store(program, routine, callees, values, site, op) else {
+                let Some(store) = native_writes::store(program, routine, callees, values, site, op,
+                    || formal_origins.get(&site).copied()) else {
                     return MirKnownMemoryWrites::Unknown;
                 };
                 writes.merge(&store);

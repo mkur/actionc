@@ -1119,7 +1119,7 @@ pub(in crate::mir6502) fn byte_triple_address_inputs(base: &MirValue, index: &Mi
     immediate_base && byte_index
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MirMem {
     Absolute(u16),
     Static { id: SymbolId, offset: u16 },
@@ -1238,7 +1238,7 @@ pub enum MirWidth {
     Word,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MirReg {
     A,
     X,

@@ -17,6 +17,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
     let mut calls = BTreeMap::<_, Vec<_>>::new();
     let mut trackers = BTreeMap::new();
     for routine in &program.routines {
+        let origins = std::cell::LazyCell::new(|| formal_origins(program, routine, &known));
         if routine
             .frame
             .callee_review
@@ -77,6 +78,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
                                 values,
                                 site,
                                 op,
+                                || origins.get(&site).copied(),
                             )
                         })
                 } else {

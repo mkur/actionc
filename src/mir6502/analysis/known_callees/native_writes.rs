@@ -139,7 +139,7 @@ impl FormalWrite {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum Lane {
     Reg(MirReg),
     Cell(MirMem),
@@ -775,6 +775,7 @@ fn store_base(
     values: &MirMachineValueAvailability,
     site: MirSite,
     op: &MirOp,
+    formal: impl FnOnce() -> Option<u16>,
 ) -> Option<(Base, FormalWrite)> {
     if let MirOp::Store { dst: addr, width, .. } = op {
         let indexed = match addr {
@@ -834,7 +835,7 @@ fn store_base(
             [lo, hi].map(|s| Lane::Cell(MirMem::FixedZeroPage(MirFixedZpSlot(s)))),
             offset,
             bytes,
-        )?,
+        ).or_else(|| formal().map(Base::Formal))?,
     };
     Some((
         base,
@@ -855,6 +856,7 @@ pub(super) fn store(
     values: &MirMachineValueAvailability,
     site: MirSite,
     op: &MirOp,
+    formal: impl FnOnce() -> Option<u16>,
 ) -> Option<MirKnownMemoryWrites> {
     let (base, write) = store_base(
         TracePurpose::Preservation,
@@ -864,6 +866,7 @@ pub(super) fn store(
         values,
         site,
         op,
+        formal,
     )?;
     let mut numeric = Vec::new();
     let mut formals = BTreeSet::new();
@@ -884,6 +887,8 @@ pub(super) fn store(
     Some(writes)
 }
 
+mod formal_origins;
+pub(super) use formal_origins::formal_origins;
 mod observations;
 pub(in crate::mir6502) use observations::native_numeric_observations;
 
