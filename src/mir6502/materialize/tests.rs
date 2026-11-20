@@ -1,4 +1,6 @@
 use super::*;
+#[path = "block_local_spill_tests.rs"]
+mod block_local_spill_tests;
 #[path = "word_result_proof_tests.rs"]
 mod word_result_proof_tests;
 #[path = "pointer_setup_proof_tests.rs"]

@@ -304,7 +304,7 @@ fn costed_requested_wrappers_keep_equivalent_arithmetic_helpers() {
         ("LONGINT", "LONGINT(left) MOD LONGINT(right)"),
     ] {
         let source = format!(
-            "INT input=$600,other=$602 {ty} output=$610 INLINE {ty} FUNC Map(INT left,right) RETURN({expression}) PROC Main() output=Map(input,other) RETURN"
+            "INT input=$600,other=$602 {ty} output=$610 INLINE {ty} FUNC Map(INT left,right) RETURN({expression}) {ty} FUNC Main() output=Map(input,other) RETURN(output)"
         );
         let (before, old) = compile_scalar_image(&source, false);
         let (after, selected) = compile_scalar_image(&source, true);
@@ -317,11 +317,12 @@ fn costed_requested_wrappers_keep_equivalent_arithmetic_helpers() {
                     .into_iter()
                     .chain(right.to_le_bytes())
                     .collect();
-                assert_eq!(
-                    execute_scalar(&selected, RoutineId(1), &input),
-                    execute_scalar(&old, RoutineId(1), &input),
-                    "{expression}: {left},{right}"
-                );
+                let (output, returned) = execute_scalar(&selected, RoutineId(1), &input);
+                let (old_output, old_returned) = execute_scalar(&old, RoutineId(1), &input);
+                let width = if ty == "INT" { 2 } else { 4 };
+                assert_eq!(output, old_output, "{expression}: {left},{right}");
+                assert_eq!(&returned[..width], &old_returned[..width]);
+                assert_eq!(&returned[..width], &output[..width]);
             }
         }
     }

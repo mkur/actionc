@@ -3,9 +3,10 @@ use super::dead_spills::block_successor_indices;
 use super::peepholes::private_scratch_store_removal_is_safe_after;
 use super::temps::temp_def_spill;
 use super::*;
-use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte, classify_op};
+use crate::mir6502::analysis::effects::{MirFlagSet, MirHomeByte, MirTempAccess, classify_op, classify_terminator};
 use crate::mir6502::analysis::home_liveness::MirHomeLiveness;
 use crate::mir6502::analysis::sites::MirSite;
+use crate::mir6502::analysis::storage_ownership::{StorageOwnership, StorageRole};
 use crate::mir6502::ir::{
     MirAddr, MirBlock, MirBlockId, MirByteIndexedSource, MirCallTarget, MirDef, MirFixedZpSlot,
     MirMem, MirOp, MirRegisterSet, MirRoutine, MirSpillId, MirTerminator, MirValue, MirZpSlot,
@@ -1621,8 +1622,24 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page_traced(
     trace: &crate::mir6502::trace::Trace,
 ) -> BTreeMap<RoutineId, BTreeMap<MirSpillId, MirZpSlot>> {
     let source_zero_page = source_zero_page_slots(program);
+    let ownership = std::cell::LazyCell::new(|| StorageOwnership::new(program));
+    let candidates: Vec<_> = program
+        .routines
+        .iter()
+        .map(|routine| {
+            block_local_zp_intervals(routine, |spill| {
+                ownership.role(
+                    routine.id,
+                    &MirMem::Spill {
+                        id: spill,
+                        offset: 0,
+                    },
+                ) == StorageRole::Temporary
+            })
+        })
+        .collect();
     let mut remaps = BTreeMap::new();
-    for routine in &mut program.routines {
+    for (routine, mut intervals) in program.routines.iter_mut().zip(candidates) {
         let mut used = [false; 256];
         for fixed in &source_zero_page {
             used[fixed.0 as usize] = true;
@@ -1642,7 +1659,6 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page_traced(
             .max()
             .map_or(0, |slot| slot.saturating_add(1));
         let mut remap = BTreeMap::<MirSpillId, MirZpSlot>::new();
-        let mut intervals = basic_block_spill_intervals(routine);
         intervals.sort_by_key(|interval| {
             (
                 interval.first_read.unwrap_or(usize::MAX),
@@ -1654,7 +1670,6 @@ pub(super) fn lower_block_local_byte_spills_to_zero_page_traced(
 
         for interval in intervals {
             if interval.first_read.is_none()
-                || spill_crosses_call(routine, &interval)
                 || !spill_uses_zero_offset_only(routine, interval.spill)
             {
                 continue;
@@ -1893,13 +1908,99 @@ fn available_private_zero_page_lanes(
     (0xE0..=0xEF).filter(|slot| !used[*slot]).count()
 }
 
-fn spill_crosses_call(routine: &MirRoutine, interval: &SpillUseInterval) -> bool {
-    let Some(block) = routine.blocks.get(interval.block_index) else {
-        return true;
+/// Coloring can give several successive values the same spill ID. Only a
+/// value used by or live through an interior call needs a preserved byte.
+fn block_local_zp_intervals(
+    routine: &MirRoutine,
+    private: impl Fn(MirSpillId) -> bool,
+) -> Vec<SpillUseInterval> {
+    let mut eligible = Vec::new();
+    let mut crossing = BTreeMap::new();
+    for interval in basic_block_spill_intervals(routine) {
+        let ops = &routine.blocks[interval.block_index].ops;
+        if interval.first + 1 < interval.last
+            && ops[interval.first + 1..interval.last]
+                .iter()
+                .any(op_is_call_barrier)
+        {
+            if private(interval.spill) {
+                crossing.insert(interval.spill, interval);
+            }
+        } else {
+            eligible.push(interval);
+        }
+    }
+    if crossing.is_empty() {
+        return eligible;
+    }
+    let Ok(cfg) = MirCfg::from_routine(routine) else {
+        return eligible;
     };
-    block.ops.iter().enumerate().any(|(index, op)| {
-        index > interval.first && index < interval.last && op_is_call_barrier(op)
-    })
+    let liveness = MirHomeLiveness::analyze(routine, &cfg);
+    liveness.visit_sites(|site, transfer, after| {
+        let block_index = cfg
+            .block_index(site.block())
+            .expect("liveness uses the same CFG");
+        let block = &routine.blocks[block_index];
+        let MirSite::Op { op_index, .. } = site else {
+            for id in classify_terminator(&block.terminator).projected_spill_reads {
+                crossing.remove(&id);
+            }
+            return;
+        };
+        let op = &block.ops[op_index];
+        let effects = classify_op(op);
+        // Remapping rewrites explicit memory operands. A remaining virtual
+        // temp still names its original spill, even alongside an explicit use.
+        for &access in effects
+            .logical
+            .temp_uses
+            .iter()
+            .chain(&effects.logical.temp_defs)
+        {
+            let bytes = match access {
+                MirTempAccess::Full(_) => 0..=1,
+                MirTempAccess::Exact { byte, .. } => byte..=byte,
+            };
+            for byte in bytes {
+                if let Some(id) = temp_def_spill(&MirDef::VTempByte {
+                    id: access.temp(),
+                    byte,
+                }) {
+                    crossing.remove(&id);
+                }
+            }
+        }
+        // A byte slot cannot back a wider object or an indexed storage base.
+        for range in effects
+            .memory
+            .direct_reads
+            .iter()
+            .chain(&effects.memory.direct_writes)
+        {
+            if let MirMem::Spill { id, offset } = range.base
+                && (offset != 0
+                    || range.bytes != 1
+                    || effects.memory.indirect_reads
+                    || effects.memory.indirect_writes)
+            {
+                crossing.remove(&id);
+            }
+        }
+        if op_is_call_barrier(op) {
+            for home in after.iter().chain(transfer.reads.iter().copied()) {
+                if let MirHomeByte::Spill { id, .. } = home
+                    && crossing.get(&id).is_some_and(|i| {
+                        i.block_index == block_index && i.first < op_index && op_index < i.last
+                    })
+                {
+                    crossing.remove(&id);
+                }
+            }
+        }
+    });
+    eligible.extend(crossing.into_values());
+    eligible
 }
 
 pub(in crate::mir6502) fn spill_uses_zero_offset_only(routine: &MirRoutine, spill: MirSpillId) -> bool {
