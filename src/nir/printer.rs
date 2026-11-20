@@ -130,6 +130,7 @@ impl NirPrinter {
         }
         for local in &routine.locals {
             let purpose = match local.purpose {
+                NirLocalPurpose::Own => " purpose=own".to_string(),
                 NirLocalPurpose::ArgumentCapture => " purpose=argument-capture".to_string(),
                 NirLocalPurpose::PatternBinding => " purpose=pattern-binding".to_string(),
                 NirLocalPurpose::AggregateCapture => " purpose=aggregate-capture".to_string(),

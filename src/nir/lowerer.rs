@@ -10,7 +10,7 @@ use crate::semantic::{
     ArrayType, SymbolClass, SymbolId as SemSymbolId, ValueType, ValueTypeKind,
     ir::{
         SemActivationModel, SemArrayOrigin, SemCall, SemCallable, SemCondition, SemConditionKind,
-        SemDeclaration, SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
+        SemDeclaration, SemDeclarationPurpose, SemDeclarationStorage, SemEffects, SemExpr, SemExprClass, SemExprKind,
         SemForStep, SemInitializerElement, SemInitializerElementKind, SemInitializerLiteral,
         SemInlineAsm, SemInlineAsmTarget, SemLValue, SemLValueKind, SemLiteral,
         SemMachineSymbolRef, SemProgram, SemReadEffect, SemSet, SemStaticInitializer,
@@ -29,6 +29,7 @@ use super::ir::*;
 
 mod case;
 mod data;
+mod own;
 mod selection;
 
 #[derive(Default)]
@@ -318,6 +319,7 @@ impl NirLowerer {
                             .filter(|declaration| declaration_has_storage(declaration))
                             .collect::<Vec<_>>();
                         let mut local_alias_targets = BTreeMap::new();
+                        let mut own_backings = BTreeMap::new();
                         let param_ids_by_symbol = routine
                             .params
                             .iter()
@@ -392,14 +394,26 @@ impl NirLowerer {
                                 load_time_init.as_ref(),
                                 self.target_layout,
                             );
-                            let duration =
-                                local_storage_duration(activation, &backing, &builder.locals);
+                            let explicit_own = local.purpose == SemDeclarationPurpose::Own;
+                            let duration = if explicit_own && matches!(backing, NirLocalBacking::Ordinary) {
+                                NirStorageDuration::RoutineStatic
+                            } else {
+                                local_storage_duration(activation, &backing, &builder.locals)
+                            };
+                            if explicit_own && activation == NirActivationModel::NativeReentrant
+                                && matches!(backing, NirLocalBacking::Ordinary)
+                            {
+                                let array = declaration_array_fact(
+                                    local, &record_storage_sizes, address_initializer, self.target_layout,
+                                );
+                                own_backings.insert(LocalId(index as u32), (self.next_global_id(), array));
+                            }
                             let executable_init = activation == NirActivationModel::NativeReentrant
                                 && duration == NirStorageDuration::Automatic
                                 && matches!(backing, NirLocalBacking::Ordinary)
                                 && (local.initializer.is_some() || local.static_initializer.is_some()
                                     || declaration_has_mutable_shape(local));
-                            let init = if activation == NirActivationModel::ClassicStatic {
+                            let init = if activation == NirActivationModel::ClassicStatic || explicit_own {
                                 load_time_init.clone()
                             } else {
                                 None
@@ -408,15 +422,14 @@ impl NirLowerer {
                                 id: LocalId(index as u32),
                                 name: semantic_local_display_name(&local.symbol),
                                 kind: declaration_kind(local),
-                                purpose: if local.symbol.is_immutable && local.ty.value.is_record() {
-                                    NirLocalPurpose::AggregateCapture
-                                } else if !local.ty.value.is_real() && !local.ty.value.is_record() {
-                                    match local.purpose {
-                                        crate::semantic::ir::SemDeclarationPurpose::ArgumentCapture => NirLocalPurpose::ArgumentCapture,
-                                        crate::semantic::ir::SemDeclarationPurpose::PatternBinding => NirLocalPurpose::PatternBinding,
-                                        crate::semantic::ir::SemDeclarationPurpose::Storage => NirLocalPurpose::Storage,
-                                    }
-                                } else { NirLocalPurpose::Storage },
+                                purpose: match local.purpose {
+                                    SemDeclarationPurpose::Own => NirLocalPurpose::Own,
+                                    _ if local.symbol.is_immutable && local.ty.value.is_record() => NirLocalPurpose::AggregateCapture,
+                                    _ if local.ty.value.is_real() || local.ty.value.is_record() => NirLocalPurpose::Storage,
+                                    SemDeclarationPurpose::ArgumentCapture => NirLocalPurpose::ArgumentCapture,
+                                    SemDeclarationPurpose::PatternBinding => NirLocalPurpose::PatternBinding,
+                                    SemDeclarationPurpose::Storage => NirLocalPurpose::Storage,
+                                },
                                 storage: if local.symbol.is_immutable && local.ty.value.is_record() {
                                     NirStorageClass::Record
                                 } else { declaration_storage_class(&local.storage) },
@@ -450,6 +463,9 @@ impl NirLowerer {
                         }
                         builder.next_label = self.next_label;
                         builder.stmt_list(&routine.body);
+                        own::place_backings(
+                            &routine.symbol.qualified_name, &mut builder.locals, &own_backings, &mut globals,
+                        );
                         self.next_label = builder.next_label;
                         builder.finish_open_with(NirTerminator::Fallthrough);
                         let inline = routine.inline;

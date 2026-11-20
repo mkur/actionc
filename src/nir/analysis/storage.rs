@@ -117,6 +117,31 @@ pub struct NirStorageFacts {
 }
 
 impl NirStorageFacts {
+    /// Can a local read its incoming value on a later invocation? A missing
+    /// answer keeps the home observable (e.g. an escaped address or a partial
+    /// aggregate access). An initializer alone is not an entry read.
+    pub fn may_read_previous_call_value(&self) -> Option<bool> {
+        if !matches!(self.id, NirStorageId::Local(_)) {
+            return None;
+        }
+        if self.duration == Some(NirStorageDuration::Automatic) {
+            return Some(false);
+        }
+        if self.possible_read_before_definition {
+            return Some(true);
+        }
+        if self.duration == Some(NirStorageDuration::External)
+            || self.address_required
+            || self.machine_visible
+            || self.alias_target.is_some()
+            || self.storage_class != Some(NirStorageClass::Scalar)
+            || self.blockers.contains(&NirPromotionBlocker::AccessTypeMismatch)
+        {
+            return None;
+        }
+        Some(false)
+    }
+
     pub fn is_promotable(&self) -> bool {
         self.blockers.is_empty()
     }
@@ -534,7 +559,7 @@ fn analyze_routine_storage(
             // final value cannot seed a later recursive or repeated call.
             (NirStorageId::Local(_), NirStorageIdentityDomain::Invocation(_)) => false,
             (NirStorageId::Local(_), _) => {
-                facts.direct_stores != 0 && facts.possible_read_before_definition
+                facts.direct_stores != 0 && facts.may_read_previous_call_value().unwrap_or(true)
             }
             (NirStorageId::Param(_), NirStorageIdentityDomain::Invocation(_)) => false,
             (NirStorageId::Param(_) | NirStorageId::Global(_), _) => facts.direct_stores != 0,

@@ -953,9 +953,19 @@ impl<'a> Parser<'a> {
 
     fn parse_var_decl_until(&mut self, stop: Stop) -> VarDecl {
         let start = self.peek().span.start;
-        let qualifiers = VarQualifiers {
-            is_volatile: self.eat_contextual("VOLATILE"),
-        };
+        let mut qualifiers = VarQualifiers::default();
+        while self.is_storage_modifier_at(self.pos) {
+            let flag = if self.is_contextual_at(self.pos, "OWN") {
+                &mut qualifiers.is_own
+            } else {
+                &mut qualifiers.is_volatile
+            };
+            if *flag {
+                self.diagnostics.push(Diagnostic::new(self.peek().span, "duplicate storage modifier"));
+            }
+            *flag = true;
+            self.bump();
+        }
         let mut ty = self.parse_type_ref().unwrap_or_else(|| TypeRef {
             base: TypeBase::Named(QualifiedName::simple("<missing type>")),
             pointer: false,
@@ -2145,8 +2155,28 @@ impl<'a> Parser<'a> {
         if self.is_bare_contextual_at(pos, "BEGIN") || self.is_bare_contextual_at(pos, "END") {
             return false;
         }
-        self.is_contextual_at(pos, "VOLATILE") && self.is_unqualified_var_decl_start_at(pos + 1)
-            || self.is_unqualified_var_decl_start_at(pos)
+        self.is_storage_modifier_at(pos) || self.is_unqualified_var_decl_start_at(pos)
+    }
+
+    fn is_storage_modifier_at(&self, pos: usize) -> bool {
+        let mut next = pos;
+        while self.is_contextual_at(next, "OWN") || self.is_contextual_at(next, "VOLATILE") {
+            next += 1;
+            if self.is_unqualified_var_decl_start_at(next) {
+                // In "Own item  item.field=...", Own is the type and the
+                // dotted name starts the following statement.
+                if self.is_contextual_at(pos, "OWN")
+                    && self.type_ref_end_at(next).is_some_and(|name| {
+                        matches!(self.tokens.get(name).map(|t| &t.kind), Some(TokenKind::Ident(_)))
+                            && self.tokens.get(name + 1).is_some_and(|t| t.kind == TokenKind::Dot)
+                    })
+                {
+                    return false;
+                }
+                return true;
+            }
+        }
+        false
     }
 
     fn is_unqualified_var_decl_start_at(&self, pos: usize) -> bool {

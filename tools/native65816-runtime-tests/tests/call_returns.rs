@@ -446,3 +446,16 @@ fn forwarded_result_cleanup_survives_irq_and_nmi_at_each_instruction() {
         }
     }
 }
+
+#[test]
+fn own_locals_persist_across_native_calls() {
+    for optimize in [false, true] {
+        let image = compile(
+            include_str!("../../../fixtures/native/own_locals.act"),
+            optimize,
+        );
+        let mut h = Harness::new(&image, &caller(image.entry), 0);
+        h.run();
+        assert_eq!(h.global(&image, "result", 1), 21);
+    }
+}

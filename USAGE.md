@@ -53,6 +53,24 @@ backend settings:
 `--mode=<mode>` is also accepted. A mode cannot be combined with explicit
 `--profile` or `--backend` options.
 
+## Persistent routine locals
+
+Use `OWN` on a routine-local declaration when calls should share one object.
+Its initializer takes effect once. The following function returns 1 on its
+first call, 2 on its second, and so on until the byte wraps.
+
+```action
+BYTE FUNC NextCount()
+  OWN BYTE count=[0]
+  count==+1
+RETURN(count)
+```
+
+On classic Atari, existing source can omit `OWN`. The compiler preserves
+values that a later call can read, including on paths that skip an assignment.
+On native 65816 and 68k, ordinary locals belong to each invocation. Use
+`OWN` to share a local across calls, including recursive calls.
+
 ## Common Commands
 
 Generate an Atari load-format object file and a source listing in one

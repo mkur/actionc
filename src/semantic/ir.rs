@@ -254,6 +254,7 @@ pub struct SemDeclaration {
 pub enum SemDeclarationPurpose {
     #[default]
     Storage,
+    Own,
     ArgumentCapture,
     PatternBinding,
 }
@@ -1632,7 +1633,8 @@ impl SemIrFormatter {
 
     fn declaration(&mut self, decl: &SemDeclaration) {
         self.line(format!(
-            "decl{}{} {} {} {}",
+            "decl{}{}{} {} {} {}",
+            if decl.purpose == SemDeclarationPurpose::Own { " own" } else { "" },
             if decl.symbol.is_volatile {
                 " volatile"
             } else {
@@ -2992,7 +2994,7 @@ impl<'a> IrBuilder<'a> {
                     self.ordinary_value_symbols.insert(symbol.id);
                 }
                 Some(SemDeclaration {
-                    purpose: crate::semantic::ir::SemDeclarationPurpose::Storage,
+                    purpose: if decl.qualifiers.is_own { SemDeclarationPurpose::Own } else { SemDeclarationPurpose::Storage },
                     ty,
                     symbol,
                     storage,

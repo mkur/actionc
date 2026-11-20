@@ -57,6 +57,7 @@ fn recursive_native_fixtures_execute_with_invocation_local_homes() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     for (file, symbol, expected, budget) in [
         ("recursive_scalar.act", "result", 21, 10000),
+        ("own_locals.act", "result", 21, 10000),
         ("recursive_permutation.act", "permutations", 720, 500000),
         ("recursive_queens.act", "solutions", 92, 10000000),
     ] {

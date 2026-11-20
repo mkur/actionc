@@ -1518,3 +1518,113 @@ fn native_acceptance_corpus_proves_recursive_activation_contracts() {
         }
     }
 }
+
+#[test]
+fn explicit_own_locals_and_inferred_entry_reads_are_independent() {
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Native,
+        TargetId::Wdc65816Small,
+        TargetId::Motorola68000,
+    ] {
+        let p = fixture_for_target(Path::new("fixtures/native/own_locals.act"), target);
+        let step = p
+            .routines
+            .iter()
+            .find(|r| r.name == "AdvanceCount")
+            .unwrap();
+        for name in ["count", "delta"] {
+            let l = step.locals.iter().find(|l| l.name == name).unwrap();
+            assert_eq!(l.purpose, NirLocalPurpose::Own);
+            assert_eq!(l.duration, NirStorageDuration::RoutineStatic);
+        }
+        let facts = nir::analyze_program_storage(&p);
+        let step = facts.routine("AdvanceCount").unwrap();
+        for name in ["count", "delta"] {
+            assert_eq!(
+                step.storage_by_name(name)
+                    .unwrap()
+                    .may_read_previous_call_value(),
+                Some(true)
+            );
+        }
+        assert_eq!(
+            step.storage_by_name("next")
+                .unwrap()
+                .may_read_previous_call_value(),
+            Some(false)
+        );
+        let p = nir::optimize_program(&p).unwrap();
+        match target {
+            TargetId::Atari6502 => {
+                mir6502::generate_output(&p, 0x3000).unwrap();
+            }
+            TargetId::Motorola68000 => {
+                mir68k::lower_program(&p).unwrap();
+            }
+            _ => {
+                mir65816::lower_program(&p).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn legacy_swapscr_infers_cross_call_state_without_own() {
+    let source = "PROC SwapScr(BYTE reset) BYTE firstTime=[1], scrnum=[0] CARD buffer, cursor
+      IF firstTime THEN buffer=42 firstTime=0 ELSEIF scrnum=0 OR reset THEN
+        scrnum==!1 cursor=buffer cursor==+1 buffer=cursor FI RETURN";
+    let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
+    for target in [
+        TargetId::Atari6502,
+        TargetId::Wdc65816Native,
+        TargetId::Motorola68000,
+    ] {
+        let model =
+            analyze_with_options(&ast, SemanticOptions::modern().with_target(target)).unwrap();
+        let program = nir::lower_program(&ir::lower_program(&ast, &model));
+        let analysis = nir::analyze_program_storage(&program);
+        let facts = analysis.routine("SwapScr").unwrap();
+        for (name, incoming) in [
+            ("firstTime", true),
+            ("scrnum", true),
+            ("buffer", true),
+            ("cursor", false),
+        ] {
+            let expected = target == TargetId::Atari6502 && incoming;
+            assert_eq!(
+                facts
+                    .storage_by_name(name)
+                    .unwrap()
+                    .may_read_previous_call_value(),
+                Some(expected),
+                "{target:?} {name}"
+            );
+        }
+    }
+}
+
+#[test]
+fn own_is_contextual_and_scoped_to_local_declarations() {
+    let analyze = |source: &str| {
+        let ast = actionc::parser::parse(&actionc::lexer::tokenize(source).unwrap()).unwrap();
+        analyze_with_options(&ast, SemanticOptions::modern())
+    };
+    analyze("PROC Main() BYTE own own=1 RETURN").unwrap();
+    analyze("TYPE Own=[BYTE value] PROC Main() Own item item.value=1 RETURN").unwrap();
+    for source in [
+        "OWN BYTE v PROC Main() RETURN",
+        "PROC Main(OWN BYTE v) RETURN",
+        "TYPE R=[OWN BYTE v] PROC Main() RETURN",
+    ] {
+        let errors = analyze(source)
+            .err()
+            .unwrap_or_else(|| panic!("accepted {source}"));
+        assert!(
+            errors.iter().any(|d| d
+                .message
+                .contains("OWN requires a routine-local declaration")),
+            "{source}: {errors:?}"
+        );
+    }
+}

@@ -115,12 +115,11 @@ matching.
 
 ### Persistent native state
 
-The first native milestone requires persistent state to be declared at module
-or global scope. It does not add local `STATIC` syntax in the same migration.
-If real programs show that scoped persistent state is necessary, add a
-contextual `STATIC` storage modifier in a separate language-design slice. NIR
-must nevertheless use an explicit per-local storage-duration field now so that
-such a feature will not require another IR redesign.
+Native routines can declare scoped persistent state with `OWN`. Every call
+shares its storage and its initializer takes effect once. An ordinary native
+local retains invocation lifetime, including on paths that read it before
+assignment. Classic Atari retains the original Action! lifetime for unmarked
+locals. Its allocator can reuse a home when no later call depends on its value.
 
 ### Initialization distinctions
 

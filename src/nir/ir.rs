@@ -498,6 +498,8 @@ pub struct NirLocal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NirLocalPurpose {
     Storage,
+    /// Source-declared persistent routine local.
+    Own,
     /// Ordered scalar call preparation. This is provenance, not a no-alias fact.
     ArgumentCapture,
     /// Immutable scalar pattern value initialized on entry to its matched arm.

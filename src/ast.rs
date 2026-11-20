@@ -266,6 +266,7 @@ pub struct VarDecl {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct VarQualifiers {
     pub is_volatile: bool,
+    pub is_own: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

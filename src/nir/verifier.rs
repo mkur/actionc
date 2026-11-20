@@ -594,12 +594,26 @@ impl NirVerifier {
                 ));
             }
             let expected_duration = match local.backing {
+                NirLocalBacking::GlobalAlias { .. }
+                    if local.purpose == NirLocalPurpose::Own
+                        && local.duration == NirStorageDuration::RoutineStatic =>
+                {
+                    Some(NirStorageDuration::RoutineStatic)
+                }
                 NirLocalBacking::Ordinary => Some(activation_duration),
                 NirLocalBacking::Absolute(_) | NirLocalBacking::GlobalAlias { .. } => {
                     Some(NirStorageDuration::External)
                 }
                 NirLocalBacking::Alias { .. } => None,
             };
+            if local.purpose == NirLocalPurpose::Own
+                && local.duration == NirStorageDuration::Automatic
+            {
+                self.diagnostics.push(NirDiagnostic::routine(
+                    &routine.name,
+                    format!("OWN local `{}` cannot use automatic storage", local.name),
+                ));
+            }
             if expected_duration.is_some_and(|duration| local.duration != duration) {
                 self.diagnostics.push(NirDiagnostic::routine(
                     &routine.name,

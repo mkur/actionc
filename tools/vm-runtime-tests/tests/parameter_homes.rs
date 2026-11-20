@@ -248,3 +248,35 @@ fn scalar_pairs_preserve_carries_loops_and_uncaptured_a3() {
         }
     }
 }
+
+#[test]
+fn explicit_and_inferred_own_values_survive_repeated_calls() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    #[allow(dead_code)]
+    #[path = "support/tn_symbols.rs"]
+    mod symbols;
+    let source = include_str!("../../../fixtures/native/own_locals.act");
+    for source in [source.to_owned(), source.replace("OWN ", "")] {
+        let file = support::Source::new(&source);
+        for (mode, runtime) in [
+            (CompileMode::Compatibility, Runtime::ActionCart),
+            (CompileMode::Optimized, Runtime::Standalone),
+            (CompileMode::Mir6502, Runtime::ActionCart),
+            (CompileMode::Mir6502, Runtime::Standalone),
+        ] {
+            let compiled = compile_file(
+                &file.0,
+                &CompileOptions::for_mode(mode).with_runtime(runtime),
+            )
+            .unwrap();
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, compiled.object_bytes())
+                .unwrap();
+            let entry = symbols::routine_address(&compiled.source_listing(), "AdvanceCount");
+            for (argument, expected) in [(1, 5), (0, 7), (0, 9)] {
+                vm = machine::call(vm, &mut Observe, entry, &[argument]);
+                assert_eq!(vm.cpu().registers().a, expected, "{mode:?} {runtime:?}");
+            }
+        }
+    }
+}

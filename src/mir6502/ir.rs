@@ -624,6 +624,7 @@ pub struct MirStorageSlot {
 pub enum MirStoragePurpose {
     #[default]
     Storage,
+    Own,
     ArgumentCapture,
     PatternBinding,
     AggregateCapture,

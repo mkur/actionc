@@ -4344,6 +4344,12 @@ impl Analyzer {
     }
 
     fn validate_predeclared_var(&mut self, scope: ScopeId, declaration: &VarDecl) {
+        if declaration.qualifiers.is_own {
+            self.diagnostics.push(Diagnostic::new(
+                declaration.span,
+                "OWN requires a routine-local declaration",
+            ));
+        }
         self.validate_type_ref(scope, &declaration.ty, declaration.span);
         let ty = self.value_type_from_type_ref(scope, &declaration.ty);
         self.validate_variant_storage(&ty, declaration);
@@ -4646,6 +4652,12 @@ impl Analyzer {
     }
 
     fn validate_record_field_decl(&mut self, scope: ScopeId, field: &VarDecl) {
+        if field.qualifiers.is_own {
+            self.diagnostics.push(Diagnostic::new(
+                field.span,
+                "OWN requires a routine-local declaration",
+            ));
+        }
         self.validate_type_ref(scope, &field.ty, field.span);
         if field.qualifiers.is_volatile {
             self.diagnostics.push(Diagnostic::new(
@@ -4744,6 +4756,14 @@ impl Analyzer {
     }
 
     fn analyze_var_decl(&mut self, scope: ScopeId, decl: &VarDecl, is_param: bool) {
+        if decl.qualifiers.is_own
+            && (is_param || !matches!(self.symbols.scopes[scope.0].kind, ScopeKind::Routine | ScopeKind::LexicalBlock))
+        {
+            self.diagnostics.push(Diagnostic::new(
+                decl.span,
+                "OWN requires a routine-local declaration",
+            ));
+        }
         self.validate_type_ref(scope, &decl.ty, decl.span);
         let resolved_ty = self.value_type_from_type_ref(scope, &decl.ty);
         if !resolved_ty.pointer && !self.ensure_named_record_layout(&resolved_ty, decl.span) { return; }

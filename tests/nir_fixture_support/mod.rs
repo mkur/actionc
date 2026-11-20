@@ -457,6 +457,7 @@ pub enum NirFeature {
     DataAddressTargetRoutine,
     DataAddressTargetAbsolute,
     LocalPurposeStorage,
+    LocalPurposeOwn,
     LocalPurposeAggregateBacking,
     LocalPurposeRealTemporary,
     LocalPurposeAggregateCapture,
@@ -729,6 +730,7 @@ pub fn collect_features(program: &NirProgram) -> BTreeSet<NirFeature> {
         for local in &routine.locals {
             features.insert(match local.purpose {
                 NirLocalPurpose::Storage => NirFeature::LocalPurposeStorage,
+                NirLocalPurpose::Own => NirFeature::LocalPurposeOwn,
                 NirLocalPurpose::AggregateBacking { .. } => {
                     NirFeature::LocalPurposeAggregateBacking
                 }

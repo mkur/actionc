@@ -139,6 +139,8 @@ pub(in crate::mir6502::parameter_homes) fn allocate(
                 .compiler_controls_address(routine.id, &MirMem::Local { id, offset: 0 })
             {
                 Some("source owns the cell address")
+            } else if slot.purpose == MirStoragePurpose::Own {
+                Some("OWN requires persistent storage")
             } else if slot.init.is_some() {
                 Some("initial contents require persistent storage")
             } else if !super::super::locals::eligible(addresses, routine, slot) {

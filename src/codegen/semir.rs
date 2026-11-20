@@ -482,6 +482,7 @@ impl SemIrAstLowerer<'_> {
         Some(Decl::Var(VarDecl {
             visibility: Visibility::Private,
             qualifiers: VarQualifiers {
+                is_own: first.purpose == crate::semantic::ir::SemDeclarationPurpose::Own,
                 is_volatile: decls.iter().any(|decl| decl.symbol.is_volatile),
             },
             ty: self.type_ref(&first.ty.value),

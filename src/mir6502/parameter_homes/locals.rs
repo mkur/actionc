@@ -6,14 +6,14 @@ use crate::nir::LocalId;
 mod tests;
 
 pub(super) fn eligible(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
-    slot.init.is_none() && ordinary(addresses, routine, slot)
+    slot.purpose != MirStoragePurpose::Own && slot.init.is_none() && ordinary(addresses, routine, slot)
 }
 
 pub(super) fn ordinary(addresses: &ObjectAddressControl<'_>, routine: &MirRoutine, slot: &MirStorageSlot) -> bool {
     let MirStorageBase::Local(id) = slot.base else {
         return false;
     };
-    slot.purpose == MirStoragePurpose::Storage
+    matches!(slot.purpose, MirStoragePurpose::Storage | MirStoragePurpose::Own)
         && slot.storage == MirStorageClass::Scalar
         && slot.offset == 0
         && matches!(
@@ -60,7 +60,7 @@ pub(super) fn verify_bindings(routine: &MirRoutine) -> Vec<MirDiagnostic> {
             continue;
         };
         if slot.offset != 0
-            || (slot.init.is_some() && !matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
+            || ((slot.init.is_some() || slot.purpose == MirStoragePurpose::Own) && !matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
             || slot.storage != MirStorageClass::Scalar
             || !matches!(
                 (slot.scalar_width, slot.storage_size),
@@ -123,7 +123,7 @@ pub(super) fn verify_storage_with_address_control(program: &MirProgram, routine:
         if !matches!(routine.abi, MirRoutineAbi::Action | MirRoutineAbi::ProgramEntry)
             || !routine.frame.locals.iter().any(|s| {
                 s.base == MirStorageBase::Local(binding.local) && ordinary(addresses, routine, s)
-                    && (s.init.is_none() || matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
+                    && ((s.init.is_none() && s.purpose != MirStoragePurpose::Own) || matches!(binding.home, MirLocalHome::PersistentZeroPage(_)))
             })
         {
             errors.push(MirDiagnostic::routine(

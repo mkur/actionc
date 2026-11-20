@@ -205,7 +205,7 @@ pub(super) fn propose(
             if !r.frame.inline_local(id)
                 || !locals::ordinary(addresses, r, s)
                 || seed(s).is_none()
-                || (s.init.is_none() && !entry.contains(&id))
+                || (s.purpose != MirStoragePurpose::Own && s.init.is_none() && !entry.contains(&id))
             {
                 continue;
             }

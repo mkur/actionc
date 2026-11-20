@@ -29,7 +29,7 @@ fn enabled(slot: &MirStorageSlot, config: &Mir6502Config) -> bool {
     match slot.purpose {
         MirStoragePurpose::ArgumentCapture => config.enable_argument_capture_forwarding,
         MirStoragePurpose::PatternBinding => config.enable_pattern_binding_forwarding,
-        MirStoragePurpose::Storage | MirStoragePurpose::AggregateCapture => false,
+        MirStoragePurpose::Storage | MirStoragePurpose::Own | MirStoragePurpose::AggregateCapture => false,
     }
 }
 

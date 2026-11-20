@@ -1,0 +1,32 @@
+BYTE result
+BYTE FUNC AdvanceCount(BYTE reset)
+  OWN BYTE count=[3]
+  OWN BYTE delta
+  BYTE next
+  IF reset THEN delta=2 FI
+  next=count+delta
+  count=next
+RETURN(next)
+
+BYTE FUNC BumpTable()
+  OWN BYTE ARRAY table(2)=[3 4]
+  OWN BYTE increment=[1]
+  OWN BYTE POINTER amount=[@increment]
+  table(1)==+amount^
+RETURN(table(1))
+
+BYTE FUNC SharedDepth(BYTE depth)
+  OWN BYTE visits=[0]
+  visits==+1
+  IF depth THEN
+    IF SharedDepth(depth-1)=0 THEN RETURN(0) FI
+  FI
+RETURN(visits)
+
+PROC Main()
+  result=AdvanceCount(1)
+  result=AdvanceCount(0)
+  result==+BumpTable()
+  result==+BumpTable()
+  result==+SharedDepth(2)
+RETURN

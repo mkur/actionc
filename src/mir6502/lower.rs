@@ -816,6 +816,7 @@ pub(super) fn lower_program(input: VerifiedNir<'_>) -> Result<MirProgram, Vec<Mi
                             );
                             MirStorageSlot {
                                 purpose: match local.purpose {
+                                    NirLocalPurpose::Own => MirStoragePurpose::Own,
                                     NirLocalPurpose::ArgumentCapture => MirStoragePurpose::ArgumentCapture,
                                     NirLocalPurpose::PatternBinding => MirStoragePurpose::PatternBinding,
                                     NirLocalPurpose::AggregateCapture => MirStoragePurpose::AggregateCapture,

@@ -491,6 +491,21 @@ automatic backing `LocalId`; their descriptor receives that invocation's
 backing address on every entry. Uninitialized automatic objects carry neither
 a load-time image nor implicit zeroing.
 
+SemIR records an explicit `OWN` declaration. Its NIR local carries
+`NirLocalPurpose::Own`. An ordinary object declared this way has
+`RoutineStatic` duration on every target. On reentrant targets its scoped
+`LocalId` aliases private program data, which holds the initializer and any
+array backing. A load-time image cannot point into an automatic activation.
+
+`NirStorageFacts::may_read_previous_call_value` describes an observable
+dependency independently of the declaration. A reachable read before a
+definite write can observe the incoming value of a routine-static local.
+An invocation-local object has a fresh identity on each call. Address exposure,
+partial accesses and aliases can leave the answer unknown. Code that reuses
+storage must preserve the value in that case. On classic Atari this protects
+unmarked legacy locals. MIR6502 also checks liveness of individual bytes when
+choosing between shared ZP, dedicated ZP and inline storage.
+
 For native ABIs, indexing or decaying an initialized descriptor-backed array loads its element pointer
 explicitly. Native automatic arrays already resolve to their distinct backing
 `LocalId`, so those accesses form a backing address directly. Named record
