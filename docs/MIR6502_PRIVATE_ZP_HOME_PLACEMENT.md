@@ -103,9 +103,10 @@ whole-image cost check and rollback. [Placement and replay](MIR6502_UNEXPOSED_OB
 
 The [spill placement implementation plan](MIR6502_LIFETIME_AWARE_SPILL_PLACEMENT_IMPLEMENTATION_PLAN.md) covers cross-routine reuse first, followed by sharing within a frame and TN qualification.
 
-The early block-local allocator can also see several successive values in one
-colored spill. Mandelbrot exercises the case where each value dies before a call
-and a fresh store follows the call. [Block-local spill implementation plan](MIR6502_BLOCK_LOCAL_SPILL_CALL_LIVENESS_PLAN.md)
+The early block-local allocator can put a compiler-owned byte in ZP when each
+value held there dies before an intervening call and the call does not read
+the byte. A definite store can start a new lifetime in the same slot after
+the call. [Implementation plan](MIR6502_BLOCK_LOCAL_SPILL_CALL_LIVENESS_PLAN.md) · [Measured results](benchmarks/6502-block-local-spill-calls/README.md)
 
 ## TN examples
 

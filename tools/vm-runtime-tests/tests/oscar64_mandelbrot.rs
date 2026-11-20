@@ -455,6 +455,56 @@ fn oscar64_mandelbrot_full_atari_image_matches_integer_oracle() {
     render(CompileMode::Mir6502, Runtime::Standalone, true);
 }
 
+#[test]
+#[ignore = "qualification of the uninstrumented MIR6502 image on both runtimes"]
+fn time_unmodified_mandelbrot_through_last_row() {
+    #[allow(dead_code)]
+    #[path = "support/tn_symbols.rs"]
+    mod symbols;
+
+    let rows: Vec<u8> = (0..192).collect();
+    let expected = bitmap(&rows);
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let compiled = compile_file(
+            project().join("mbfixed.act"),
+            &CompileOptions::for_mode(CompileMode::Mir6502)
+                .with_runtime(runtime)
+                .with_module_path(project())
+                .with_origin(0x3000),
+        ).unwrap();
+        let row = symbols::routine_address(&compiled.source_listing(), "MANDELBROT_ATARI.DrawRow");
+        let mut vm = vm_for(compiled.object_bytes(), runtime, true);
+        let mut rows_seen = 0usize;
+        let mut stop = None;
+        loop {
+            let regs = vm.cpu().registers();
+            if Some(regs.pc) == stop {
+                break;
+            }
+            if regs.pc == row {
+                assert_eq!(usize::from(regs.a), rows_seen);
+                rows_seen += 1;
+                if rows_seen == rows.len() {
+                    // JSR pushes the address of its final operand. RTS adds one.
+                    let stack = |offset| vm.bus().ram().read(0x100 + u16::from(regs.sp.wrapping_add(offset)));
+                    stop = Some(u16::from_le_bytes([stack(1), stack(2)]).wrapping_add(1));
+                }
+            }
+            vm.step_cpu().unwrap();
+            assert!(vm.cpu().cycles() < 2_000_000_000);
+        }
+        for &y in &rows {
+            for x in 0..160u16 {
+                let packed = expected[usize::from(y) * 40 + usize::from(x / 4)];
+                let pixel = (packed >> (6 - 2 * (x % 4))) & 3;
+                assert_eq!(vm.bus().graphics_pixel(x, y), pixel, "{runtime:?} ({x},{y})");
+            }
+        }
+        println!("{runtime:?} {} XEX bytes, {} frame cycles",
+            compiled.object_bytes().len(), vm.cpu().cycles());
+    }
+}
+
 fn vbxe_source(full: bool) -> (Source, Vec<u8>) {
     const SAMPLE: &str = include_str!("../../../samples/graphics/mandelbrot/mbfixed-vbxe.act");
     // Multiline instrumentation must also match Windows CRLF checkouts.

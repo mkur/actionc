@@ -1,8 +1,8 @@
 # MIR6502 block-local spill placement at calls
 
-Use the value live at each call to decide whether a private byte spill can use zero page. In Mandelbrot's `Iterate`, two spill bytes carry the calculation of `nextX`. Their last reads deliver `nextX` before `MulFloor`. After the call, fresh stores reuse both bytes for its result. A third spill is reused around the two squares. The early allocator currently sees calls between the first and last accesses to all three spill IDs and rejects them. All three values are dead at those calls and at block exit. The later allocator handles spills that are live at a block exit. [Mandelbrot kernel](../samples/graphics/mandelbrot/fractal/mandelbrot.act#L40) · [Early call check](../src/mir6502/materialize/spills.rs#L1896) · [Later spill selection](../src/mir6502/parameter_homes/spills.rs#L85)
+Use the value live at each call to decide whether a private byte spill can use zero page. In Mandelbrot's `Iterate`, two spill bytes carry the calculation of `nextX`. Their last reads deliver `nextX` before `MulFloor`. After the call, fresh stores reuse both bytes for its result. A third spill is reused around the two squares. Before this change the early allocator saw calls between the first and last accesses to all three spill IDs and rejected them. All three values are dead at those calls and at block exit. The later allocator handles spills that are live at a block exit. [Mandelbrot kernel](../samples/graphics/mandelbrot/fractal/mandelbrot.act#L40) · [Early call check](../src/mir6502/materialize/spills.rs#L1913) · [Later spill selection](../src/mir6502/parameter_homes/spills.rs#L85)
 
-Land the fix in three independently checked commits.
+The three slices are complete. The compiler-wide measurements include the cartridge size trade-off. [Qualification report](benchmarks/6502-block-local-spill-calls/README.md)
 
 ## 1. Fix the early placement decision
 
