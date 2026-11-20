@@ -20,10 +20,35 @@ fn nir(text: &str) -> actionc::nir::NirProgram {
     actionc::nir::optimize_program(&actionc::nir::lower_program(&actionc::semantic::ir::lower_compilation(&loaded, &model))).unwrap()
 }
 fn config() -> Mir6502Config { Mir6502Config { enable_small_leaf_inlining:false,..Mir6502Config::optimized() } }
-fn assert_zp(output: &actionc::codegen::CodegenOutput, routine: &str, name: &str) {
-    assert!(output.map.storage_symbols.iter().any(|s| matches!(&s.scope,
-        actionc::codegen::CodegenSymbolScope::Routine(r) if r==routine) && s.name==name && s.address<256),
-        "missing {routine}.{name} ZP home: {:?}",output.map.storage_symbols);
+fn assert_zp(output: &actionc::codegen::CodegenOutput, routine: &str, name: &str) -> u16 {
+    output.map.storage_symbols.iter().find(|s| matches!(&s.scope,
+        actionc::codegen::CodegenSymbolScope::Routine(r) if r==routine) && s.name==name && s.address<256)
+        .unwrap_or_else(|| panic!("missing {routine}.{name} ZP home: {:?}", output.map.storage_symbols)).address
+}
+
+#[test]
+fn fixed_indexed_color_store_uses_disjoint_leaf_homes_in_both_runtimes() {
+    let n = nir("PROC Paint(BYTE n,hue,lum)
+        BYTE ARRAY colors(4)=$02C0
+        n==&3 colors(n)=(hue LSH 4) % (lum & $0F) RETURN
+        PROC Observe() [ $AD $A0 $00 $85 $A1 ] RETURN
+        PROC Main() Paint(0,1,2) Observe() RETURN");
+    // Exercise leaf selection on its own. The machine routine observes $A0 and $A1.
+    let config = Mir6502Config { enable_cross_call_home_selection: false, ..config() };
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&n, 0x3000, &config, runtime).unwrap();
+        for name in ["n", "hue", "lum"] {
+            assert!(![0xa0, 0xa1].contains(&assert_zp(&output, "Paint", name)));
+        }
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Paint").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        vm.bus_mut().ram_mut().map(0x02bf, &[0x5a; 6]).unwrap();
+        for (n, hue, lum) in [(0, 1, 0x12), (5, 5, 4), (0xfe, 9, 6), (0xff, 0xfd, 8)] {
+            vm = machine::call(vm, &mut Observe, entry, &[n, hue, lum]);
+        }
+        assert_eq!(machine::bytes(&vm, 0x02bf, 6), [0x5a, 0x12, 0x54, 0x96, 0xd8, 0x5a]);
+    }
 }
 
 #[test]

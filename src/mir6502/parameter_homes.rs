@@ -89,7 +89,8 @@ pub(super) fn select_output(
 
 fn propose(input: &MirProgram, selected: &MirProgram, mixed: bool, origin: u16) -> Option<MirProgram> {
     let addresses = ObjectAddressControl::for_home_placement(input);
-    let observations = physical::observations_complete(input);
+    let observations = std::cell::LazyCell::new(|| physical::observed_zero_page(input));
+    let empty = BTreeSet::new();
     let mut proposal = input.clone();
     let mut changed = false;
     let layout = std::cell::LazyCell::new(|| super::materialize::MaterializeLayout::new(input, origin));
@@ -97,14 +98,15 @@ fn propose(input: &MirProgram, selected: &MirProgram, mixed: bool, origin: u16) 
         let admitted = admission::check(&addresses, routine, false, mixed, Some(selected)).is_ok()
             || super::materialize::arithmetic_homes::reduced_constants(routine, &layout)
                 .is_some_and(|view| admission::check(&addresses, &view, false, mixed, Some(selected)).is_ok());
-        if !admitted
-            || (!observations && physical::has_pointee_writes(input, routine)) {
-            continue;
-        }
+        if !admitted { continue; }
+        let forbidden = if physical::has_pointee_writes(input, routine) {
+            let Ok(bytes) = &*observations else { continue };
+            bytes
+        } else { &empty };
         if let Some(bindings) =
             routine.frame.params.iter().all(|p| eligible_parameter(&addresses, routine, p))
                 .then(|| register_bindings(routine)).flatten()
-                .or_else(|| zero_page::bindings(input, routine, &addresses))
+                .or_else(|| zero_page::bindings(input, routine, &addresses, forbidden))
         {
             install_bindings(routine, bindings);
             changed = true;
@@ -648,7 +650,7 @@ mod tests {
             backing: MirGlobalBacking::Absolute(0xa0),
             init: None,
         });
-        assert!(zero_page::bindings(&p, &p.routines[0], &ObjectAddressControl::new(&p)).is_none());
+        assert!(zero_page::bindings(&p, &p.routines[0], &ObjectAddressControl::new(&p), &BTreeSet::new()).is_none());
     }
 
     #[test]

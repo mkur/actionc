@@ -39,15 +39,8 @@ pub(super) fn propose_configured(
     let lifetimes = config.enable_zp_home_lifetimes;
     let acyclic = config.acyclic_call_homes_enabled();
     let addresses = ObjectAddressControl::for_home_placement(input);
-    let unresolved_observation = physical::unresolved_observation(input);
-    // Layout-independent numeric observations are already authoritative. Avoid
-    // known conflicts before the one combined trial; symbolic/old-home overlaps
-    // still require final-layout verification and exact rollback.
-    let observed_zp: BTreeSet<u8> = if lifetimes {
-        let observations = physical::numeric_observations(input, None).unwrap_or_default();
-        (0..=255u16).filter(|byte| observations.iter().any(|(start, bytes)|
-            byte.wrapping_sub(*start) < *bytes)).map(|b| b as u8).collect()
-    } else { BTreeSet::new() };
+    let observations = std::cell::LazyCell::new(|| physical::observed_zero_page(input));
+    let empty = BTreeSet::new();
     // Bindings and source exposure belong to the retained input. Only call
     // enumeration and site-based analyses use the expanded planning routine.
     let mut views = BTreeMap::new();
@@ -87,13 +80,6 @@ pub(super) fn propose_configured(
                 }
                 return None;
             }
-            if unresolved_observation.is_some() && physical::has_pointee_writes(input, retained) {
-                trace.event("cross-call-ineligible", || serde_json::json!({
-                    "routine": routine.name, "reason": "unresolved explicit observation",
-                    "observation": unresolved_observation,
-                }));
-                return None;
-            }
             let calls: Vec<_> = routine
                 .blocks
                 .iter()
@@ -102,8 +88,21 @@ pub(super) fn propose_configured(
                 }))
                 .collect();
             let default_leaf = acyclic && lifetimes && calls.is_empty();
-            (default_leaf || (!calls.is_empty() && (multiple || calls.len() == 1)))
-                .then_some((index, routine, calls))
+            if !default_leaf && (calls.is_empty() || (!multiple && calls.len() != 1)) { return None; }
+            let observed_zp = if physical::has_pointee_writes(input, retained) {
+                match &*observations {
+                    Ok(bytes) if lifetimes => bytes,
+                    Ok(_) => &empty,
+                    Err(observation) => {
+                        trace.event("cross-call-ineligible", || serde_json::json!({
+                            "routine": routine.name, "reason": "unresolved explicit observation",
+                            "observation": observation,
+                        }));
+                        return None;
+                    }
+                }
+            } else { &empty };
+            Some((index, routine, calls, observed_zp))
         })
         .collect();
     if candidates.is_empty() {
@@ -113,7 +112,7 @@ pub(super) fn propose_configured(
     }
     let chains = acyclic.then(|| chains::CallChains::new(input, selected));
     let order = chains.as_ref().map(|c| c.order.clone())
-        .unwrap_or_else(|| candidates.iter().map(|(_, r, _)| r.id).collect());
+        .unwrap_or_else(|| candidates.iter().map(|(_, r, _, _)| r.id).collect());
     let mut candidates: BTreeMap<_, _> = candidates.into_iter().map(|c| (c.1.id, c)).collect();
     let mut planned = BTreeMap::new();
     let mut facts = if acyclic { ResidenceCalls::at_origin(selected, MirCalleeEntryStage::ActualEntry, origin) }
@@ -123,7 +122,7 @@ pub(super) fn propose_configured(
     'caller: for id in order {
         // Propagate through inline/otherwise ineligible middle routines too.
         if let Some(chains) = &chains { planned.insert(id, chains.inherited(id, &planned)); }
-        let Some((index, routine, calls)) = candidates.remove(&id) else { continue; };
+        let Some((index, routine, calls, observed_zp)) = candidates.remove(&id) else { continue; };
         let logical = if lifetimes {
             let Some(logical) = logical::LogicalHomes::new(routine) else { continue; };
             Some(logical)
@@ -192,12 +191,9 @@ pub(super) fn propose_configured(
         let retained = &input.routines[index];
         let Some(actual) = selected.routines.iter().find(|r| r.id == id) else { continue };
         let expanded = std::cell::LazyCell::new(|| expanded::ExpandedConflicts::new(actual, &mut facts));
-        let observes_pointees = physical::has_pointee_writes(input, retained);
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
-            let mut forbidden = if observes_pointees {
-                observed_zp.clone()
-            } else { BTreeSet::new() };
+            let mut forbidden = observed_zp.clone();
             forbidden.extend(&fixed_inputs);
             if let Some(plan) = views.get(&id) {
                 forbidden.extend(&plan.setup_writes);

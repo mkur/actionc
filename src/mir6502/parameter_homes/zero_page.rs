@@ -4,12 +4,13 @@ use super::*;
 mod contenders;
 pub(super) use contenders::allocate;
 
-pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine, addresses: &ObjectAddressControl<'_>) -> Option<Vec<MirParamBinding>> {
+pub(super) fn bindings(program: &MirProgram, routine: &MirRoutine, addresses: &ObjectAddressControl<'_>,
+    forbidden: &BTreeSet<u8>) -> Option<Vec<MirParamBinding>> {
     // A single read-only byte already has the optimal legacy forwarding path.
     if routine.frame.params.len() == 1 && routine.frame.params[0].storage_size == 1 {
         return None;
     }
-    bindings_avoiding(program, routine, &|_, _| Some(BTreeSet::new()), addresses)
+    bindings_avoiding(program, routine, &|_, _| Some(forbidden.clone()), addresses)
 }
 
 pub(super) fn bindings_avoiding(

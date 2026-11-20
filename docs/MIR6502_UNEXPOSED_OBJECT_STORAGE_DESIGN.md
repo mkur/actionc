@@ -260,6 +260,13 @@ and caller staging must agree with the selected executable. Expanded residence
 verification checks the physical writes against every live sibling.
 See the [parameter-home design](MIR6502_PARAMETER_HOME_SELECTION_DESIGN.md#further-widening-follows-measured-blockers).
 
+For a native absolute-indexed store with a numeric base, the layout proof
+checks both the old and proposed home against every possible destination.
+An eight-bit X or Y index covers offsets 0 through 255, plus any additional
+bytes of the stored value, with addresses wrapping at `$FFFF`. For example,
+`STA $02C0,Y` is disjoint from every ZP home even when Y is unknown. Leaf
+and cross-call selection exclude observed pool bytes before assigning homes.
+
 An array parameter with a verified scalar word ABI lane is a pointer cell and
 may receive a home. This does not promote inline array objects or reinterpret
 array storage that has no scalar lane.

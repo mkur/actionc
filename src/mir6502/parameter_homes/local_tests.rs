@@ -332,6 +332,43 @@ fn object_storage_native_pointees_keep_lifetime_and_physical_obligations() {
 }
 
 #[test]
+fn absolute_indexed_store_checks_the_full_range_against_resident_storage() {
+    let mut input = source("BYTE FUNC Keep(BYTE n) BYTE kept kept=n RETURN(kept)");
+    bind(&mut input, 0, 0xe4);
+    let program = materialize(input);
+    let (_, layout) = emit(&program);
+
+    for (base, width, overlaps) in [
+        (0x02c0, MirWidth::Byte, false),
+        (0x00e4, MirWidth::Byte, true),
+        (0x00e5, MirWidth::Byte, false),
+        (0xffe4, MirWidth::Byte, false),
+        (0xffe4, MirWidth::Word, true),
+    ] {
+        for dst in [
+            MirAddr::AbsoluteIndexedX { base: MirMem::Absolute(base) },
+            MirAddr::AbsoluteIndexedY { base: MirMem::Absolute(base) },
+        ] {
+            let mut candidate = program.clone();
+            let src = if width == MirWidth::Byte { MirValue::ConstU8(7) } else { MirValue::ConstU16(7) };
+            let store = MirOp::Store { dst, src, width };
+            assert!(crate::mir6502::analysis::effects::classify_op(&store).memory.may_write_any);
+            candidate.routines[0].blocks[0].ops.insert(0, store);
+            let errors = super::super::physical::verify(&candidate, &layout.physical_memory);
+            assert_eq!(errors.is_err(), overlaps, "base {base:#06x}, {width:?}: {errors:?}");
+
+            let known = MirKnownCalleeSummaries::analyze_for_source_homes(&candidate, 0x3000);
+            let writes = known.get(candidate.routines[0].id).unwrap().writes();
+            // The routine itself owns $E4. Check the indexed write footprint separately.
+            let crate::mir6502::analysis::known_callees::MirKnownMemoryWrites::Pointee { numeric, .. } = writes else {
+                panic!("missing indexed write footprint: {writes:?}");
+            };
+            assert!(numeric.contains(&(base, 255 + mir6502::abi::action_arg_width_bytes(width))));
+        }
+    }
+}
+
+#[test]
 fn object_storage_admission_keeps_shift_and_helper_boundaries() {
     for op in ["LSH", "RSH"] {
         for count in 0..=9 {

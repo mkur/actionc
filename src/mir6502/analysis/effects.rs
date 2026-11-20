@@ -1473,17 +1473,20 @@ fn record_load_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSu
 }
 
 /// Only the ordinary pointee component can exclude a qualified hidden source
-/// object. The caller must still check all home, pointer-pair and scratch writes.
+/// object. Numeric indexed destinations remain explicit ranges in the callee
+/// summary and in the old and proposed layouts. The caller must still check
+/// all home, pointer-pair and scratch writes.
 /// This classification never narrows the operation's public memory summary.
 pub(in crate::mir6502) fn writes_ordinary_pointee(op: &MirOp) -> bool {
     matches!(op,
         MirOp::Store { dst: MirAddr::Deref { .. } | MirAddr::PointerCell { .. }
             | MirAddr::PointerIndex { .. } | MirAddr::ComputedIndex { .. }
             | MirAddr::IndirectIndexedY { .. } | MirAddr::FixedIndirectIndexedY { .. }, .. }
-        | MirOp::Store { dst: MirAddr::AbsoluteIndexedX { base: MirMem::Global { .. } | MirMem::Static { .. } }
-            | MirAddr::AbsoluteIndexedY { base: MirMem::Global { .. } | MirMem::Static { .. } }, .. }
         | MirOp::StoreIndirect { .. } | MirOp::CopyIndirectWord { .. }
         | MirOp::CopyDirectWordToIndirect { .. })
+        || matches!(op,
+            MirOp::Store { dst: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base }, .. }
+                if matches!(base, MirMem::Absolute(_) | MirMem::Global { .. } | MirMem::Static { .. }))
 }
 
 fn record_store_addr(addr: &MirAddr, width: MirWidth, summary: &mut MirOpEffectSummary) {

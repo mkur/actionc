@@ -38,10 +38,12 @@ pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
     false
 }
 
-/// A known missing obligation rejects discovery, before it can poison the
-/// combined trial. Concrete overlaps still require both authoritative layouts.
-pub(super) fn observations_complete(p: &MirProgram) -> bool {
-    unresolved_observation(p).is_none()
+/// Exclude known numeric observations before choosing homes. Symbolic ranges
+/// and overlaps with the old inline homes still require the final layouts.
+pub(super) fn observed_zero_page(p: &MirProgram) -> Result<BTreeSet<u8>, UnresolvedObservation> {
+    let ranges = numeric_observations(p, None)?;
+    Ok(zero_page::pool_bytes().filter(|&byte| ranges.iter().any(|&(start, bytes)|
+        u16::from(byte).wrapping_sub(start) < bytes)).collect())
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -65,14 +67,6 @@ impl UnresolvedObservation {
             ),
         }]
     }
-}
-
-pub(super) fn unresolved_observation(p: &MirProgram) -> Option<UnresolvedObservation> {
-    p.routines
-        .iter()
-        .any(|r| has_pointee_writes(p, r))
-        .then(|| numeric_observations(p, None).err())
-        .flatten()
 }
 
 fn records<'a>(
