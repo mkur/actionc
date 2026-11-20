@@ -1,6 +1,7 @@
 //! Byte spills spanning CFG edges and ordinary leaf calls. This is part of the
 //! existing placement trial, after core coloring, before late decisions replay.
 use super::*;
+mod interference;
 use crate::mir6502::{
     analysis::{
         cfg::MirCfg,
@@ -50,7 +51,7 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
         let Some(entry) = cfg.entry() else {
             continue;
         };
-        let live = MirHomeLiveness::analyze(r, &cfg);
+        let Some(lifetimes) = interference::FrameLives::new(r, &cfg) else { continue };
         let mut used = super::source_zero_page(program, r);
         used.extend(&reserved);
         used.extend(r.frame.fixed_zero_page.iter().map(|s| s.0));
@@ -100,11 +101,11 @@ pub(in crate::mir6502) fn discover(program: &MirProgram, multiple: bool) -> Vec<
             };
             if ownership.role(r.id, &mem) != StorageRole::Temporary
                 || !remapping::spill_uses_zero_offset_only(r, *spill)
-                || live.live_in(entry).is_none_or(|s| s.contains(home))
+                || lifetimes.temps.live_in(entry).is_none_or(|s| s.contains(home))
                 || !r
                     .blocks
                     .iter()
-                    .any(|b| live.live_out(b.id).is_some_and(|s| s.contains(home)))
+                    .any(|b| lifetimes.temps.live_out(b.id).is_some_and(|s| s.contains(home)))
                 || !byte_accesses_only(r, *spill)
             {
                 continue;

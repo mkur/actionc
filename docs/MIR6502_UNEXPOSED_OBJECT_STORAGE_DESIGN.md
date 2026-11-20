@@ -291,11 +291,14 @@ absence from the source-local binding table must not permanently exclude it
 from ZP. Use `StorageOwnership` to select private byte spills, retaining address
 exposure, source-owned bytes and definite entry initialization as exclusions.
 
-The first slice considers CFG-spanning byte spills in callers of ordinary leaves.
-Each selected byte has an exclusive invocation-long allocation in `$E0..$EF`;
-every call must preserve it. Unknown calls, assembly, helpers, exhausted capacity
-and wider spill accesses remain ineligible. Ordinary pointee stores use the
-existing private-storage boundary, without relaxing physical scratch checks.
+The implemented allocator considers CFG-spanning byte spills in callers of
+ordinary leaves. It excludes named source homes globally and reserves a spill
+byte in `$E0..$EF` throughout its owner's invocation. The proposed lifetime
+rule allows sharing with a named home or another spill after checking every
+reachable use and call that can overlap. Both discovery and the expanded
+verifier must establish that proof. Ordinary pointee stores use the existing
+private-storage boundary and physical scratch checks.
+[Lifetime-aware spill placement](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md#lifetime-aware-spill-placement)
 
 Discover these spills after core materialization and coloring, inside the same
 combined cross-call placement trial. Do not carry spill IDs across core replay.

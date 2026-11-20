@@ -224,3 +224,32 @@ fn multiple_leaf_gate_and_entry_initialization_apply_to_spills() {
     });
     assert!(discover(&p, true).is_empty());
 }
+
+#[test]
+fn spill_interference_tracks_dead_stores_word_lanes_and_loop_calls() {
+    use interference::{Byte, FrameLives};
+    use crate::mir6502::analysis::sites::MirSite;
+    let mut p = program();
+    let h = discover(&p, true).remove(0);
+    let r = p.routines.iter_mut().find(|r| r.id == h.owner).unwrap();
+    let spill = Byte::Home(MirHomeByte::Spill { id: h.spill, offset: 0 });
+    let cfg = MirCfg::from_routine(r).unwrap();
+    let lives = FrameLives::new(r, &cfg).unwrap();
+    assert!(!lives.get(spill).unwrap().across_calls.is_empty());
+
+    // Inject accesses into the loop while the spill survives the call.
+    let site = *lives.get(spill).unwrap().across_calls.first().unwrap();
+    let MirSite::Op { block, op_index } = site else { panic!() };
+    let other = MirZpSlot(900);
+    let b = r.blocks.iter_mut().find(|b| b.id == block).unwrap();
+    b.ops.insert(op_index, MirOp::Store { dst: MirAddr::Direct(MirMem::ZeroPage(other)),
+        src: MirValue::ConstU8(1), width: MirWidth::Word });
+    let lives = FrameLives::new(r, &cfg).unwrap();
+    for offset in [0, 1] {
+        let lane = Byte::Home(MirHomeByte::VirtualZeroPage { slot: other, offset });
+        assert!(lives.get(lane).unwrap().occupied.contains(&site));
+        assert!(!lives.get(lane).unwrap().occupied.is_disjoint(&lives.get(spill).unwrap().occupied));
+        assert!(lives.get(lane).unwrap().across_calls.is_empty());
+    }
+    assert!(lives.get(Byte::Home(MirHomeByte::VirtualZeroPage { slot: other, offset: 2 })).is_none());
+}

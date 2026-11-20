@@ -209,6 +209,22 @@ impl MirHomeLiveness {
         self.evaluations
     }
 
+    /// Walk every instruction once, including its possible paths through the CFG.
+    pub(in crate::mir6502) fn visit_sites(
+        &self,
+        mut visit: impl FnMut(MirSite, &MirHomeTransfer, &MirHomeLiveSet),
+    ) {
+        for (&block, transfers) in &self.transfers {
+            let mut after = self.live_out(block).expect("solved block").clone();
+            visit(MirSite::Terminator { block }, &transfers.terminator, &after);
+            after = transfers.terminator.apply(&after);
+            for (op_index, transfer) in transfers.ops.iter().enumerate().rev() {
+                visit(MirSite::Op { block, op_index }, transfer, &after);
+                after = transfer.apply(&after);
+            }
+        }
+    }
+
     /// Whether a home value is live immediately after `site`.
     pub(in crate::mir6502) fn live_after(
         &self,
