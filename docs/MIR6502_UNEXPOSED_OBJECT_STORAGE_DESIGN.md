@@ -555,7 +555,8 @@ on normal return. Its general memory reads and writes remain unknown.
 For a native caller, intersect the preserved bytes of its opaque callees
 and account for the caller's own stores, argument staging and indirect
 destinations. This decision requires no inspection of the keyboard handler.
-[TN declarations](../samples/tn/modern/LIB.ACT) · [Shared callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
+The proposed write-through contract binds `Range`'s one-byte update to
+`PopUp.c` when the third argument is `@c`. [Write-through contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md#write-through-contracts) · [PopUp placement example](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md#tn-examples) · [TN declarations](../samples/tn/modern/LIB.ACT) · [Opaque call facts](6502_SHARED_CALLEE_FACTS_DESIGN.md#opaque-reviewed-calls-at-every-depth)
 
 ### MIR ownership and shared machinery
 

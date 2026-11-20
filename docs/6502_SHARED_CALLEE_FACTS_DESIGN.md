@@ -222,3 +222,37 @@ their own staging and cursor writes.
 A write to an in-bounds byte of an ordinary image global, such as
 `arenaRestoreCursor`, is disjoint from ZP when the image origin is at least
 `$0100`. Fixed-address globals and their aliases use their physical addresses.
+
+## Write-through contracts
+
+A write-through fact bounds the bytes a routine may write through a pointer
+argument. Identify the formal parameter, a byte offset from the pointer value
+on entry, and the extent. For example, TN's `Range` may write one byte at
+offset zero through its third argument, `c`. Either update reads the old
+byte, and a call can return without changing it. A consumer must preserve
+that incoming value on the no-write path. Fixed writes, other pointee effects
+and opaque calls contribute their own facts. [Range source](../samples/tn/modern/LIB.ACT#L779)
+
+Use the same argument-relative fact for native and reviewed implementations.
+For reviewed assembly, the existing `writes-buffer 3 bytes=1` clause expresses
+the example span. For native Action!, derive it from typed operations. At a
+branch or loop, take the union of possible destinations. Repeated stores
+through the same entry pointer keep the same extent if the pointer retains
+its value on every path to each store, including loop backedges and intervening
+calls. A wrapper forwarding its own pointer argument carries the span into
+its contract. If a path can redirect a store outside the proven span, widen
+the effect to cover that path or leave its destination unknown.
+[Reviewed buffer syntax](ACTIONC_ANNOTATIONS.md#reviewing-an-argument-relative-buffer)
+
+At each call, bind the formal to the actual argument. An address of a known
+object identifies bytes of that object. A numeric address identifies physical
+bytes, including any 16-bit wrap. Combine overlapping spans when arguments
+alias. If the actual destination remains unknown, keep the possible write
+and require independent evidence that a candidate home is disjoint or
+preserved. The allocator checks these writes alongside ABI staging, scratch,
+callee homes and opaque normal-return guarantees. General memory effects can
+remain open even when the allocator can prove a particular home survives.
+[ZP allocation and the PopUp example](MIR6502_PRIVATE_ZP_HOME_PLACEMENT.md#tn-examples)
+
+The [write-through implementation plan](MIR6502_WRITE_THROUGH_CONTRACTS_IMPLEMENTATION_PLAN.md)
+covers native inference, call-site checks and TN qualification.
