@@ -154,10 +154,10 @@ TN.ACT,662,Format,local,fname,inline,4,4,$338D–$3390,$338D–$3390,
 TN.ACT,662,Format,local,h,inline,2,2,$3391–$3392,$3391–$3392,
 TN.ACT,701,NewDrive,local,h,inline,1,1,$3393,$3393,
 TN.ACT,745,Attrib,local,cmd,ZP,1,1,$E2,$E2,
-TN.ACT,772,SwapScr,local,firstTime,inline,1,1,$3394,$3394,
-TN.ACT,772,SwapScr,local,scrnum,inline,1,1,$3395,$3395,
-TN.ACT,772,SwapScr,local,buffer,inline,2,2,$3396–$3397,$3396–$3397,
-TN.ACT,772,SwapScr,local,a,inline,2,2,$3398–$3399,$3398–$3399,
+TN.ACT,772,SwapScr,local,firstTime,inline,1,1,$3394,$3394,Persists between calls. Cleared after initialization.
+TN.ACT,772,SwapScr,local,scrnum,inline,1,1,$3395,$3395,Persists between calls. Toggled on each screen swap.
+TN.ACT,772,SwapScr,local,buffer,inline,2,2,$3396–$3397,$3396–$3397,Persists between calls. Saves the allocated screen buffer address.
+TN.ACT,772,SwapScr,local,a,inline,2,2,$3398–$3399,$3398–$3399,Loop cursor. Assigned from buffer before use on each swap.
 TN.ACT,803,View,local,ch,alias,1,0,$3078,$3078,Aliases global h
 TN.ACT,859,Copy,local,lentab,deferred,32,32,$5FE2–$6001,$606D–$608C,
 TN.ACT,859,Copy,local,copytab,deferred,16,16,$6002–$6011,$608D–$609C,

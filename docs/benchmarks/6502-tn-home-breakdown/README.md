@@ -26,6 +26,7 @@ The tables list every routine with a compiler-allocated memory home. The ZP colu
 
 - `Copy` uses eight inline scalar locals (10 bytes) and two deferred arrays, `lentab` (32 bytes) and `copytab` (16 bytes). `transf` at `$0358` and `memtop` at `$02E5` are source-fixed words.
 - `SetWin` uses ZP for both parameters and for `panelDataOld`. Its seven inline locals occupy 32 mapped bytes. Its six deferred panel buffers and tables occupy 2,696 bytes.
+- `SwapScr` declares four bytes of `OWN` state. `firstTime` remembers that initialization ran, `scrnum` remembers the selected screen, and `buffer` holds the address returned by the first allocation. Classic Atari also preserves these values with the original unmarked declarations. The other two inline bytes hold `a`, a loop cursor assigned from `buffer` before use on each swap. [SwapScr source](../../../samples/tn/modern/TN.ACT#L772-L800)
 - `Position` and `Relpos` each use `$A0` for `x` and `$A1` for `y`. `Range` uses five pool bytes for its three parameters. Its four locals explicitly name `$A0–$A3` in the source.
 
 ### TN.ACT

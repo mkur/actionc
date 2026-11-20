@@ -1026,9 +1026,9 @@ RETURN
 
 PROC SwapScr()
       
- BYTE firstTime=[true], scrnum=[0]
- CARD buffer, a
-
+ OWN BYTE firstTime=[true], scrnum=[0]
+ OWN CARD buffer
+ CARD a
   IF firstTime THEN
    
     linebuf = Alloc( SCREEN_COLS )
