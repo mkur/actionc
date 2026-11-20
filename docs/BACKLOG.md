@@ -413,6 +413,22 @@ Status: deferred at user request; not the next active test batch.
 - Exercise all supported compiler profiles and both runtime link modes. Keep
   any compiler repairs separate from the test ports.
 
+## 6502 caller contracts for the public SYS interface
+
+Track every public `SYS` routine for both cartridge and standalone. There are
+96 interfaces today. MIR6502 has explicit contracts for five of them on both
+providers. Use the public declarations and binding files to keep the coverage
+inventory current as routines are added.
+[Public SYS interface](../embedded/modules/sys.act) · [Coverage inventory](MIR6502_RUNTIME_LIBRARY_CONTRACT_COVERAGE.md)
+
+For each implementation, record the ABI inputs and results, observable memory
+and device effects, and which ZP bytes survive a normal return. Include buffer
+addresses and lengths where relevant. A reviewed contract can leave device
+effects unknown or record that a path never returns. Share facts between
+classic and MIR6502 when they select the same implementation. Reuse reviewed
+callees for native wrappers and keep assembly opaque. Verify the published
+guarantees on both providers. [Shared callee facts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
+
 ## Standalone Runtime Licensing
 
 - Replace the GPL-only standalone `SYS` implementation with an independently
