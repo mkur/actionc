@@ -137,19 +137,23 @@ fn forwarded_pointer_is_instantiated_separately_at_each_call() {
     }
 }
 
-#[test]
-fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
+fn tn_program() -> MirProgram {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("samples/tn/modern/TN.ACT");
     let ast = crate::includes::load_program_with_includes(path).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
             .unwrap();
     let nir = crate::nir::lower_program(&crate::semantic::ir::lower_program(&ast, &model));
-    let mut p = crate::mir6502::materialize_program(
+    crate::mir6502::materialize_program(
         crate::mir6502::lower_program(&nir).unwrap(),
         &Default::default(),
     )
-    .unwrap();
+    .unwrap()
+}
+
+#[test]
+fn tn_screen_store_uses_program_pointer_and_keeps_reviewed_scratch() {
+    let mut p = tn_program();
     let putchar = p.routines.iter().find(|r| r.name == "Putchar").unwrap();
     let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0);
     let writes = known.get(putchar.id).unwrap().writes();
@@ -326,7 +330,7 @@ fn write_through_join_requires_both_entry_pointer_bytes() {
     let draw = &p.routines[0];
     let summary = known.get(draw.id).unwrap();
     assert!(matches!(summary.writes(), MirKnownMemoryWrites::Pointee { formals, .. }
-        if formals.iter().any(|w| (w.argument, w.offset, w.bytes) == (3, 0, 1))), "{summary:?} {draw:?}");
+        if formals.iter().any(|w| (w.argument, w.offset, w.bytes) == (3, 0, 1))), "{summary:?}");
     assert!(summary.reads().may_read_caller_private_byte(0x7100, known.fixed_storage()));
     let target = draw.frame.params.last().unwrap().base.clone();
     let MirStorageBase::Param(id) = target else { unreachable!() };
@@ -338,4 +342,54 @@ fn write_through_join_requires_both_entry_pointer_bytes() {
     });
     let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
     assert_eq!(known.get(p.routines[0].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+}
+
+/// Model the contiguous capture frame that the allocator gives a wide ABI.
+fn bind_capture(routine: &mut MirRoutine, mut slot: u8) {
+    use crate::mir6502::ir::{MirParamBinding, MirParamHome};
+    routine.frame.parameter_homes = Some(routine.frame.params.iter().map(|p| {
+        let MirStorageBase::Param(id) = p.base else { unreachable!() };
+        let home = MirParamHome::ZeroPage(MirFixedZpSlot(slot));
+        slot += p.storage_size as u8;
+        MirParamBinding { param: id, home }
+    }).collect());
+}
+
+#[test]
+fn loop_write_bound_requires_the_entry_pointer_to_survive_every_iteration() {
+    let mut p = materialized("PROC Paint(BYTE a,b,count BYTE POINTER dst)
+        WHILE count DO dst^==+1 count==-1 OD RETURN
+        PROC Near() Paint(1,2,3,$EF) RETURN
+        PROC Alias() Paint(1,2,3,$EE) RETURN
+        PROC Main() Near() Alias() RETURN");
+    bind_capture(&mut p.routines[0], 0xea);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    assert!(matches!(known.get(p.routines[1].id).unwrap().writes(),
+        MirKnownMemoryWrites::Pointee { numeric, formals, .. }
+        if numeric == &[(0xef, 1)] && formals.is_empty()));
+    assert_eq!(known.get(p.routines[2].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+    // A new value in either pointer byte can redirect the next iteration.
+    let body = p.routines[0].blocks.iter_mut().find(|b| b.ops.iter().any(|op|
+        matches!(op, MirOp::StoreIndirect { .. }))).unwrap();
+    body.ops.push(MirOp::Store { dst: MirAddr::Direct(MirMem::FixedZeroPage(MirFixedZpSlot(0xed))),
+        src: MirValue::ConstU8(0x20), width: MirWidth::Byte });
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    assert_eq!(known.get(p.routines[1].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+}
+
+#[test]
+fn range_loop_uses_the_opaque_keyboard_preservation_for_its_pointer() {
+    let mut p = tn_program();
+    let index = p.routines.iter().position(|r| r.name == "Range").unwrap();
+    let id = p.routines[index].id;
+    bind_capture(&mut p.routines[index], 0xea);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    let writes = known.get(id).unwrap().writes();
+    assert!(matches!(writes, MirKnownMemoryWrites::Pointee { formals, opaque_preserves: Some(kept), .. }
+        if formals.len() == 1 && formals.iter().all(|w| (w.argument,w.offset,w.bytes) == (3,0,1))
+        && kept.contains(&0xef)), "{writes:?}");
+    // Move the high byte outside the keyboard's reviewed $E0-$EF range.
+    bind_capture(&mut p.routines[index], 0xec);
+    let known = MirKnownCalleeSummaries::analyze_for_source_homes(&p, 0x3000);
+    assert_eq!(known.get(id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
 }

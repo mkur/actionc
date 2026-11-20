@@ -83,6 +83,7 @@ pub(in crate::mir6502) struct FormalWrite {
     offset: u16,
     bytes: u16,
     carrier: Option<u8>,
+    excluded_bases: ExcludedBases,
     // Count and implementation scratch travel with a forwarded copy destination.
     count: Option<(u16, CountWidth)>,
     reviewed_copy: Option<RoutineId>,
@@ -102,7 +103,7 @@ impl FormalWrite {
             BufferExtent::Count { argument_byte } => (u16::MAX, Some((argument_byte, CountWidth::Word))),
             _ => return None,
         };
-        Some(Self { argument: buffer.pointer_byte, offset: 0, bytes, carrier: None,
+        Some(Self { argument: buffer.pointer_byte, offset: 0, bytes, carrier: None, excluded_bases: Default::default(),
             count, reviewed_copy: (bytes > 1).then_some(owner) })
     }
 
@@ -560,6 +561,7 @@ fn record_base(
 ) -> Option<()> {
     match base {
         Base::Numeric(base) => {
+            if write.excluded_bases.contains(base) { return None; }
             let start = base.wrapping_add(write.offset);
             if write.bytes > 1 && let Some(owner) = write.reviewed_copy {
                 let review = program.routines.iter().find(|r| r.id == owner)?.frame.callee_review.as_ref()?;
@@ -590,6 +592,7 @@ fn record_base(
         Base::Formal(argument) => {
             pending.insert(FormalWrite { argument, ..write });
         }
+        Base::Object if write.excluded_bases != ExcludedBases::default() => return None,
         Base::Object => {}
     }
     Some(())
@@ -775,7 +778,7 @@ fn store_base(
     values: &MirMachineValueAvailability,
     site: MirSite,
     op: &MirOp,
-    formal: impl FnOnce() -> Option<u16>,
+    formal: impl FnOnce() -> Option<EntryByte>,
 ) -> Option<(Base, FormalWrite)> {
     if let MirOp::Store { dst: addr, width, .. } = op {
         let indexed = match addr {
@@ -794,7 +797,7 @@ fn store_base(
                 } else { return None };
             return Some((base, FormalWrite { argument: 0, offset: index.unwrap_or(0),
                 bytes: crate::mir6502::abi::action_arg_width_bytes(*width) + if index.is_none() { 255 } else { 0 },
-                carrier: None, count: None, reviewed_copy: None }));
+                carrier: None, excluded_bases: Default::default(), count: None, reviewed_copy: None }));
         }
     }
     let (pair, mut offset, mut bytes, indexed) = destination(op)?;
@@ -821,6 +824,7 @@ fn store_base(
     if !indexed && offset.checked_add(bytes)? > 256 {
         return None;
     }
+    let mut excluded_bases = ExcludedBases::default();
     let base = match (byte(lo), byte(hi)) {
         (Some(MirMachineValue::ConstU8(l)), Some(MirMachineValue::ConstU8(h))) => {
             Base::Numeric(u16::from_le_bytes([l, h]))
@@ -835,7 +839,11 @@ fn store_base(
             [lo, hi].map(|s| Lane::Cell(MirMem::FixedZeroPage(MirFixedZpSlot(s)))),
             offset,
             bytes,
-        ).or_else(|| formal().map(Base::Formal))?,
+        ).or_else(|| {
+            let fact = formal()?;
+            excluded_bases = fact.excluded;
+            Some(Base::Formal(fact.index))
+        })?,
     };
     Some((
         base,
@@ -844,6 +852,7 @@ fn store_base(
             offset,
             bytes,
             carrier: Some(lo),
+            excluded_bases,
             count: None, reviewed_copy: None,
         },
     ))
@@ -856,7 +865,7 @@ pub(super) fn store(
     values: &MirMachineValueAvailability,
     site: MirSite,
     op: &MirOp,
-    formal: impl FnOnce() -> Option<u16>,
+    formal: impl FnOnce() -> Option<EntryByte>,
 ) -> Option<MirKnownMemoryWrites> {
     let (base, write) = store_base(
         TracePurpose::Preservation,
@@ -889,6 +898,7 @@ pub(super) fn store(
 
 mod formal_origins;
 pub(super) use formal_origins::formal_origins;
+use formal_origins::{EntryByte, ExcludedBases};
 mod observations;
 pub(in crate::mir6502) use observations::native_numeric_observations;
 

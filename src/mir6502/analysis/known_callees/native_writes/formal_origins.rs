@@ -3,7 +3,35 @@
 use super::*;
 use crate::mir6502::ir::{MirBlock, MirBlockId};
 
-type Origins = BTreeMap<Lane, u16>;
+/// If an earlier byte store went through this same entry pointer, the entry
+/// address must differ from every carrier retained across that store.
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Ord, PartialOrd)]
+pub(in super::super) struct ExcludedBases([u64; 4]);
+
+impl ExcludedBases {
+    fn insert(&mut self, slot: u8) {
+        self.0[usize::from(slot / 64)] |= 1 << (slot % 64);
+    }
+
+    fn union(&mut self, other: Self) {
+        for (a, b) in self.0.iter_mut().zip(other.0) {
+            *a |= b;
+        }
+    }
+
+    pub(super) fn contains(self, address: u16) -> bool {
+        u8::try_from(address)
+            .is_ok_and(|byte| self.0[usize::from(byte / 64)] & (1 << (byte % 64)) != 0)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(in super::super) struct EntryByte {
+    pub(super) index: u16,
+    pub(super) excluded: ExcludedBases,
+}
+
+type Origins = BTreeMap<Lane, EntryByte>;
 
 struct FormalOrigins<'a> {
     program: &'a MirProgram,
@@ -17,7 +45,7 @@ pub(in super::super) fn formal_origins(
     program: &MirProgram,
     routine: &MirRoutine,
     known: &MirKnownCalleeSummaries,
-) -> BTreeMap<MirSite, u16> {
+) -> BTreeMap<MirSite, EntryByte> {
     let Some(params) = &routine.frame.direct_parameter_abi else {
         return BTreeMap::new();
     };
@@ -32,7 +60,15 @@ pub(in super::super) fn formal_origins(
     let inputs = lanes
         .into_iter()
         .enumerate()
-        .map(|(i, lane)| (lane.into(), i as u16))
+        .map(|(i, lane)| {
+            (
+                lane.into(),
+                EntryByte {
+                    index: i as u16,
+                    excluded: Default::default(),
+                },
+            )
+        })
         .collect();
     let problem = FormalOrigins {
         program,
@@ -85,20 +121,22 @@ impl FormalOrigins<'_> {
         Some((dst, src))
     }
 
-    fn argument(&self, pair: MirPointerPair, state: &Origins) -> Option<u16> {
+    fn argument(&self, pair: MirPointerPair, state: &Origins) -> Option<EntryByte> {
         let lo = fixed_pair(self.routine, pair)?;
         let byte = |slot| {
             state
                 .get(&Lane::Cell(MirMem::FixedZeroPage(MirFixedZpSlot(slot))))
                 .copied()
         };
-        let start = byte(lo)?;
-        if byte(lo.wrapping_add(1))? != start.checked_add(1)? {
+        let mut start = byte(lo)?;
+        let high = byte(lo.wrapping_add(1))?;
+        start.excluded.union(high.excluded);
+        if high.index != start.index.checked_add(1)? {
             return None;
         }
         let mut offset = 0;
         for param in self.routine.frame.direct_parameter_abi.as_ref()? {
-            if start == offset && param.width().bytes() == 2 {
+            if start.index == offset && param.width().bytes() == 2 {
                 return Some(start);
             }
             offset += param.width().bytes();
@@ -110,12 +148,13 @@ impl FormalOrigins<'_> {
         &self,
         block: &MirBlock,
         mut state: Origins,
-        mut store: impl FnMut(MirSite, u16),
+        mut store: impl FnMut(MirSite, EntryByte),
     ) -> Origins {
         for (op_index, op) in block.ops.iter().enumerate() {
-            if let Some((pair, ..)) = destination(op)
-                && let Some(arg) = self.argument(pair, &state)
-            {
+            let dest = destination(op).and_then(|(pair, offset, bytes, indexed)| {
+                Some((self.argument(pair, &state)?, offset, bytes, indexed))
+            });
+            if let Some((arg, ..)) = dest {
                 store(
                     MirSite::Op {
                         block: block.id,
@@ -153,8 +192,25 @@ impl FormalOrigins<'_> {
             } else {
                 summarize_op_writes(op, self.routine, self.known, &mut writes);
             }
-            state.retain(|lane, _| match lane {
+            state.retain(|lane, origin| match lane {
                 Lane::Reg(r) => !effects.may_clobber_reg_compat(*r),
+                Lane::Cell(MirMem::FixedZeroPage(slot)) => {
+                    if writes.preserves_fixed_byte(*slot, &self.known.fixed_storage) {
+                        return true;
+                    }
+                    // Only this pure indirect byte store has a single dynamic
+                    // write at the unindexed entry address. Preserve copies of
+                    // its own pointer under the corresponding call-site guard.
+                    if let MirOp::StoreIndirect { .. } = op
+                        && let Some((arg, 0, 1, false)) = dest
+                        && (arg.index..=arg.index + 1).contains(&origin.index)
+                    {
+                        origin.excluded.union(arg.excluded);
+                        origin.excluded.insert(slot.0);
+                        return true;
+                    }
+                    false
+                }
                 Lane::Cell(mem) => !writes.may_write_mem(mem, &self.known.fixed_storage),
             });
             if let Some((dst, origin)) = copied {
@@ -183,7 +239,16 @@ impl DataflowProblem<MirCfg> for FormalOrigins<'_> {
     fn join(&self, into: &mut Self::State, other: &Self::State) {
         if let Some(other) = other {
             match into {
-                Some(state) => state.retain(|lane, value| other.get(lane) == Some(value)),
+                Some(state) => state.retain(|lane, value| {
+                    let Some(incoming) = other.get(lane) else {
+                        return false;
+                    };
+                    if value.index != incoming.index {
+                        return false;
+                    }
+                    value.excluded.union(incoming.excluded);
+                    true
+                }),
                 None => *into = Some(other.clone()),
             }
         }

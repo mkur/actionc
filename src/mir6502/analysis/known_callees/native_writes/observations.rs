@@ -57,6 +57,7 @@ pub(in crate::mir6502) fn native_numeric_observations(
                         offset: *offset,
                         bytes: crate::mir6502::abi::action_arg_width_bytes(*width),
                         carrier: None,
+                        excluded_bases: Default::default(),
                         count: None, reviewed_copy: None,
                     };
                     retained_base(program, routine, site, ptr, write).map(|base| (base, write))
