@@ -111,6 +111,34 @@ Both calls in `Convert` still pass the character to `Ascii` in A. `Ascii` starts
 
 The write-through contract for `Range(..., @c)` lets `PopUp.d` keep the previous selection in `$EF` while `Range` can update the addressable byte `PopUp.c`. The trace reports no adjacent pair for `mp`. The last usable byte for `limit` overlaps the live `d`. The `menu` value survives between invocations. [TN caller](../../../samples/tn/modern/LIB.ACT#L923) · [Write-through design](../../6502_SHARED_CALLEE_FACTS_DESIGN.md#write-through-contracts)
 
-`PopUp` shrank from 274 to 270 bytes. The spill allocator reserves named ZP homes across the program. Its previous `$EF` spills moved inline, adding three bytes in `ArenaCursor` and nine in `Sort`. The net increase is eight bytes on each runtime. [Spill allocator](../../../src/mir6502/parameter_homes/spills.rs)
+At the write-through baseline, `PopUp` shrank from 274 to 270 bytes. The spill allocator then reserved named ZP homes across the program. Moving the previous `$EF` spills inline added three bytes in `ArenaCursor` and nine in `Sort`, for a net increase of eight bytes on each runtime. [Spill allocator](../../../src/mir6502/parameter_homes/spills.rs)
 
 The inventory joins optimized NIR declarations to the selected MIR6502 output’s `map.storage_symbols` by routine, role and name. Split parameter lanes are counted against their source parameter. The main load segment identifies which ordinary homes are in the image and which are in deferred storage. Before write-through placement, TN measured 9,534 XEX bytes on cartridge and 9,673 standalone. The current images measure 9,542 and 9,681 bytes respectively.
+
+## Lifetime-aware spill placement
+
+The allocator recovered **0 of the targeted 12 XEX bytes** in TN. Each before/after pair used optimized MIR6502 at `$3000`, comparing the write-through baseline (`ed51ab25`) with lifetime-aware spill placement (`5bdb0b1e`). The XEX files matched byte for byte on both runtimes.
+
+| TN source and contracts | Cartridge XEX bytes, before → after | Standalone XEX bytes, before → after |
+| --- | ---: | ---: |
+| As committed at `ed51ab25` | 9,542 → 9,542 | 9,681 → 9,681 |
+| With the working-tree `GetD` and `PutD` reviews in both builds | 9,539 → 9,539 | 9,678 → 9,678 |
+
+The following addresses and timings use the second pair. The listings matched for each runtime. Routine sizes include code and inline frame storage.
+
+| Routine | Final placement on both runtimes | Routine bytes, before → after |
+| --- | --- | ---: |
+| `PopUp` | Previous selection `d` at `$EF` | 270 → 270 |
+| `ArenaCursor` | Cursor check spills at `$3335` and `$3336` | 65 → 65 |
+| `Sort` | Loop-carried `gap` spill at `$3349` | 247 → 247 |
+
+On the known calls from `PopUp`, the arena code runs before `d = c` or after the last read of `d`. No direct call path reaches `Sort` while `d` is live either. The blocker is the command table. `Format` can reach `PopUp` and its arena helpers. `Copy` can reach `Sort` through `SwapWin` and `SetWin`. Both command addresses enter the table used by the assembly dispatcher `MakeJmp`. MIR lacks a fact restricting invocation of those entries to synchronous dispatch. It therefore treats both entries and their callees as potential reentry paths and declines to share `PopUp.d`'s byte with either spill. [Command table and dispatcher](../../../samples/tn/modern/TN.ACT#L1040) · [PopUp](../../../samples/tn/modern/LIB.ACT#L923) · [Spill occupancy check](../../../src/mir6502/parameter_homes/spills/contexts.rs)
+
+| VM workload at `$3000` | `SwapWin` cycles | Three-file `Copy` cycles | Twenty-file `Copy` cycles |
+| --- | ---: | ---: | ---: |
+| TN cartridge | 1,020 | 38,045 | 245,257 |
+| TN standalone | 963 | 39,278 | 251,796 |
+| TNDBG cartridge | 1,026 | 41,247 | 258,818 |
+| TNDBG standalone | 969 | 42,485 | 265,366 |
+
+Every workload recorded the same cycles before and after. On both runtimes the menu visited positions `0, 0, 1` when advancing and accepting, and position `0` on Escape. Both exits restored the arena cursor to `$2000`. The directory check compared TN's full output with an independently sorted result for 0, 1, 63 and 64 entries supplied in reverse order. [VM workloads](../../../tools/vm-runtime-tests/tests/tn_dispatch.rs) · [Directory check](../../../tools/vm-runtime-tests/tests/support/tn_directory.rs)

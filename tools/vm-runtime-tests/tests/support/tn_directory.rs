@@ -133,7 +133,7 @@ impl VmRunHooks for Directory {
     }
 }
 
-pub fn check(compiled: &CompiledProgram, _debug: bool) {
+pub fn check(compiled: &CompiledProgram, load: fn(&CompiledProgram) -> CompilerVm) {
     let listing = compiled.source_listing();
     let global = |s| global_address(&listing, s);
     let routine = |s| routine_address(&listing, s);
@@ -164,7 +164,7 @@ pub fn check(compiled: &CompiledProgram, _debug: bool) {
             images: vec![],
             names: vec![],
         };
-        let mut vm = machine::load(compiled);
+        let mut vm = load(compiled);
         for (address, value) in [(0x700, b'M'), (0x76F, 0xA9), (0x70A, 0xFF), (0x70B, 2)] {
             vm.bus_mut().ram_mut().write(address, value);
         }

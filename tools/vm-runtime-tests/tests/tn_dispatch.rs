@@ -473,7 +473,7 @@ fn tn_dispatch_and_panel_state_preserve_behavior() {
                 );
             }
             panels::check(&compiled, debug);
-            directory::check(&compiled, debug);
+            directory::check(&compiled, machine::load);
             copy::check(&compiled, debug);
             menus::check(&compiled);
         }
@@ -507,6 +507,7 @@ fn standalone_tn_toggles_tags_updates_panel_counts_and_copies_files() {
     )
     .unwrap();
     panels::check(&compiled, false);
+    directory::check(&compiled, load_tn);
     copy::check(&compiled, false);
 }
 
