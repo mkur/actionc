@@ -1395,3 +1395,43 @@ fn ordinary_program_entry_local_uses_a_home_through_its_loop() {
         assert_eq!(vm.bus().ram().read(0x701), 10);
     }
 }
+
+#[test]
+fn block_local_spill_values_survive_a_callee_that_overwrites_the_pool() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+    #[allow(dead_code)]
+    #[path = "support/tn_symbols.rs"]
+    mod symbols;
+
+    let lf = include_str!("../../../fixtures/runtime/block_local_spill_calls.act")
+        .replace("\r\n", "\n");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let options = CompileOptions::for_mode(CompileMode::Mir6502)
+            .with_runtime(runtime)
+            .with_origin(0x3000);
+        let mut expected_image = None;
+        for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+            let file = support::Source::new(&source);
+            let compiled = compile_file(&file.0, &options).unwrap();
+            let image = compiled.object_bytes();
+            assert_eq!(expected_image.get_or_insert_with(|| image.to_vec()), image);
+            let listing = compiled.source_listing();
+            let (mut vm, profile) = support::vm_for(runtime);
+            vm.load_atari_object_for_execution(profile, image).unwrap();
+            for name in ["Dead", "Live"] {
+                let entry = symbols::routine_address(&listing, name);
+                for (a, b) in [(0u16, 0u16), (0x1289, 0x80f7), (0xfffe, 0xffff)] {
+                    let ram = vm.bus_mut().ram_mut();
+                    ram.map(0x900, &a.to_le_bytes()).unwrap();
+                    ram.map(0x902, &b.to_le_bytes()).unwrap();
+                    ram.map(0x904, &[0xcc; 4]).unwrap();
+                    vm = machine::call(vm, &mut NoHooks, entry, &[]);
+                    let first = (a >> 3).wrapping_add(b);
+                    let last = (b >> 3).wrapping_add(if name == "Dead" { a } else { 5 });
+                    assert_eq!(machine::bytes(&vm, 0x904, 2), first.to_le_bytes(), "{name}");
+                    assert_eq!(machine::bytes(&vm, 0x906, 2), last.to_le_bytes(), "{name}");
+                }
+            }
+        }
+    }
+}

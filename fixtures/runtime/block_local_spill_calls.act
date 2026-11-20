@@ -1,0 +1,33 @@
+CARD a=$0900,b=$0902,first=$0904,last=$0906
+
+; Clobber the private spill pool and return 5 through the Action! ABI.
+CARD FUNC Wipe=*()
+ASM
+  ldx #15
+  lda #$d7
+wipe_loop:
+  sta $e0,x
+  dex
+  bpl wipe_loop
+  lda #5
+  sta $a0
+  ldx #0
+  stx $a1
+  rts
+ENDASM
+
+PROC Dead()
+  first=(a RSH 3)+b
+  Wipe()
+  last=(b RSH 3)+a
+RETURN
+
+PROC Live()
+  first=(a RSH 3)+b
+  last=(b RSH 3)+Wipe()
+RETURN
+
+PROC Main()
+  Dead()
+  Live()
+RETURN

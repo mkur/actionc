@@ -1083,3 +1083,33 @@ fn forwarded_numeric_destination_protects_the_original_inline_home() {
         trace.events()
     );
 }
+
+#[test]
+fn block_local_spill_placement_follows_the_value_at_the_call() {
+    use actionc::compiler::{CompileMode, CompileOptions, compile_file};
+
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/runtime/block_local_spill_calls.act");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let options = CompileOptions::for_mode(CompileMode::Mir6502)
+            .with_runtime(runtime)
+            .with_origin(0x3000);
+        let listing = compile_file(&path, &options).unwrap().source_listing();
+        for (name, in_zp) in [("Dead", true), ("Live", false)] {
+            let label = format!("proc_{name}:");
+            let body: Vec<_> = listing.lines().skip_while(|line| *line != label)
+                .take_while(|line| !line.starts_with("; ===== END PROC")).collect();
+            let shifts: Vec<_> = body.iter().map(|line| line.trim_start())
+                .filter(|line| line.starts_with("ROR.")).collect();
+            assert!(body.iter().any(|line| line.contains("JSR.A proc_Wipe")), "{name}");
+            assert!(!shifts.is_empty(), "{runtime:?} {name}");
+            assert!(shifts.iter().all(|line| if in_zp {
+                line.starts_with("ROR.Z ")
+            } else {
+                line.starts_with("ROR.A spill_")
+            }), "{runtime:?} {name} {shifts:?}");
+            let inline_label = format!("spill_{name}_");
+            assert_eq!(listing.lines().any(|line| line.starts_with(&inline_label)), !in_zp);
+        }
+    }
+}
