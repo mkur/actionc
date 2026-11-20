@@ -4,21 +4,21 @@ Optimized MIR6502 with reviewed assembly parameter-home elision gives TN the sam
 
 | Final placement | Parameters | Locals | Total homes | Mapped home bytes |
 | --- | ---: | ---: | ---: | ---: |
-| ZP pool | 40 | 22 | 62 | 90 (56 parameter, 34 local) |
-| Inline in the load image | 9 | 34 | 43 | 82 (12 parameter, 70 local) |
+| ZP pool | 40 | 23 | 63 | 91 (56 parameter, 35 local) |
+| Inline in the load image | 9 | 33 | 42 | 81 (12 parameter, 69 local) |
 | Deferred array storage after the load image | 0 | 9 | 9 | 2,784 |
 | **Compiler-allocated memory homes** | **49** | **65** | **114** | **2,956** |
 | ABI only, no memory home | 53 | 0 | 0 | 0 |
 | Source-fixed address or alias | 0 | 22 | 0 | 0 |
 
-The 62 ZP homes reuse **13 physical bytes** across 32 routines, in ranges `$A0–$A3`, `$E2–$E5` and `$EA–$EE`. Each source object counts once. `Strcpy.s` contributes one byte at `$A0` for the low half of its pointer. The other 52 memory homes occupy 2,866 distinct addresses. Byte totals use the named extent in the final storage map. For an array descriptor this measures the descriptor itself. Backing payloads, globals and compiler spills are outside the home totals.
+The 63 ZP homes reuse **14 physical bytes** across 32 routines, in ranges `$A0–$A3`, `$E2–$E5` and `$EA–$EF`. Each source object counts once. `Strcpy.s` contributes one byte at `$A0` for the low half of its pointer. The other 51 memory homes occupy 2,865 distinct addresses. Byte totals use the named extent in the final storage map. For an array descriptor this measures the descriptor itself. Backing payloads, globals and compiler spills are outside the home totals.
 
 ## Application and library
 
 | Source | ZP params | ZP locals | Inline params | Inline locals in image | Deferred arrays | ABI-only params | Fixed or aliased locals |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `TN.ACT` | 15 | 6 | 4 | 30 | 8 | 10 | 18 |
-| `LIB.ACT` | 25 | 16 | 5 | 4 | 1 | 43 | 4 |
+| `LIB.ACT` | 25 | 17 | 5 | 3 | 1 | 43 | 4 |
 
 ## Routines
 
@@ -73,7 +73,7 @@ The tables list every routine with a compiler-allocated memory home. The ZP colu
 | `Items` | `menu` `$A2–$A3` | `c` `$E2` | — | — | — |
 | `MoveMenuBar` | `menu` `$A2–$A3`, `c` `$E2` | `p` `$E3` | — | — | — |
 | `Ord` | `menu` `$E2–$E3`, `item` `$E4–$E5` | `c` `$A2` | — | — | — |
-| `PopUp` | `spc` `$E4` | `ch` `$EA`, `item` `$E2–$E3` | `mp` (2), `c` (1) | `d` (1), `limit` (1), `menu` (2) | — |
+| `PopUp` | `spc` `$E4` | `ch` `$EA`, `d` `$EF`, `item` `$E2–$E3` | `mp` (2), `c` (1) | `limit` (1), `menu` (2) | — |
 | `Position` | `x` `$A0`, `y` `$A1` | — | — | — | — |
 | `Print` | `s` `$E3–$E4` | `i` `$E5` | — | — | — |
 | `Push` | — | `captured` `$E2–$E3` | — | `pushedWord` (2) | — |
@@ -109,4 +109,8 @@ Both calls in `Convert` still pass the character to `Ascii` in A. `Ascii` starts
 
 ## Measurement
 
-The inventory joins optimized NIR declarations to the selected MIR6502 output’s `map.storage_symbols` by routine, role and name. Split parameter lanes are counted against their source parameter. The main load segment identifies which ordinary homes are in the image and which are in deferred storage. TN cart shrank from 9,588 to 9,534 XEX bytes and standalone from 9,727 to 9,673.
+The write-through contract for `Range(..., @c)` lets `PopUp.d` keep the previous selection in `$EF` while `Range` can update the addressable byte `PopUp.c`. The trace reports no adjacent pair for `mp`. The last usable byte for `limit` overlaps the live `d`. The `menu` value survives between invocations. [TN caller](../../../samples/tn/modern/LIB.ACT#L923) · [Write-through design](../../6502_SHARED_CALLEE_FACTS_DESIGN.md#write-through-contracts)
+
+`PopUp` shrank from 274 to 270 bytes. The spill allocator reserves named ZP homes across the program. Its previous `$EF` spills moved inline, adding three bytes in `ArenaCursor` and nine in `Sort`. The net increase is eight bytes on each runtime. [Spill allocator](../../../src/mir6502/parameter_homes/spills.rs)
+
+The inventory joins optimized NIR declarations to the selected MIR6502 output’s `map.storage_symbols` by routine, role and name. Split parameter lanes are counted against their source parameter. The main load segment identifies which ordinary homes are in the image and which are in deferred storage. Before write-through placement, TN measured 9,534 XEX bytes on cartridge and 9,673 standalone. The current images measure 9,542 and 9,681 bytes respectively.

@@ -514,6 +514,8 @@ fn standalone_tn_toggles_tags_updates_panel_counts_and_copies_files() {
 /// returns through Getchar's real stack frame, including when called by Range.
 struct KeyboardInput {
     get_vector: u16,
+    move_menu_bar: u16,
+    menu_positions: Vec<u8>,
     keys: VecDeque<u8>,
     drawing: [u16; 4],
 }
@@ -527,6 +529,8 @@ impl VmRunHooks for KeyboardInput {
             let ram = vm.bus_mut().ram_mut();
             assert_eq!(ram.read(0x02fc), 0xff);
             ram.write(0x02fc, self.keys.pop_front().ok_or("unexpected keyboard read")?);
+        } else if pc == self.move_menu_bar {
+            self.menu_positions.push(vm.cpu().registers().y);
         } else if self.drawing.contains(&pc) {
             vm.set_pc(machine::RETURN);
         }
@@ -546,6 +550,8 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
             for (label, width) in [("param_InputLine_string", 2), ("param_InputLine_maxlen", 1), ("param_InputLine_curpos", 1)] {
                 assert_zp_home(&listing, label, width);
             }
+            assert_zp_home(&listing, "local_PopUp_d", 1);
+            assert!(listing.lines().any(|line| line == "param_PopUp_c:"));
             let base = assert_zp_home(&listing, "param_Range_s", 2);
             assert_eq!(assert_zp_home(&listing, "param_Range_max", 1), base + 2);
             assert_eq!(assert_zp_home(&listing, "param_Range_c", 2), base + 3);
@@ -556,6 +562,8 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
         let vector = u16::from_le_bytes([vm.bus_mut().read(0xe424), vm.bus_mut().read(0xe425)]).wrapping_add(1);
         let mut input = KeyboardInput {
             get_vector: vector,
+            move_menu_bar: routine("MoveMenuBar"),
+            menu_positions: Vec::new(),
             keys: VecDeque::new(),
             drawing: [routine("Print"), routine("Relpos"), routine("Block"), routine("Putchar")],
         };
@@ -596,12 +604,16 @@ fn opaque_keyboard_returns_a_key_and_preserves_tn_homes() {
         }
         vm.bus_mut().ram_mut().write_word(0xe8, 0x2000);
         let [lo, hi] = global_address(&listing, "density").to_le_bytes();
-        for (keys, expected) in [(vec![1, 2], b'M'), (vec![3], 27)] {
+        // '*' moves the selection from 0 to 1. On the unmatched-item path
+        // PopUp first draws at the saved d, then at the byte changed by Range.
+        for (keys, expected, positions) in [(vec![1, 2], b'M', &[0, 0, 1][..]), (vec![3], 27, &[0][..])] {
+            input.menu_positions.clear();
             input.keys = keys.into();
             vm = machine::call(vm, &mut input, routine("PopUp"), &[lo, hi, 0, 2]);
             assert_eq!(vm.bus().ram().read(0xa0), expected, "{runtime:?}");
             assert!(input.keys.is_empty());
             assert_eq!(vm.bus().ram().read_word(0xe8), 0x2000);
+            assert_eq!(input.menu_positions, positions, "{mode:?} {runtime:?}");
         }
         // Keep all three InputLine arguments live across repeated keys. The
         // first fills the buffer, the second exceeds maxlen, and EOL accepts.

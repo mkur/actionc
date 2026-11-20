@@ -63,16 +63,15 @@ lifetimes. [Shared callee contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md)
 ## TN examples
 
 - `PopUp` saves `d = c` before calling `Range(..., limit, @c)` and compares
-  `c` with `d` afterwards. Under the proposed write-through rule, both
+  `c` with `d` afterwards. Under the write-through contract, both
   conditional updates in `Range` target the same byte of `PopUp.c`. Taking
   `@c` keeps `c` in addressable storage. Its old value must reach `Range`,
   and when `FindItem` finds no match, the comparison must see any update
   alongside the original value in `d`. This write alone leaves `d`, `mp`
   and `limit` eligible for ZP. Each still needs free bytes
   across argument setup, `Range`'s own homes and scratch, and the opaque
-  `Getchar` call. Qualification should cover a key that leaves `c` unchanged,
-  both update directions, and a caller passing a numeric pool address whose
-  byte must be excluded. [PopUp](../samples/tn/modern/LIB.ACT#L923) · [Write-through contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md#write-through-contracts)
+  `Getchar` call. On both TN runtimes, `d` takes `$EF`. The word `mp`
+  lacks a free pair and `limit` competes with `d` for the remaining byte. [PopUp](../samples/tn/modern/LIB.ACT#L923) · [Write-through contracts](6502_SHARED_CALLEE_FACTS_DESIGN.md#write-through-contracts)
 - `Copy.mem`, `len` and `files` survive `Tag(j)`. Its reviewed
   `Store(v(i), value)` writes a directory row and uses `$A0/$A1` as scratch.
   Reserve the scratch and other callee homes. The row's numeric address is

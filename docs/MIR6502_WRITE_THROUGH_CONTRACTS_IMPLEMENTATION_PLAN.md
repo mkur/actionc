@@ -17,10 +17,9 @@ both-backend fixed-buffer review test alongside the native case.
 [Shared facts](../src/callee6502.rs) · [Review parity test](../src/mir6502/analysis/known_callees/reviewed_inputs.rs) · [Native projection](../src/mir6502/analysis/known_callees/native_writes.rs)
 
 Capture the TN home trace, maps and XEX sizes on both runtimes before changing
-inference. Identify the selected MIR operations for both updates. The current
-`origin` walk stops at a block with multiple
-predecessors. Use typed MIR copies and the matched `SArgsCapture` mapping to
-retain a pointer when both bytes come from the same incoming formal on every
+inference. Identify the selected MIR operations for both updates. The original
+`origin` walk stops at a block with multiple predecessors. Use typed MIR
+copies and the matched `SArgsCapture` mapping to retain a pointer when both bytes come from the same incoming formal on every
 reachable predecessor. Test a branch that rejoins before the store, a branch
 that skips the store, and a branch that replaces only the high byte. The first
 two should publish a one-byte *possible* write. The third must cover the
@@ -90,3 +89,18 @@ cargo test --lib mir6502::parameter_homes::
 cargo test --test mir6502_cross_call_homes --test mir6502_parameter_homes
 cargo test --manifest-path tools/vm-runtime-tests/Cargo.toml --test cross_call_homes --test tn_dispatch
 ```
+
+## Qualification results
+
+The selected MIR has two byte stores through `Range.c`. Both branches use
+offset zero. The loop proof carries the condition that the argument cannot
+redirect a later store by overwriting a live pointer byte. Passing `@PopUp.c`
+discharges that condition. The VM observes menu positions 0, 0, 1 when the
+first key advances the selection, and only 0 when Escape leaves it unchanged.
+The check runs in classic and MIR6502 with both runtimes. [Keyboard VM test](../tools/vm-runtime-tests/tests/tn_dispatch.rs)
+
+Discovery can use the callee homes already chosen in the same allocation
+batch. Final lifetime verification rebuilds the write summaries with the
+actual expanded frame. Determining a one-byte write permits `d` to take
+`$EF`. The report records the remaining conflicts and the eight-byte XEX
+increase when two spill homes lose that byte. [TN measurements](benchmarks/6502-tn-home-breakdown/README.md#measurement)

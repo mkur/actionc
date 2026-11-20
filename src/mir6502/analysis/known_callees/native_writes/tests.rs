@@ -368,6 +368,10 @@ fn loop_write_bound_requires_the_entry_pointer_to_survive_every_iteration() {
         MirKnownMemoryWrites::Pointee { numeric, formals, .. }
         if numeric == &[(0xef, 1)] && formals.is_empty()));
     assert_eq!(known.get(p.routines[2].id).unwrap().writes(), &MirKnownMemoryWrites::Unknown);
+    // A failed call-site bound still exposes its explicit numeric destination
+    // to relocation replay in both the baseline and candidate layouts.
+    let observed = native_numeric_observations(&p);
+    assert!(observed.contains(&(0xee, 1)) && observed.contains(&(0xef, 1)));
     // A new value in either pointer byte can redirect the next iteration.
     let body = p.routines[0].blocks.iter_mut().find(|b| b.ops.iter().any(|op|
         matches!(op, MirOp::StoreIndirect { .. }))).unwrap();
