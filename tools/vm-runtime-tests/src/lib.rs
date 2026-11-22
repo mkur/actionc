@@ -1288,6 +1288,11 @@ mod tests {
                 assert_eq!(outcome.vm.bus().cio_summary().opens, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().closes, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().reads, 13);
+                let numeric_reads = outcome.vm.bus().cio_observations().iter()
+                    .filter(|call| call.command == 5 && call.buffer == 0x0551)
+                    .map(|call| (call.channel, call.length))
+                    .collect::<Vec<_>>();
+                assert_eq!(numeric_reads, [(Some(0), 19); 6], "{runtime:?}/{mode:?}");
                 let record_reads = outcome.vm.bus().cio_observations().iter()
                     .filter(|call| call.command == 5 && (0x0641..=0x0691).contains(&call.buffer))
                     .map(|call| (call.channel, call.buffer, call.length, call.bytes_read))
@@ -1466,19 +1471,31 @@ mod tests {
         }
     }
 
-    struct FailedGraphicsCio {
+    struct FailedCio {
+        channel: u8,
         command: u8,
+        partial_record: Option<&'static [u8]>,
         injected: bool,
     }
 
-    impl actionc_vm::VmRunHooks for FailedGraphicsCio {
+    impl actionc_vm::VmRunHooks for FailedCio {
         type Error = std::convert::Infallible;
 
         fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), Self::Error> {
             let registers = vm.cpu().registers();
-            if !self.injected && registers.pc == 0xe456 && registers.x == 0x60
+            if !self.injected && registers.pc == 0xe456 && registers.x == self.channel << 4
                 && vm.bus().ram().read(0x0342 + u16::from(registers.x)) == self.command
             {
+                if let Some(record) = self.partial_record {
+                    let ram = vm.bus_mut().ram_mut();
+                    let iocb = u16::from(registers.x);
+                    let buffer = ram.read_word(actionc_vm::IOCB_BUFFER_BASE + iocb);
+                    let length = actionc_vm::IOCB_LENGTH_BASE + iocb;
+                    assert_eq!(buffer, 0x0551);
+                    assert_eq!(ram.read_word(length), 19);
+                    ram.map(buffer, record).unwrap();
+                    ram.write_word(length, record.len() as u16);
+                }
                 vm.set_pc(0x0760);
                 self.injected = true;
             }
@@ -1490,8 +1507,21 @@ mod tests {
     fn resident_graphics_locate_can_reach_a_returning_error_handler() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_failed_graphics_cio("resident_graphics_io.act", mode, runtime, 7);
+                let outcome = run_failed_cio("resident_graphics_io.act", mode, runtime, 6, 7, None);
                 assert_eq!(outcome.memory().read(0x0601), 5, "{runtime:?}/{mode:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn resident_numeric_input_parses_a_partial_record_after_a_returning_cio_error() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_failed_cio(
+                    "resident_numeric_input_error.act", mode, runtime, 1, 5, Some(b"-7\x9b"),
+                );
+                let number = u16::from_le_bytes([outcome.memory().read(0x0600), outcome.memory().read(0x0601)]);
+                assert_eq!(number as i16, -7, "{runtime:?}/{mode:?}");
             }
         }
     }
@@ -1515,14 +1545,15 @@ mod tests {
                     .collect::<Vec<_>>();
                 assert_eq!(screen_opens, [(0x1c, 0), (0x0c, 0x18)], "{runtime:?}/{mode:?}");
 
-                let failure = run_failed_graphics_cio(fixture, mode, runtime, 3);
+                let failure = run_failed_cio(fixture, mode, runtime, 6, 3, None);
                 assert_eq!(failure.vm.bus().graphics_mode(), Some(0x0c), "{runtime:?}/{mode:?}");
             }
         }
     }
 
-    fn run_failed_graphics_cio(
-        fixture: &str, mode: CompileMode, runtime: Runtime, command: u8,
+    fn run_failed_cio(
+        fixture: &str, mode: CompileMode, runtime: Runtime, channel: u8, command: u8,
+        partial_record: Option<&'static [u8]>,
     ) -> RunOutcome {
         let max_steps = 100_000;
         let mut vm = load_runtime_fixture(fixture, mode, runtime, true);
@@ -1536,7 +1567,7 @@ mod tests {
         };
         ram.map(handler, &[0xe6, 0xec, 0x60]).unwrap();
         ram.write(0x00ec, 0x39);
-        let mut hook = FailedGraphicsCio { command, injected: false };
+        let mut hook = FailedCio { channel, command, partial_record, injected: false };
         let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
             max_steps,
             history_len: 8,

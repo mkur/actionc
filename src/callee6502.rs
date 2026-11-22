@@ -7,6 +7,7 @@ pub(crate) mod sys_decimal;
 pub(crate) mod sys_graphics;
 pub(crate) mod sys_hardware;
 pub(crate) mod sys_memory;
+pub(crate) mod sys_numeric_input;
 pub(crate) mod sys_strings;
 pub(crate) mod sys_review;
 

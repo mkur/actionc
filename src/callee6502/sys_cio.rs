@@ -1,6 +1,7 @@
 //! Reviewed SYS entry-to-CIOV paths. CIOV's selected device and the
 //! returning error continuation are independent of this implementation.
 use super::sys_graphics::{cart_matches, matches_items, short_name};
+use super::sys_numeric_input::NumericInput;
 use crate::ast::{FundType, RoutineKind};
 use crate::runtime::Runtime;
 use crate::runtime_source::RuntimeImage;
@@ -25,6 +26,7 @@ pub(crate) enum CioRoutine {
     InputMD,
     InputSD,
     InputS,
+    NumericInput(NumericInput),
     Note,
     Point,
 }
@@ -73,11 +75,17 @@ pub(crate) enum CioBuffer {
     /// `destination + 1`. Zero skips dispatch. The wrapper replaces the
     /// header with the low byte of the returned count minus one, saturating at zero.
     RecordInput {
-        argument: u8,
+        destination: InputDestination,
         maximum: InputMaximum,
     },
     /// The wrapper uses IOCB auxiliary bytes for the transfer.
     NoTransfer,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum InputDestination {
+    Argument(u8),
+    Fixed(u16),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,7 +119,8 @@ pub(crate) struct CioTransfer {
     pub scratch: &'static [u8],
     /// Public AUX1/AUX2 argument indices. Zero AUX1 keeps both IOCB bytes.
     pub conditional_aux: Option<(u8, u8)>,
-    pub successful_result: Option<u8>,
+    /// Public result slots after a successful transfer and wrapper return.
+    pub successful_result: &'static [u8],
     pub position: Option<CioPosition>,
 }
 
@@ -138,7 +147,7 @@ impl CioRoutine {
             "SYS.INPUTS" => Some(Self::InputS),
             "SYS.NOTE" => Some(Self::Note),
             "SYS.POINT" => Some(Self::Point),
-            _ => None,
+            other => NumericInput::for_interface(other).map(Self::NumericInput),
         }
     }
 
@@ -160,6 +169,7 @@ impl CioRoutine {
             Self::InputMD => "INPUTMD",
             Self::InputSD => "INPUTSD",
             Self::InputS => "INPUTS",
+            Self::NumericInput(input) => input.name(),
             Self::Note => "NOTE",
             Self::Point => "POINT",
         }
@@ -169,6 +179,7 @@ impl CioRoutine {
         use CioCommand::{Argument, Fixed};
         let device = match self {
             Self::Put | Self::PutE | Self::Print | Self::PrintE | Self::InputS => CioDevice::Current,
+            Self::NumericInput(input) => input.device(),
             _ => CioDevice::Argument(0),
         };
         let (command, buffer, scratch, conditional_aux): (_, _, &[u8], _) = match self {
@@ -229,8 +240,11 @@ impl CioRoutine {
                     Self::InputS => (0, InputMaximum::Fixed(255), &[0xa0, 0xa1, 0xa2, 0xa3, 0xa5, 0xa6]),
                     _ => unreachable!(),
                 };
-                (Fixed(0x05), CioBuffer::RecordInput { argument, maximum }, scratch, None)
+                (Fixed(0x05), CioBuffer::RecordInput { destination: InputDestination::Argument(argument), maximum }, scratch, None)
             }
+            Self::NumericInput(_) => (Fixed(0x05), CioBuffer::RecordInput {
+                destination: InputDestination::Fixed(NumericInput::BUFFER), maximum: InputMaximum::Fixed(NumericInput::MAXIMUM),
+            }, &[0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6], None),
             Self::Note => (Fixed(0x26), CioBuffer::NoTransfer, &[0xa1, 0xa2], None),
             Self::Point => (Fixed(0x25), CioBuffer::NoTransfer, &[0xa1], None),
         };
@@ -240,7 +254,11 @@ impl CioRoutine {
             buffer,
             scratch,
             conditional_aux,
-            successful_result: (self == Self::GetD).then_some(0xa0),
+            successful_result: match self {
+                Self::GetD => &[0xa0],
+                Self::NumericInput(input) => input.successful_result(),
+                _ => &[],
+            },
             position: match self {
                 Self::Note => Some(CioPosition::ReadBack { sector_pointer: 1, offset_pointer: 2 }),
                 Self::Point => Some(CioPosition::Set { sector_argument: 1, offset_argument: 2 }),
@@ -306,6 +324,7 @@ impl CioRoutine {
                 && signature.return_type.is_none() && signature.params == [byte, string],
             Self::InputMD => signature.kind == RoutineKind::Proc
                 && signature.return_type.is_none() && signature.params == [byte.clone(), string, byte],
+            Self::NumericInput(input) => input.matches_signature(signature),
             Self::Note | Self::Point => {
                 let note = self == Self::Note;
                 let sector = ValueType { base: ValueTypeBase::Fund(FundType::Card), pointer: note };
@@ -334,6 +353,7 @@ impl CioRoutine {
             Self::InputMD => 0xa499,
             Self::InputSD => 0xa493,
             Self::InputS => 0xa48c,
+            Self::NumericInput(input) => input.address(),
             Self::Note => 0xa60d,
             Self::Point => 0xa634,
         }
@@ -364,6 +384,7 @@ impl CioRoutine {
             Self::InputMD => &[0x48, 0x86, 0xa1, 0x84, 0xa2, 0xa0, 0, 0xa5, 0xa3, 0x91, 0xa1, 0x68, 0xa4, 0xa2],
             Self::InputSD => &[0x48, 0xa9, 0xff, 0x85, 0xa3, 0x68],
             Self::InputS => &[0x86, 0xa2, 0xaa, 0xa4, 0xa2, 0xa5, 0xb7],
+            Self::NumericInput(input) => return input.matches_cart(address),
             Self::Note => &[
                 0x86, 0xa1, 0x84, 0xa2, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0xa9, 0x26, 0x9d, 0x42,
                 3, 0x20, 0x56, 0xe4, 0x20, 0xa5, 0xa3, 0xa0, 0, 0xbd, 0x4e, 3, 0x91, 0xa3,
@@ -405,6 +426,7 @@ impl CioRoutine {
                 Self::InputMD => Self::InputD.matches_cart(Self::InputD.address()),
                 Self::InputSD => Self::InputMD.matches_cart(Self::InputMD.address()),
                 Self::InputS => Self::InputSD.matches_cart(Self::InputSD.address()),
+                Self::NumericInput(_) => unreachable!(),
                 Self::Note | Self::Point => true,
             }
             && cart_status_matches()
@@ -465,6 +487,7 @@ impl CioRoutine {
                 && adjacent(image, "INPUTSD", "INPUTMD") && Self::InputMD.matches_linked(image, unit, "INPUTMD"),
             Self::InputS => body_matches(body, "a286 aa a2a4 a5 @DEVICE")
                 && adjacent(image, "INPUTS", "INPUTSD") && Self::InputSD.matches_linked(image, unit, "INPUTSD"),
+            Self::NumericInput(input) => return input.matches_linked(image),
             Self::Note => body_matches(body, concat!(
                 "a186 a284 a0a a0a aa 26a9 9d 342 20 e456 20 @CHKERR a0 0 ",
                 "bd 34e a391 bd 34c a191 bd 34d c8 a191 60",

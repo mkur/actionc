@@ -103,7 +103,12 @@ impl SysReview {
             Self::Decimal(routine) => routine.linked_aliases(),
             _ => &[],
         };
+        let numeric = match self {
+            Self::Cio(CioRoutine::NumericInput(input)) => Some(input),
+            _ => None,
+        };
         peek.into_iter().chain(decimal.iter().map(|routine| routine.name()))
+            .chain(numeric.into_iter().flat_map(|input| input.linked_abi_only_aliases()))
     }
 
     pub(crate) fn uses_precomputed_writes(self) -> bool {

@@ -1,0 +1,8 @@
+; The VM supplies a partial record and lets the CIO error handler return.
+INT number=$0600
+
+PROC Main()
+  number=InputID(1)
+  DO
+  OD
+RETURN

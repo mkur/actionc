@@ -325,7 +325,7 @@ fn cio_character_reviews_match_both_providers_and_keep_dispatch_open() {
         assert_eq!(calls[0].1, CioRoutine::PutD.transfer(runtime));
         assert_eq!(calls[1].1, CioRoutine::GetD.transfer(runtime));
         assert_eq!(calls[0].1.command, Fixed(0x0b));
-        assert_eq!(calls[1].1.successful_result, Some(0xa0));
+        assert_eq!(calls[1].1.successful_result, [0xa0]);
         assert!(calls.iter().all(|(call, _)| library_invocation(&p, call).is_none()));
         if runtime == crate::runtime::Runtime::Standalone {
             let mut changed = p.clone();
@@ -423,7 +423,7 @@ fn cio_open_and_close_bind_the_selected_filename_and_command_paths() {
 
 #[test]
 fn cio_record_input_reviews_bind_all_entry_wrappers_and_keep_dispatch_open() {
-    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice, InputMaximum};
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice, InputDestination, InputMaximum};
     use crate::runtime::Runtime;
 
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -439,8 +439,8 @@ fn cio_record_input_reviews_bind_all_entry_wrappers_and_keep_dispatch_open() {
                 .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
             assert_eq!(transfer.device, device);
             assert_eq!(transfer.command, CioCommand::Fixed(5));
-            assert_eq!(transfer.buffer, CioBuffer::RecordInput { argument, maximum });
-            assert!(transfer.successful_result.is_none());
+            assert_eq!(transfer.buffer, CioBuffer::RecordInput { destination: InputDestination::Argument(argument), maximum });
+            assert!(transfer.successful_result.is_empty());
             assert!(library_invocation(&p, call).is_none());
             if runtime == Runtime::Standalone {
                 let mut changed = p.clone();
@@ -470,7 +470,7 @@ fn cio_seek_reviews_distinguish_note_writeback_from_point_setup() {
         for &(call, transfer) in &calls {
             assert_eq!(transfer.device, CioDevice::Argument(0));
             assert_eq!(transfer.buffer, CioBuffer::NoTransfer);
-            assert!(transfer.successful_result.is_none());
+            assert!(transfer.successful_result.is_empty());
             assert!(library_invocation(&p, call).is_none());
         }
         if runtime == Runtime::Standalone {
@@ -478,6 +478,48 @@ fn cio_seek_reviews_distinguish_note_writeback_from_point_setup() {
             changed.routines.iter_mut().find(|r| r.name.ends_with("::ChkErr")).unwrap().blocks.clear();
             assert!(reviewed_cio_transfer(&changed, note).is_none());
             assert!(reviewed_cio_transfer(&changed, point).is_none());
+        }
+    }
+}
+
+#[test]
+fn cio_numeric_input_reviews_keep_the_public_result_and_parser_dependency() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice, InputDestination, InputMaximum};
+    use crate::runtime::Runtime;
+
+    let cases: &[(&str, CioDevice, &[u8])] = &[
+        ("InputBD(1)", CioDevice::Argument(0), &[0xa0]),
+        ("InputCD(1)", CioDevice::Argument(0), &[0xa0, 0xa1]),
+        ("InputID(1)", CioDevice::Argument(0), &[0xa0, 0xa1]),
+        ("InputB()", CioDevice::Current, &[0xa0]),
+        ("InputC()", CioDevice::Current, &[0xa0, 0xa1]),
+        ("InputI()", CioDevice::Current, &[0xa0, 0xa1]),
+    ];
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for &(source, device, result) in cases {
+            let text = format!("CARD number=$600 PROC Main() number={source} RETURN");
+            let p = program(&text, runtime);
+            let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?)))
+                .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
+            assert_eq!(transfer.device, device);
+            assert_eq!(transfer.command, CioCommand::Fixed(5));
+            assert_eq!(transfer.buffer, CioBuffer::RecordInput {
+                destination: InputDestination::Fixed(0x0550), maximum: InputMaximum::Fixed(19),
+            });
+            assert_eq!(transfer.successful_result, result);
+            assert!(library_invocation(&p, call).is_none());
+
+            if runtime == Runtime::Standalone {
+                for name in ["::InputD", "::ValI"] {
+                    let mut changed = p.clone();
+                    changed.routines.iter_mut().find(|r| r.name.ends_with(name)).unwrap().blocks.clear();
+                    assert!(reviewed_cio_transfer(&changed, call).is_none());
+                }
+                for alias in p.routines.iter().filter(|r| ["::InputBD", "::InputCD", "::ValB", "::ValC"].iter().any(|name| r.name.ends_with(name))) {
+                    assert!(alias.frame.params.iter().all(|param| matches!(param.base, MirStorageBase::ParamAbiOnly(_))), "{}", alias.name);
+                }
+            }
         }
     }
 }
