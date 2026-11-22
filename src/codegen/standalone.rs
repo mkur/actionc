@@ -63,9 +63,9 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
 
     let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
     let mut callee_reviews = application_projection.callee_reviews;
-    let graphics = external_roots.iter().filter_map(|(name, root)| {
+    let sys_reviews = external_roots.iter().filter_map(|(name, root)| {
         let interface = &external_interfaces[name];
-        let review = crate::callee6502::sys_graphics::GraphicsRoutine::for_interface(&interface.qualified_name)?;
+        let review = crate::callee6502::sys_review::SysReview::for_interface(&interface.qualified_name)?;
         (review.matches_signature(&interface.signature)
             && review.matches_linked(&resident.image, &root.unit.name, &root.routine))
             .then_some((name.clone(), review))
@@ -95,8 +95,8 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             Ok((external.clone(), implementation.clone()))
         })
         .collect::<Result<BTreeMap<_, _>, Vec<Diagnostic>>>()?;
-    for (name, review) in graphics {
-        callee_reviews.graphics.insert(normalize_name(&rename_external[&name]), (review, None));
+    for (name, review) in sys_reviews {
+        callee_reviews.sys.insert(normalize_name(&rename_external[&name]), (review, None));
     }
     rewrite_program_names(&mut application, &rename_external);
     remove_external_routines(&mut application);

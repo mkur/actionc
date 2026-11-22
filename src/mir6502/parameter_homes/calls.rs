@@ -61,6 +61,9 @@ impl<'a> ResidenceCalls<'a> {
 
     /// Diagnostics read already established facts; tracing does not run analysis.
     pub fn entry_description(&self, call: &MirOp) -> Option<String> {
+        if let Some(transfer) = crate::mir6502::runtime_contracts::library::reviewed_cio_transfer(self.program, call) {
+            return Some(format!("reviewed SYS CIO transfer {transfer:?} with open device/status continuation"));
+        }
         if let Some(boundary) = crate::mir6502::runtime_contracts::library::graphics_cio_boundary(self.program, call) {
             return Some(format!("reviewed graphics wrapper, open CIO boundary: {boundary}"));
         }
@@ -97,6 +100,9 @@ impl<'a> ResidenceCalls<'a> {
         }
         if crate::mir6502::runtime_contracts::library::graphics_cio_boundary(self.program, call).is_some() {
             return Err("unreviewed graphics CIO continuation");
+        }
+        if crate::mir6502::runtime_contracts::library::reviewed_cio_transfer(self.program, call).is_some() {
+            return Err("unreviewed SYS CIO continuation");
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)

@@ -1,5 +1,5 @@
 use super::*;
-use super::library::graphics_cio_boundary;
+use super::library::{graphics_cio_boundary, reviewed_cio_transfer};
 use crate::mir6502::analysis::known_callees::{MirAcyclicEntryAnalysis, MirCalleeEntryStage, MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites};
 use std::sync::atomic::{AtomicUsize, Ordering};
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -16,6 +16,81 @@ fn checked_nir(source: &str) -> crate::nir::NirProgram {
 fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
     crate::mir6502::materialize_program_with_origin_and_runtime(crate::mir6502::lower_program(&checked_nir(source)).unwrap(),
         &crate::mir6502::Mir6502Config { enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized() }, 0x3000, runtime).unwrap()
+}
+
+#[test]
+fn cio_character_reviews_match_both_providers_and_keep_dispatch_open() {
+    use crate::callee6502::sys_cio::{CioCommand::Fixed, CioRoutine};
+    let source = "BYTE character=$600 PROC Main()
+                  PutD(0,'X) character=GetD(0) RETURN";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter_map(|call| Some((call, reviewed_cio_transfer(&p, call)?))).collect::<Vec<_>>();
+        assert_eq!(calls.len(), 2, "{runtime:?}");
+        assert_eq!(calls[0].1, CioRoutine::PutD.transfer(runtime));
+        assert_eq!(calls[1].1, CioRoutine::GetD.transfer(runtime));
+        assert_eq!(calls[0].1.command, Fixed(0x0b));
+        assert_eq!(calls[1].1.successful_result, Some(0xa0));
+        assert!(calls.iter().all(|(call, _)| library_invocation(&p, call).is_none()));
+        if runtime == crate::runtime::Runtime::Standalone {
+            let mut changed = p.clone();
+            let ccio = changed.routines.iter_mut().find(|r| r.name.ends_with("::CCIO")).unwrap();
+            ccio.blocks.clear();
+            assert!(calls.iter().all(|(call, _)| reviewed_cio_transfer(&changed, call).is_none()));
+        }
+    }
+}
+
+#[test]
+fn cio_open_and_close_bind_the_selected_filename_and_command_paths() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand::Fixed, FilenameBuffer};
+    use crate::runtime::Runtime;
+    let source = "PROC Main() Open(1,\"D:TEST\",4,0) Close(1) RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter_map(|call| Some((call, reviewed_cio_transfer(&p, call)?))).collect::<Vec<_>>();
+        assert_eq!(calls.len(), 2, "{runtime:?}");
+        assert_eq!(calls[0].1.command, Fixed(3));
+        assert_eq!(calls[1].1.command, Fixed(12));
+        let destination = match runtime {
+            Runtime::ActionCart => FilenameBuffer::PointerCell(0x009b),
+            Runtime::Standalone => FilenameBuffer::Fixed(0x0500),
+        };
+        assert_eq!(calls[0].1.buffer, CioBuffer::FilenameCopy { argument: 1, destination });
+        assert!(calls.iter().all(|(call, _)| library_invocation(&p, call).is_none()));
+        if runtime == Runtime::Standalone {
+            let mut changed = p.clone();
+            let xiostr = changed.routines.iter_mut().find(|r| r.name.ends_with("::XIOstr")).unwrap();
+            xiostr.blocks.clear();
+            assert!(calls.iter().all(|(call, _)| reviewed_cio_transfer(&changed, call).is_none()));
+        }
+    }
+}
+
+#[test]
+fn xio_reviews_the_public_command_lane_and_counted_string_without_a_device_proof() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand};
+    use crate::runtime::Runtime;
+    let source = "MODULE CLIENT USE SYS
+                  PROC Main() SYS.XIO(4,9,123,0,42,\"D:\") RETURN ENDMODULE";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?))).unwrap();
+        assert_eq!(transfer.command, CioCommand::Argument(2));
+        assert_eq!(transfer.buffer, CioBuffer::CountedString { argument: 5 });
+        assert_eq!(transfer.conditional_aux, Some((3, 4)));
+        assert!(library_invocation(&p, call).is_none());
+        let mut invalid = call.clone();
+        let MirOp::Call { args, .. } = &mut invalid else { unreachable!(); };
+        args.pop();
+        assert!(reviewed_cio_transfer(&p, &invalid).is_none());
+    }
+    let shadow = program("PROC XIO() RETURN PROC Main() XIO() RETURN", Runtime::ActionCart);
+    assert!(shadow.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+        .all(|call| reviewed_cio_transfer(&shadow, call).is_none()));
 }
 
 #[test]

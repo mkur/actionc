@@ -1296,6 +1296,40 @@ mod tests {
     }
 
     #[test]
+    fn resident_cio_character_contracts_match_both_runtimes_and_backends() {
+        let max_steps = 100_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let outcome = run_runtime_fixture_with_setup(
+                    "resident_cio_contracts.act", mode, runtime, true, max_steps, |vm| {
+                        vm.bus_mut().add_host_file("INPUT.TXT", b"ABC".to_vec());
+                        vm.bus_mut().add_host_output("OUTPUT.TXT");
+                    },
+                );
+                assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+                assert_eq!(outcome.memory().read(0x0600), b'A', "{runtime:?}/{mode:?}");
+                assert_eq!(outcome.vm.bus().host_file_bytes("OUTPUT.TXT"), Some(&b"Q"[..]));
+                let calls = outcome.vm.bus().cio_observations();
+                for (device, command) in [(1, 0x07), (2, 0x0b)] {
+                    assert!(calls.iter().any(|call| call.channel == Some(device)
+                        && call.command == command && call.length == 0 && call.handled),
+                        "{runtime:?}/{mode:?} {calls:?}");
+                }
+                let opens = calls.iter().filter(|call| call.command == 3).collect::<Vec<_>>();
+                assert_eq!(opens.iter().map(|call| (call.channel, call.aux1, call.aux2)).collect::<Vec<_>>(),
+                    [(Some(1), 4, 0), (Some(2), 8, 0)]);
+                let filename_buffer = match runtime {
+                    Runtime::ActionCart => outcome.vm.bus().ram().read_word(0x009b).wrapping_add(1),
+                    Runtime::Standalone => 0x0501,
+                };
+                assert!(opens.iter().all(|call| call.buffer == filename_buffer), "{runtime:?}/{mode:?}");
+                assert!(calls.iter().any(|call| call.command == 13 && call.channel == Some(1) && call.handled));
+                assert!(calls.iter().all(|call| call.command != 0x7e), "{runtime:?}/{mode:?}");
+            }
+        }
+    }
+
+    #[test]
     fn resident_device_io_matches_under_both_runtimes_and_backends() {
         let max_steps = 150_000;
         let expected: &[(u16, &[u8])] = &[

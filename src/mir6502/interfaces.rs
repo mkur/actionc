@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::runtime::Runtime;
-use crate::callee6502::sys_graphics::GraphicsRoutine;
+use crate::callee6502::sys_review::SysReview;
 use crate::runtime_bindings::{BindingTarget, binding_key, parse_bindings};
 use crate::runtime_source::{RuntimeImage, RuntimeUnit, resolve_runtime_unit};
 
@@ -38,7 +38,7 @@ pub(super) fn resolve_interfaces(
     let referenced = referenced_external_routines(program, &external);
     let bindings = parse_bindings(runtime).map_err(frontend_diagnostics)?;
     let mut resolved = BTreeMap::new();
-    let mut graphics = BTreeMap::new();
+    let mut sys_reviews = BTreeMap::new();
 
     let interface_signatures = sys_interface_signatures()?;
     let mut external_roots = BTreeMap::<RoutineId, (RuntimeUnit, String)>::new();
@@ -50,8 +50,8 @@ pub(super) fn resolve_interfaces(
         match binding {
             BindingTarget::Absolute(address) if runtime == Runtime::ActionCart => {
                 resolved.insert(*id, ResolvedTarget::Absolute(*address));
-                if let Some(review) = GraphicsRoutine::for_interface(name).filter(|r| r.matches_cart(*address)) {
-                    graphics.insert(*id, review);
+                if let Some(review) = SysReview::for_interface(name).filter(|r| r.matches_cart(*address)) {
+                    sys_reviews.insert(*id, review);
                 }
             }
             BindingTarget::Absolute(_) => {
@@ -90,10 +90,10 @@ pub(super) fn resolve_interfaces(
                 unit,
                 routine,
             )?;
-            if let Some(review) = GraphicsRoutine::for_interface(interface_name)
+            if let Some(review) = SysReview::for_interface(interface_name)
                 .filter(|r| r.matches_linked(&selected_runtime.image, &unit.name, routine))
             {
-                graphics.insert(*external_id, review);
+                sys_reviews.insert(*external_id, review);
             }
             let implementation =
                 find_runtime_routine(&runtime_program, RESIDENT_LINK_MODULE, routine)?;
@@ -145,7 +145,7 @@ pub(super) fn resolve_interfaces(
             ResolvedTarget::Absolute(a) => super::ir::MirRuntimeHelperTarget::KnownAbsolute(*a),
             ResolvedTarget::Routine(id) => super::ir::MirRuntimeHelperTarget::Routine(*id),
         };
-        (*id, super::runtime_contracts::library::bind(program, interface, target, graphics.get(id).copied()))
+        (*id, super::runtime_contracts::library::bind(program, interface, target, sys_reviews.get(id).copied()))
     }).collect();
     for op in program.routines.iter_mut().flat_map(|r| &mut r.blocks).flat_map(|b| &mut b.ops) {
         if let MirOp::Call { target: MirCallTarget::Routine(id), abi, .. } = op

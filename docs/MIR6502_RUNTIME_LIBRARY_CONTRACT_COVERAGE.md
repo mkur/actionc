@@ -36,6 +36,9 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | Locate | Word column in A/X, byte row in Y / BYTE at `$A0` on success | Unknown across CIO | Reviewed `Position` call and channel 6 `GetD`. An open error continuation prevents a guaranteed result definition. |
 | DrawTo, Fill | Word column in A/X, byte row in Y / void | Unknown across CIO | Shared `GrIO` setup reads COLOR and writes `$02FB`. The reviewed entries reach XIO `$11` and `$12` respectively. |
 | Graphics | Byte mode in A / void | Unknown across CIO | Reviewed editor and screen close/open sequence. For S:, mode supplies AUX2 and `(mode & $30) XOR $1C` supplies AUX1. |
+| PutD, GetD | Channel in A, put character in X / GetD character at `$A0` on success | Unknown across CIO | Shared `CCIO` sets a zero IOCB length and commands `$0B` and `$07`. It stages the accumulator in `$A0` before status handling. |
+| Close, Open | Channel in A / void. Open also takes a counted filename in X/Y and mode and auxiliary bytes in `$A3/$A4`. | Unknown across CIO | Commands `$0C` and `$03`. Open copies the filename through the pointer at `$9B/$9C` on cartridge and into `$0500` on standalone. Cartridge Graphics calls the internal open entry. |
+| XIO | Command in Y, AUX bytes in `$A3/$A4`, counted string pointer in `$A5/$A6` / void | Unknown across CIO | A zero AUX1 keeps the IOCB auxiliary bytes. A zero string length skips CIOV. DrawTo and Fill reach this path with commands `$11` and `$12`. |
 
 These assembly entries consume the public ABI directly, including fifth/sixth
 argument bytes. They do not acquire a synthesized SArgs prologue. An unknown
@@ -46,6 +49,8 @@ consumer without a combined representation retains an unknown footprint.
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
 starts with the seven public graphics routines, in four slices on both providers.
+The [CIO phase](6502_SYS_CIO_CONTRACTS_IMPLEMENTATION_PLAN.md) follows their
+shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 
 | Interfaces | Missing returning proof components |
 | --- | --- |
@@ -55,8 +60,8 @@ starts with the seven public graphics routines, in four slices on both providers
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek/PeekC, Poke/PokeC | Explicit numeric memory access semantics and complete selected implementation effects; identity is retained now. |
 | Rand, Sound, SndRst, Paddle/PTrig/Stick/STrig | Device/state observations and hardware writes. |
-| Plot, Locate, DrawTo, Fill, Graphics | Transitive CIO and returning error-handler effects. The reviewed wrapper contracts retain these open boundaries. |
-| Put/Print/Get families, Input families, Open/Close/XIO/Note/Point | CIO/OS returning dependencies, device state and input/output buffers. |
+| Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |
+| Other Put/Print/Get and Input routines, Note, Point | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
 Ordinary Action wrappers use the existing acyclic analysis when all their

@@ -1,0 +1,14 @@
+BYTE readCharacter=$0600
+
+PROC Main()
+  Open(1,"D:INPUT.TXT",4,0)
+  readCharacter=GetD(1)
+  XIO(1,0,13,0,0,"D:INPUT.TXT")
+  XIO(1,0,$7E,0,0,"")
+  Close(1)
+  Open(2,"D:OUTPUT.TXT",8,0)
+  PutD(2,'Q)
+  Close(2)
+  DO
+  OD
+RETURN

@@ -4,11 +4,12 @@ use super::*;
 use super::invocation::InvocationSummary;
 use super::buffers::{BufferAccess, BufferExtent};
 
-use crate::callee6502::sys_graphics::GraphicsRoutine;
+use crate::callee6502::sys_review::SysReview;
+use crate::callee6502::sys_cio::CioTransfer;
 
 pub(in crate::mir6502) fn bind(
     program: &MirProgram, interface: &MirRoutine, target: MirRuntimeHelperTarget,
-    graphics: Option<GraphicsRoutine>,
+    sys_review: Option<SysReview>,
 ) -> Arc<MirLibraryBinding> {
     let kind = match crate::runtime_bindings::binding_key(&interface.name).as_str() {
         "SYS.SCOMPARE" => Some(MirLibraryRoutine::SCompare),
@@ -19,7 +20,7 @@ pub(in crate::mir6502) fn bind(
         _ => None,
     };
     Arc::new(MirLibraryBinding {
-        interface: Arc::new(interface.clone()), kind, graphics,
+        interface: Arc::new(interface.clone()), kind, sys_review,
         implementation: MirRuntimeImplementation::capture(program, &target, None),
     })
 }
@@ -39,14 +40,30 @@ fn current_binding<'a>(program: &MirProgram, op: &'a MirOp) -> Option<&'a MirLib
 
 pub(in crate::mir6502) fn graphics_cio_boundary(program: &MirProgram, op: &MirOp) -> Option<&'static str> {
     let binding = current_binding(program, op)?;
-    binding.graphics?.cio_boundary()
+    let SysReview::Graphics(graphics) = binding.sys_review? else { return None; };
+    graphics.cio_boundary()
+}
+
+pub(in crate::mir6502) fn reviewed_cio_transfer(program: &MirProgram, op: &MirOp) -> Option<CioTransfer> {
+    let binding = current_binding(program, op)?;
+    let SysReview::Cio(routine) = binding.sys_review? else { return None; };
+    let MirOp::Call { abi, args, .. } = op else { return None; };
+    if !abi.params.iter().eq(args.iter().map(|arg| &arg.home)) { return None; }
+    crate::mir6502::abi::canonical_call_lanes(&binding.interface, args).ok()?;
+    crate::mir6502::abi::validate_direct_call_result(&binding.interface, op).ok()?;
+    let runtime = match binding.implementation.as_ref()?.target {
+        MirRuntimeHelperTarget::KnownAbsolute(_) => crate::runtime::Runtime::ActionCart,
+        MirRuntimeHelperTarget::Routine(_) => crate::runtime::Runtime::Standalone,
+        MirRuntimeHelperTarget::Deferred => return None,
+    };
+    Some(routine.transfer(runtime))
 }
 
 pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -> Option<InvocationSummary> {
     let binding = current_binding(program, op)?;
     let MirOp::Call { abi, args, .. } = op else { return None; };
     let interface = &binding.interface;
-    if let Some(graphics) = binding.graphics {
+    if let Some(SysReview::Graphics(graphics)) = binding.sys_review {
         if graphics.cio_boundary().is_some() { return None; }
         use crate::ast::FundType;
         use crate::mir6502::ir::MirAbiIntegerWidth::{Byte, Word};
@@ -135,7 +152,7 @@ impl std::fmt::Debug for MirLibraryBinding {
         f.debug_struct("MirLibraryBinding").field("interface", &self.interface.name)
             .field("id", &self.interface.id).field("parameters", &self.interface.frame.direct_parameter_abi)
             .field("result", &self.interface.direct_result_abi).field("kind", &self.kind)
-            .field("graphics", &self.graphics)
+            .field("sys_review", &self.sys_review)
             .field("implementation", &self.implementation).finish()
     }
 }

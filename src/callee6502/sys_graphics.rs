@@ -240,10 +240,14 @@ impl GraphicsRoutine {
     }
 }
 
-fn cart_matches(entry: u16, bytes: &[u8]) -> bool {
+pub(super) fn cart_matches(entry: u16, bytes: &[u8]) -> bool {
     const CART: &[u8] = include_bytes!("../../roms/action.rom");
     // OSS type 15's initial bank containing the public runtime entries.
-    let start = 0x1010 + usize::from(entry - 0xa000);
+    let start = match entry {
+        0xa000..=0xafff => 0x1010 + usize::from(entry - 0xa000),
+        0xb000..=0xbfff => 0x0010 + usize::from(entry - 0xb000),
+        _ => return false,
+    };
     CART.starts_with(b"CART\0\0\0\x0f") && CART.get(start..start + bytes.len()) == Some(bytes)
 }
 
@@ -277,7 +281,7 @@ fn matches_linked_helper(image: &RuntimeImage, name: &str, words: &str) -> bool 
 
 /// Compare the checked-in machine word/relocation sequence. This never infers
 /// instruction effects. A symbolic item must also have the reviewed resolved target.
-fn matches_items(
+pub(super) fn matches_items(
     items: &[MachineItem],
     symbols: &[crate::semantic::ir::SemMachineSymbolRef],
     expected: &str,
@@ -316,6 +320,6 @@ fn matches_items(
             })
 }
 
-fn short_name(name: &str) -> &str {
+pub(super) fn short_name(name: &str) -> &str {
     name.rsplit(['.', ':']).next().unwrap_or(name)
 }

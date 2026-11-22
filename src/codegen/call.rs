@@ -276,7 +276,7 @@ impl Generator {
         if args.len() > info.params.len() {
             return false;
         }
-        if let Some(&(review, address)) = self.callee_reviews.graphics.get(&name_key)
+        if let Some(&(review, address)) = self.callee_reviews.sys.get(&name_key)
             && info.system_address == address && args.len() == info.params.len()
         {
             let register = args.first().and_then(|arg| match &arg.kind {

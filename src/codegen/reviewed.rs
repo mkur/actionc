@@ -2,7 +2,7 @@
 //! are emitted. Only ordinary, statically sized global backing is supported.
 use super::*;
 use crate::callee6502::{BodyItem, OpaqueTarget, ENTRY_VERSION, ReviewDependencies, fingerprint};
-use crate::callee6502::sys_graphics::GraphicsRoutine;
+use crate::callee6502::sys_review::SysReview;
 use crate::foreign::{ForeignCodeMode, ForeignRelocationEncoding};
 use crate::semantic::ir::*;
 use crate::target::ByteSize;
@@ -11,7 +11,7 @@ use crate::target::ByteSize;
 pub(super) struct ClassicCalleeReviews {
     pub(super) entries: HashMap<String, u64>,
     pub(super) contracts: HashMap<String, crate::callee6502::CallFacts<crate::semantic::SymbolId>>,
-    pub(super) graphics: HashMap<String, (GraphicsRoutine, Option<u16>)>,
+    pub(super) sys: HashMap<String, (SysReview, Option<u16>)>,
 }
 
 impl ClassicCalleeReviews {
