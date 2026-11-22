@@ -2,6 +2,8 @@
 ; package. Results use fixed addresses so the VM can inspect each type exactly.
 BYTE byteZero=$0600
 BYTE byteMax=$0601
+BYTE byteWrapped=$0602
+BYTE liveResult=$0603
 
 CARD cardZero=$0610
 CARD cardValue=$0612
@@ -11,10 +13,18 @@ INT intMin=$0620
 INT intMinusOne=$0622
 INT intZero=$0624
 INT intMax=$0626
+INT intPrefix=$0628
+BYTE ARRAY prefix(7)=$0630
+
+BYTE FUNC ParsePrefix(BYTE keep)
+  intPrefix=ValI($0630)
+RETURN(keep+1)
 
 PROC Main()
   byteZero=ValB("0")
   byteMax=ValB("255")
+  byteWrapped=1
+  byteWrapped=ValB("256")
 
   cardZero=ValC("0")
   cardValue=ValC("1234")
@@ -24,6 +34,10 @@ PROC Main()
   intMinusOne=ValI("-1")
   intZero=ValI("0")
   intMax=ValI("32767")
+
+  prefix(0)=6 prefix(1)=$20 prefix(2)='-
+  prefix(3)='1 prefix(4)='2 prefix(5)='x prefix(6)='9
+  liveResult=ParsePrefix(13)
 
   DO
   OD

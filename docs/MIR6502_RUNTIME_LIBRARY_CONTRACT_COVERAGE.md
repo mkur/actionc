@@ -27,6 +27,10 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | --- | --- | --- | --- |
 | SCompare | Two string pointers / signed word at `$A0/$A1` | `$A0–$A2`, `$A4–$A6` | Reads both length-prefixed strings; internal assembly call retained in body evidence. |
 | SCopy | Destination/source pointers / void | `$A0–$A2` | Reads source length/payload; writes destination length/payload, at most 256 bytes. Reverse payload order; no memmove claim. |
+| SCopyS | Destination/source pointers in A/X and Y/`$A3`, inclusive byte bounds at `$A4/$A5` / void | `$A0–$A5` | Reads the source length and clamps the end to it. Writes the destination length, including for an empty slice, and copies the selected payload in reverse through `SCopy+10`. |
+| SAssign | Same ABI as `SCopyS` / void | `$A0–$A2`, `$A4–$A6` | Reads the source length, takes at most that many source bytes, and copies in reverse into the selected destination slice through `SCopy+14`. A nonempty copy can update the destination length. |
+| ValB, ValC, ValI | String pointer in A/X / BYTE at `$A0` or CARD/INT at `$A0/$A1` | `$A0–$A5` and a temporary stack byte for a proven source span outside cartridge bank controls | The shared parser reads an indexed 256-byte window. The standalone `ValB` and `ValC` labels pass A/X directly to `ValI`. |
+| StrB, StrC, StrI | BYTE value and destination in A and X/Y, or word value and destination in A/X and Y/`$A3` / void | Unknown across Atari FPP | The shared `CToStr` path calls IFP (`$D9AA`) and FASC (`$D8E6`) and stages the string at `$0550`. |
 | Zero | Destination pointer, word count / void | `$A0–$A4` | Destination writes; falls through into SetBlock. |
 | SetBlock | Destination pointer, word count, byte value / void | `$A0–$A3` | Destination writes, dynamic extent. |
 | MoveBlock | Destination/source pointers, word count / void | `$A0–$A3`, `$A5` | Reads source and writes destination, dynamic extent; forward copy. |
@@ -73,6 +77,13 @@ The computed addresses in the glyph loop retain conservative effects, and
 both builds have the same source ZP homes.
 [Lipsum caller](../samples/benchmarks/bench/lipsum.act#L19)
 
+`SCopyS` and `SAssign` use finite footprints when both buffer addresses and
+slice bounds are proven at the call. The bounds account for the length byte
+and the original reverse-copy behavior on overlapping buffers. Possible
+destination bytes must be below the loaded image and outside the stack,
+hardware and pointer scratch. Possible source reads must avoid cartridge
+bank controls.
+
 ## Remaining public-library coverage
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
@@ -82,8 +93,9 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 
 | Interfaces | Missing returning proof components |
 | --- | --- |
-| SCopyS, SAssign | Subrange arithmetic, bounded string effects, jumps into SCopy interiors. |
-| StrB/StrC/StrI, ValB/ValC/ValI | Conversion scratch, string effects and internal returning dependencies. |
+| SCopyS, SAssign with unproven operands | Numeric buffer addresses and bounds at the call site. |
+| ValB, ValC, ValI with an unproven source | An address proof that excludes cartridge bank controls from the indexed read window. |
+| StrB, StrC, StrI | Portable FASC effects and a bounded destination write through the formatter. |
 | StrLC/StrLI, ValLC/ValLI and LONGCARD/LONGINT I/O | Public wide ABI metadata is available. String effects, conversion scratch and I/O dependencies still restrict entry certificates; ordinary bodies can use available helper facts. |
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |

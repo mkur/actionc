@@ -1064,11 +1064,11 @@ mod tests {
                     outcome.report
                 );
                 assert_eq!(
-                    (0..2)
+                    (0..4)
                         .map(|offset| outcome.memory().read(0x0600 + offset))
                         .collect::<Vec<_>>(),
-                    hex_bytes("00 ff"),
-                    "ValB with {runtime:?}/{mode:?}"
+                    hex_bytes("00 ff 00 0e"),
+                    "ValB and live parameter with {runtime:?}/{mode:?}"
                 );
                 assert_eq!(
                     (0..6)
@@ -1078,10 +1078,10 @@ mod tests {
                     "ValC with {runtime:?}/{mode:?}"
                 );
                 assert_eq!(
-                    (0..8)
+                    (0..10)
                         .map(|offset| outcome.memory().read(0x0620 + offset))
                         .collect::<Vec<_>>(),
-                    hex_bytes("00 80 ff ff 00 00 ff 7f"),
+                    hex_bytes("00 80 ff ff 00 00 ff 7f f4 ff"),
                     "ValI with {runtime:?}/{mode:?}"
                 );
             }
@@ -1606,6 +1606,17 @@ mod tests {
                     b"\x05AxyDE",
                     "SAssign result with {runtime:?}/{mode:?}"
                 );
+                for (address, expected) in [
+                    (0x0640, b"\x03DDDDE".as_slice()),
+                    (0x0650, b"\x05AABCE".as_slice()),
+                    (0x0660, b"\x02xy\x03Axy".as_slice()),
+                    (0x0668, b"\x0E\0".as_slice()),
+                ] {
+                    let data = (0..expected.len() as u16)
+                        .map(|offset| outcome.memory().read(address + offset))
+                        .collect::<Vec<_>>();
+                    assert_eq!(data, expected, "string bytes at ${address:04X} with {runtime:?}/{mode:?}");
+                }
                 assert_eq!(
                     (0..6)
                         .map(|offset| outcome.memory().read(0x0620 + offset))

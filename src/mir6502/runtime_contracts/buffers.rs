@@ -63,13 +63,13 @@ impl super::invocation::InvocationSummary {
     ) -> crate::mir6502::analysis::known_callees::MirKnownMemoryWrites {
         use crate::mir6502::analysis::known_callees::MirKnownMemoryWrites;
         if let Some(review) = self.sys_review {
-            if matches!(review, crate::callee6502::sys_review::SysReview::Memory(_)) {
+            if review.uses_precomputed_writes() {
                 // The address and any footprint preconditions were proved at
                 // this invocation's actual argument setup.
                 return MirKnownMemoryWrites::Exact(self.writes.clone());
             }
             let register = argument_byte_value(program, call, 0, MirWidth::Byte, values);
-            let Some(ranges) = review.facts::<()>(register.map(u16::from), None).writes else {
+            let Some(ranges) = review.facts::<()>(|_| register.map(u16::from), None).writes else {
                 return MirKnownMemoryWrites::Unknown;
             };
             return MirKnownMemoryWrites::Exact(absolute_writes(ranges));

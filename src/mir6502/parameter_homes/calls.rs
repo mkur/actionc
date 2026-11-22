@@ -69,6 +69,11 @@ impl<'a> ResidenceCalls<'a> {
         if let Some(boundary) = crate::mir6502::runtime_contracts::library::graphics_cio_boundary(self.program, call) {
             return Some(format!("reviewed graphics wrapper, open CIO boundary: {boundary}"));
         }
+        if let Some([ifp, fasc]) = crate::mir6502::runtime_contracts::library::reviewed_decimal_routine(self.program, call)
+            .and_then(|routine| routine.fpp_services())
+        {
+            return Some(format!("reviewed SYS formatter, open Atari FPP boundary: IFP ${ifp:04X}, FASC ${fasc:04X}"));
+        }
         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
         if let Some(current) = self.reviewed_fingerprints.get(target) {
             return Some(match current {

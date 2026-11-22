@@ -279,7 +279,7 @@ impl Generator {
         if let Some(&(review, address)) = self.callee_reviews.sys.get(&name_key)
             && info.system_address == address && args.len() == info.params.len()
         {
-            let argument = args.first().and_then(|arg| match &arg.kind {
+            let argument = |index| args.get(index).and_then(|arg: &Expr| match &arg.kind {
                 ExprKind::Number(number) => u16::try_from(number.value?).ok(),
                 _ => None,
             });

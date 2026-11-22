@@ -6,6 +6,8 @@ use super::buffers::{BufferAccess, BufferExtent};
 
 use crate::callee6502::sys_review::SysReview;
 use crate::callee6502::sys_cio::CioTransfer;
+use crate::callee6502::sys_decimal::DecimalRoutine;
+use crate::callee6502::sys_strings::{StringArguments, StringRoutine};
 use crate::mir6502::analysis::machine_values::MirMachineValueAvailability;
 use crate::mir6502::analysis::sites::MirSite;
 
@@ -83,7 +85,7 @@ pub(in crate::mir6502) fn library_invocation_at(
 pub(in crate::mir6502) fn requires_argument_proof(program: &MirProgram, op: &MirOp) -> bool {
     match current_binding(program, op).and_then(|binding| binding.sys_review) {
         Some(SysReview::Hardware(hw)) => hw.needs_argument_proof(),
-        Some(SysReview::Memory(_)) => true,
+        Some(SysReview::Memory(_) | SysReview::Strings(_) | SysReview::Decimal(_)) => true,
         _ => false,
     }
 }
@@ -93,6 +95,36 @@ pub(in crate::mir6502) fn reviewed_memory_routine(
 ) -> Option<crate::callee6502::sys_memory::MemoryRoutine> {
     let SysReview::Memory(routine) = current_binding(program, op)?.sys_review? else { return None; };
     Some(routine)
+}
+
+pub(in crate::mir6502) fn reviewed_string_routine(program: &MirProgram, op: &MirOp) -> Option<StringRoutine> {
+    let SysReview::Strings(routine) = current_binding(program, op)?.sys_review? else { return None; };
+    Some(routine)
+}
+
+pub(in crate::mir6502) fn reviewed_decimal_routine(program: &MirProgram, op: &MirOp) -> Option<DecimalRoutine> {
+    let SysReview::Decimal(routine) = current_binding(program, op)?.sys_review? else { return None; };
+    Some(routine)
+}
+
+fn string_argument(program: &MirProgram, op: &MirOp, values: Option<(&MirMachineValueAvailability, MirSite)>, index: usize) -> Option<u16> {
+    // Before expansion the two pointer operands are still words. The byte
+    // arguments name their future lanes, which have not been set up yet.
+    let values = if matches!(op, MirOp::Call { args, .. } if args.iter().any(|arg| arg.width == MirWidth::Word)) {
+        None
+    } else {
+        values
+    };
+    match index {
+        0 => super::buffers::argument_word(program, op, 0, values),
+        1 => super::buffers::argument_word(program, op, 2, values),
+        2 | 3 => super::buffers::argument_byte_value(program, op, index as u16 + 2, MirWidth::Byte, values).map(u16::from),
+        _ => None,
+    }
+}
+
+pub(in crate::mir6502) fn string_arguments(program: &MirProgram, op: &MirOp, values: Option<(&MirMachineValueAvailability, MirSite)>) -> StringArguments {
+    StringArguments::from_arguments(|index| string_argument(program, op, values, index))
 }
 
 fn library_invocation_with_values(
@@ -105,14 +137,14 @@ fn library_invocation_with_values(
     if let Some(review) = binding.sys_review {
         use crate::ast::FundType;
         use crate::mir6502::ir::MirAbiIntegerWidth::{Byte, Word};
-        let input = if matches!(review, SysReview::Memory(_)) {
-            super::buffers::argument_word(program, op, 0, values)
-        } else {
-            super::buffers::argument_byte_value(program, op, 0, MirWidth::Byte, values).map(u16::from)
+        let argument = |index| match review {
+            SysReview::Strings(_) => string_argument(program, op, values, index),
+            SysReview::Memory(_) | SysReview::Decimal(_) => super::buffers::argument_word(program, op, 0, values),
+            _ => super::buffers::argument_byte_value(program, op, 0, MirWidth::Byte, values).map(u16::from),
         };
-        let facts = review.facts::<()>(input, origin);
+        let facts = review.facts::<()>(argument, origin);
         if !facts.abi_inputs_only { return None; }
-        let integer_width = |ty| if ty == FundType::Card { Word } else { Byte };
+        let integer_width = |ty| if matches!(ty, FundType::Card | FundType::Int) { Word } else { Byte };
         let scalar = |ty| MirDirectParamAbi::Scalar(integer_width(ty));
         let (parameters, result) = match review {
             SysReview::Graphics(graphics) =>
@@ -125,6 +157,14 @@ fn library_invocation_with_values(
                 memory.parameters().iter().copied().map(scalar).collect(),
                 memory.result().map_or(MirDirectResultAbi::Void, |ty| MirDirectResultAbi::Scalar(integer_width(ty))),
             ),
+            SysReview::Strings(_) => (
+                vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer, MirDirectParamAbi::Scalar(Byte), MirDirectParamAbi::Scalar(Byte)],
+                MirDirectResultAbi::Void,
+            ),
+            SysReview::Decimal(decimal) if decimal.parses() => (
+                vec![MirDirectParamAbi::Pointer], MirDirectResultAbi::Scalar(integer_width(decimal.integer())),
+            ),
+            SysReview::Decimal(_) => return None,
             SysReview::Cio(_) => return None,
         };
         if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)
@@ -135,7 +175,7 @@ fn library_invocation_with_values(
         }
         let lanes = crate::mir6502::abi::canonical_call_lanes(interface, args).ok()?;
         crate::mir6502::abi::validate_direct_call_result(interface, op).ok()?;
-        let writes = if matches!(review, SysReview::Memory(_)) {
+        let writes = if review.uses_precomputed_writes() {
             super::buffers::absolute_writes(facts.writes?)
         } else {
             Vec::new()

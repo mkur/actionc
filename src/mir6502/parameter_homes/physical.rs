@@ -34,6 +34,8 @@ pub(super) fn needs_observation_proof(p: &MirProgram, r: &MirRoutine) -> bool {
             use super::super::runtime_contracts::library;
             if writes_ordinary_pointee(op) || library::may_write_buffer(op)
                 || library::reviewed_memory_routine(p, op).is_some()
+                || library::reviewed_string_routine(p, op).is_some()
+                || library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses())
             {
                 return true;
             }
@@ -272,7 +274,9 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
             continue;
         }
         let values = r.blocks.iter().flat_map(|b| &b.ops)
-            .any(|op| library_invocation(p, op).is_some() || library::reviewed_memory_routine(p, op).is_some())
+            .any(|op| library_invocation(p, op).is_some() || library::reviewed_memory_routine(p, op).is_some()
+                || library::reviewed_string_routine(p, op).is_some()
+                || library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses()))
             .then(|| buffers::argument_values(p, r)).flatten();
         for b in &r.blocks {
             for memory in b
@@ -321,6 +325,14 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                 {
                     let low_value = buffers::argument_byte_value(p, op, 2, MirWidth::Byte, site);
                     out.extend(routine.numeric_observations(address, low_value));
+                }
+                if let Some(routine) = library::reviewed_string_routine(p, op) {
+                    out.extend(routine.numeric_observations(library::string_arguments(p, op, site)));
+                }
+                if library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses())
+                    && let Some(address) = buffers::argument_word(p, op, 0, site)
+                {
+                    out.push((address, crate::callee6502::sys_decimal::DecimalRoutine::PARSER_READ_BYTES));
                 }
                 if let MirOp::Load {
                     src: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },

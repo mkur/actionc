@@ -1,9 +1,11 @@
 //! Dispatch reviewed SYS facts after resolving the typed public binding.
 use super::CallFacts;
 use super::sys_cio::CioRoutine;
+use super::sys_decimal::DecimalRoutine;
 use super::sys_graphics::GraphicsRoutine;
 use super::sys_hardware::HardwareRoutine;
 use super::sys_memory::MemoryRoutine;
+use super::sys_strings::{StringArguments, StringRoutine};
 use crate::runtime_source::RuntimeImage;
 use crate::semantic::ir::SemRoutineSignature;
 
@@ -13,6 +15,8 @@ pub(crate) enum SysReview {
     Cio(CioRoutine),
     Hardware(HardwareRoutine),
     Memory(MemoryRoutine),
+    Strings(StringRoutine),
+    Decimal(DecimalRoutine),
 }
 
 impl SysReview {
@@ -22,6 +26,8 @@ impl SysReview {
             .or_else(|| CioRoutine::for_interface(name).map(Self::Cio))
             .or_else(|| HardwareRoutine::for_interface(name).map(Self::Hardware))
             .or_else(|| MemoryRoutine::for_interface(name).map(Self::Memory))
+            .or_else(|| StringRoutine::for_interface(name).map(Self::Strings))
+            .or_else(|| DecimalRoutine::for_interface(name).map(Self::Decimal))
     }
 
     pub(crate) fn matches_signature(self, signature: &SemRoutineSignature) -> bool {
@@ -30,6 +36,8 @@ impl SysReview {
             Self::Cio(routine) => routine.matches_signature(signature),
             Self::Hardware(routine) => routine.matches_signature(signature),
             Self::Memory(routine) => routine.matches_signature(signature),
+            Self::Strings(routine) => routine.matches_signature(signature),
+            Self::Decimal(routine) => routine.matches_signature(signature),
         }
     }
 
@@ -52,6 +60,8 @@ impl SysReview {
             Self::Cio(routine) => routine.matches_cart(address),
             Self::Hardware(routine) => routine.matches_cart(address),
             Self::Memory(routine) => routine.matches_cart(address),
+            Self::Strings(routine) => routine.matches_cart(address),
+            Self::Decimal(routine) => routine.matches_cart(address),
         }
     }
 
@@ -66,21 +76,38 @@ impl SysReview {
             Self::Cio(routine) => routine.matches_linked(image, unit, name),
             Self::Hardware(routine) => routine.matches_linked(image, unit, name),
             Self::Memory(routine) => routine.matches_linked(image, unit, name),
+            Self::Strings(routine) => routine.matches_linked(image, unit, name),
+            Self::Decimal(routine) => routine.matches_linked(image, unit, name),
         }
     }
 
     pub(crate) fn facts<Id>(
         self,
-        first_argument: Option<u16>,
+        mut argument: impl FnMut(usize) -> Option<u16>,
         origin: Option<u16>,
     ) -> CallFacts<Id> {
-        let byte = first_argument.and_then(|value| u8::try_from(value).ok());
+        let mut byte = || argument(0).and_then(|value| u8::try_from(value).ok());
         match self {
-            Self::Graphics(routine) => routine.facts(byte),
+            Self::Graphics(routine) => routine.facts(byte()),
             Self::Cio(_) => CallFacts::default(),
-            Self::Hardware(routine) => routine.facts(byte),
-            Self::Memory(routine) => routine.facts(first_argument, origin),
+            Self::Hardware(routine) => routine.facts(byte()),
+            Self::Memory(routine) => routine.facts(argument(0), origin),
+            Self::Strings(routine) => routine.facts(StringArguments::from_arguments(argument), origin),
+            Self::Decimal(routine) => routine.facts(argument(0)),
         }
+    }
+
+    pub(crate) fn linked_abi_only_aliases(self) -> impl Iterator<Item = &'static str> {
+        let peek = (self == Self::Memory(MemoryRoutine::Peek)).then_some("PEEK");
+        let decimal = match self {
+            Self::Decimal(routine) => routine.linked_aliases(),
+            _ => &[],
+        };
+        peek.into_iter().chain(decimal.iter().map(|routine| routine.name()))
+    }
+
+    pub(crate) fn uses_precomputed_writes(self) -> bool {
+        matches!(self, Self::Memory(_) | Self::Strings(_) | Self::Decimal(_))
     }
 }
 

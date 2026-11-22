@@ -4,6 +4,14 @@ BYTE ARRAY source="xy"
 BYTE ARRAY stringResult(8)=$0600
 BYTE ARRAY memoryResult(6)=$0620
 BYTE retargetedLow=$E0, retargetedHigh=$42A2
+BYTE ARRAY copyOverlap(6)=$0640, assignOverlap(6)=$0650
+BYTE ARRAY shortSource(3)=$0670
+BYTE assignLength=$0663, assignPrefix=$0664, liveResult=$0668, emptyResult=$0669
+
+BYTE FUNC Overlap(BYTE keep)
+  SCopyS($0640,$0640,2,4)
+  SAssign($0650,$0650,2,4)
+  RETURN(keep+1)
 
 PROC Main()
   CARD value
@@ -15,6 +23,19 @@ PROC Main()
     stringResult(index)=destination(index)
     index==+1
   OD
+
+  copyOverlap(0)=5 copyOverlap(1)='A copyOverlap(2)='B
+  copyOverlap(3)='C copyOverlap(4)='D copyOverlap(5)='E
+  assignOverlap(0)=5 assignOverlap(1)='A assignOverlap(2)='B
+  assignOverlap(3)='C assignOverlap(4)='D assignOverlap(5)='E
+  liveResult=Overlap(13)
+
+  shortSource(0)=2 shortSource(1)='x shortSource(2)='y
+  assignLength=1 assignPrefix='A emptyResult=8
+  SCopyS($0660,$0670,1,5)
+  SAssign($0663,$0670,2,5)
+  SCopyS($0669,$0670,0,255)
+  SAssign($0660,$0669,1,4)
 
   Poke($0610,$34)
   PokeC($0611,$BEEF)

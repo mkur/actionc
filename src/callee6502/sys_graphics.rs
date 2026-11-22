@@ -302,7 +302,12 @@ pub(super) fn matches_items(
                     return matches!(item, MachineItem::Number(number)
                     if number.value == u64::from_str_radix(expected, 16).ok());
                 };
-                let (name, offset) = name.strip_suffix("+1").map_or((name, 0), |name| (name, 1));
+                let (name, offset) = if let Some((name, offset)) = name.rsplit_once('+') {
+                    let Ok(offset) = offset.parse() else { return false; };
+                    (name, offset)
+                } else {
+                    (name, 0)
+                };
                 let actual = match item {
                     MachineItem::Name(name) if offset == 0 => name,
                     MachineItem::AddressExpr(expr)

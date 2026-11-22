@@ -83,6 +83,147 @@ fn fixed_memory_argument_admits_a_live_home_while_a_numeric_cursor_stays_conserv
 }
 
 #[test]
+fn string_slice_reviews_cover_both_entries_and_guard_their_buffer_writes() {
+    use super::library::{library_invocation_at, reviewed_string_routine};
+    use crate::callee6502::sys_strings::StringRoutine::{SAssign, SCopyS};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    let source = "BYTE bound=$620
+        PROC Main()
+          SCopyS($0610,$0630,2,4) SAssign($0610,$0630,2,4)
+          SCopyS($0610,$0630,0,255) SAssign($0610,$0630,4,2)
+          SCopyS($0610,$0630,2,bound) SAssign($00A0,$0630,2,4)
+          SCopyS($0610,$D4FF,1,1) SAssign($3005,$0630,2,4)
+        RETURN";
+    let slot = |byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte));
+    let fixed_copy_writes: Vec<_> = (0xa0..=0xa5).map(slot).collect();
+    let fixed_assign_writes: Vec<_> = [0xa0, 0xa1, 0xa2, 0xa4, 0xa5, 0xa6].into_iter().map(slot).collect();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let mut reviews = Vec::new();
+        for routine in &p.routines {
+            for block in &routine.blocks {
+                for (op_index, call) in block.ops.iter().enumerate() {
+                    let Some(kind) = reviewed_string_routine(&p, call) else { continue; };
+                    let site = MirSite::Op { block: block.id, op_index };
+                    reviews.push((kind, library_invocation_at(&p, routine, site, call, Some(0x3000))));
+                }
+            }
+        }
+        assert_eq!(reviews.iter().map(|(kind, _)| *kind).collect::<Vec<_>>(),
+            [SCopyS, SAssign, SCopyS, SAssign, SCopyS, SAssign, SCopyS, SAssign], "{runtime:?}");
+        let writes = |index: usize| &reviews[index].1.as_ref().unwrap().writes;
+        assert_eq!(*writes(0), [fixed_copy_writes.clone(), (0x0610..=0x0613).map(MirMem::Absolute).collect()].concat());
+        assert_eq!(*writes(1), [fixed_assign_writes.clone(), [0x0610, 0x0612, 0x0613, 0x0614].into_iter().map(MirMem::Absolute).collect()].concat());
+        assert_eq!(*writes(2), [fixed_copy_writes.clone(), vec![MirMem::Absolute(0x0610)]].concat());
+        assert_eq!(*writes(3), fixed_assign_writes);
+        assert!(reviews[4..].iter().all(|(_, review)| review.is_none()), "{runtime:?}");
+    }
+}
+
+#[test]
+fn bounded_string_writes_admit_a_live_home_and_unknown_bounds_stay_conservative() {
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        for routine in ["SCopyS", "SAssign"] {
+            for (last, resident) in [("4", true), ("bound", false)] {
+                let source = format!(
+                    "BYTE bound=$620
+                     BYTE FUNC Across(BYTE keep)
+                     {routine}($0610,$0630,2,{last}) keep==+1 RETURN(keep)
+                     PROC Main() BYTE out=$600 out=Across(13) RETURN"
+                );
+                let output = crate::mir6502::generate_output_with_config_and_runtime(
+                    &checked_nir(&source), 0x3000, &config, runtime,
+                ).unwrap();
+                let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+                assert_eq!(home.address < 256, resident, "{runtime:?} {routine} {last} {home:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn decimal_reviews_keep_the_public_width_and_the_unresolved_fpp_boundary() {
+    use super::library::{library_invocation_at, reviewed_decimal_routine};
+    use crate::callee6502::sys_decimal::DecimalRoutine::*;
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    let source = "BYTE parsedByte=$600 CARD parsedCard=$601 INT parsedInt=$603
+        PROC Main()
+          parsedByte=ValB($0610) parsedCard=ValC($0610) parsedInt=ValI($FFFF)
+          parsedInt=ValI($D4FF)
+          StrB(parsedByte,$610) StrC(parsedCard,$620) StrI(parsedInt,$630)
+        RETURN";
+    let slot = |byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte));
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let mut reviews = Vec::new();
+        for routine in &p.routines {
+            for block in &routine.blocks {
+                for (op_index, call) in block.ops.iter().enumerate() {
+                    if let Some(kind) = reviewed_decimal_routine(&p, call) {
+                        let site = MirSite::Op { block: block.id, op_index };
+                        reviews.push((kind, library_invocation_at(&p, routine, site, call, Some(0x3000))));
+                    }
+                }
+            }
+        }
+        assert_eq!(reviews.iter().map(|(kind, _)| *kind).collect::<Vec<_>>(),
+            [ValB, ValC, ValI, ValI, StrB, StrC, StrI], "{runtime:?}");
+        for (index, (_, contract)) in reviews[..3].iter().enumerate() {
+            let contract = contract.as_ref().unwrap();
+            assert_eq!(contract.definitions, (0xa0..=if index == 0 { 0xa0 } else { 0xa1 }).map(slot).collect::<Vec<_>>());
+            assert_eq!(contract.writes, (0xa0..=0xa5).map(slot)
+                .chain((0x0100..=0x01ff).map(MirMem::Absolute)).collect::<Vec<_>>());
+        }
+        assert!(reviews[3..].iter().all(|(_, contract)| contract.is_none()));
+        for (kind, _) in &reviews[4..] {
+            assert_eq!(kind.fpp_services(), Some([0xd9aa, 0xd8e6]));
+        }
+    }
+    let reads = ValI.facts::<()>(Some(0xffff)).reads.unwrap();
+    assert_eq!(reads.iter().map(|range| (range.start, range.end)).collect::<Vec<_>>(),
+        [(0xa0, 0xa5), (0x0100, 0x01ff), (0xffff, 0xffff), (0, 254)]);
+}
+
+#[test]
+fn numeric_parse_keeps_a_live_home_and_the_linked_aliases_share_one_entry() {
+    use crate::runtime::Runtime;
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for parser in ["ValB", "ValC", "ValI"] {
+            for (argument, resident) in [("$0610", true), ("$D4FF", false), ("cursor", false)] {
+                let source = format!(
+                    "CARD cursor=$620 BYTE parsed=$622
+                     BYTE FUNC Across(BYTE keep)
+                     parsed={parser}({argument}) keep==+1 RETURN(keep)
+                     PROC Main() BYTE out=$600 out=Across(13) RETURN"
+                );
+                let output = crate::mir6502::generate_output_with_config_and_runtime(
+                    &checked_nir(&source), 0x3000, &config, runtime,
+                ).unwrap();
+                let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+                assert_eq!(home.address < 256, resident, "{runtime:?} {parser} {argument} {home:?}");
+                if runtime == Runtime::Standalone {
+                    let entry = |name| output.routine_addresses.iter()
+                        .find(|routine| routine.name.rsplit("::").next() == Some(name)).unwrap().address;
+                    assert_eq!(entry(parser), entry("ValI"));
+                    if parser == "ValB" {
+                        // ValC is reached as a fallthrough even when it isn't a public root.
+                        assert_eq!(entry("ValC"), entry("ValI"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn the_second_peek_read_protects_an_observed_zero_page_byte() {
     let config = crate::mir6502::Mir6502Config::optimized();
     for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
