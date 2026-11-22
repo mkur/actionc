@@ -4,6 +4,7 @@ BYTE plottedPixel=$0600
 BYTE linePixel=$0601
 BYTE fillPixel=$0602
 BYTE colorRegister=$0603
+BYTE lineEndPixel=$0604
 
 PROC Main()
   Graphics(8)
@@ -16,6 +17,7 @@ PROC Main()
   drawingColor=5
   DrawTo(12,22)
   linePixel=Locate(11,21)
+  lineEndPixel=Locate(12,22)
 
   drawingColor=7
   Fill(14,24)

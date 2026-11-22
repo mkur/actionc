@@ -1382,20 +1382,22 @@ mod tests {
                     outcome.report
                 );
                 assert_eq!(
-                    (0..4)
+                    (0..5)
                         .map(|offset| outcome.memory().read(0x0600 + offset))
                         .collect::<Vec<_>>(),
-                    [3, 5, 7, 0xA6],
+                    [3, 5, 7, 0xA6, 5],
                     "graphics results with {runtime:?}/{mode:?}"
                 );
                 assert_eq!(outcome.vm.bus().graphics_mode(), Some(0x1C));
                 assert_eq!(outcome.vm.bus().graphics_pixel(10, 20), 5);
                 assert_eq!(outcome.vm.bus().graphics_pixel(11, 21), 5);
+                assert_eq!(outcome.vm.bus().graphics_pixel(12, 22), 7);
                 assert_eq!(outcome.vm.bus().graphics_pixel(13, 23), 7);
+                assert_eq!(outcome.vm.bus().graphics_pixel(14, 24), 7);
                 let summary = outcome.vm.bus().cio_summary();
                 assert_eq!(summary.opens, 2);
                 assert_eq!(summary.closes, 2);
-                assert_eq!(summary.reads, 3);
+                assert_eq!(summary.reads, 4);
                 assert_eq!(summary.writes, 1);
                 for command in [0x11, 0x12] {
                     assert!(
@@ -1405,7 +1407,11 @@ mod tests {
                             .cio_observations()
                             .iter()
                             .any(|observation| {
-                                observation.command == command && observation.handled
+                                observation.command == command
+                                    && observation.channel == Some(6)
+                                    && observation.aux1 == 0x1c
+                                    && observation.aux2 == 8
+                                    && observation.handled
                             }),
                         "graphics command ${command:02X} must be handled for {runtime:?}/{mode:?}"
                     );

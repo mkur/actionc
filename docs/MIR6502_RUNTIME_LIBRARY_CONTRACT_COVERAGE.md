@@ -34,6 +34,7 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | SetColor | Register, hue, luminance in A/X/Y / void | For proven register 0–4, `$A0`, `$A2`, selected color shadow and hardware register | Y survives. Other register values retain conservative writes. |
 | Plot | Word column in A/X, byte row in Y / void | Unknown across CIO | Reviewed coordinate setup and volatile COLOR read, then channel 6 `PutD`. |
 | Locate | Word column in A/X, byte row in Y / BYTE at `$A0` on success | Unknown across CIO | Reviewed `Position` call and channel 6 `GetD`. An open error continuation prevents a guaranteed result definition. |
+| DrawTo, Fill | Word column in A/X, byte row in Y / void | Unknown across CIO | Shared `GrIO` setup reads COLOR and writes `$02FB`. The reviewed entries reach XIO `$11` and `$12` respectively. |
 
 These assembly entries consume the public ABI directly, including fifth/sixth
 argument bytes. They do not acquire a synthesized SArgs prologue. An unknown
@@ -53,8 +54,8 @@ starts with the seven public graphics routines, in four slices on both providers
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek/PeekC, Poke/PokeC | Explicit numeric memory access semantics and complete selected implementation effects; identity is retained now. |
 | Rand, Sound, SndRst, Paddle/PTrig/Stick/STrig | Device/state observations and hardware writes. |
-| Plot, Locate | Transitive CIO and returning error-handler effects. |
-| DrawTo, Fill, Graphics | Screen CIO and status handling, plus graphics state and pixels. |
+| Plot, Locate, DrawTo, Fill | Transitive CIO and returning error-handler effects. |
+| Graphics | Screen CIO and status handling, plus graphics state and pixels. |
 | Put/Print/Get families, Input families, Open/Close/XIO/Note/Point | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 

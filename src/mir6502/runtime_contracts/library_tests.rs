@@ -40,6 +40,26 @@ fn plot_and_locate_reviews_keep_the_cio_boundary_open() {
 }
 
 #[test]
+fn draw_and_fill_share_grio_without_sharing_command_identity() {
+    let source = "PROC Main() DrawTo(12,22) Fill(14,24) RETURN";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter(|call| graphics_cio_boundary(&p, call).is_some()).collect::<Vec<_>>();
+        assert_eq!(calls.len(), 2, "{runtime:?}");
+        assert_eq!(graphics_cio_boundary(&p, calls[0]), Some("XIO $11 on S: (reads COLOR and writes $02FB)"));
+        assert_eq!(graphics_cio_boundary(&p, calls[1]), Some("XIO $12 on S: (reads COLOR and writes $02FB)"));
+        assert!(calls.iter().all(|call| library_invocation(&p, call).is_none()));
+        if runtime == crate::runtime::Runtime::Standalone {
+            let mut changed = p.clone();
+            let grio = changed.routines.iter_mut().find(|r| r.name.ends_with("::GrIO")).unwrap();
+            grio.blocks.clear();
+            assert!(calls.iter().all(|call| graphics_cio_boundary(&changed, call).is_none()));
+        }
+    }
+}
+
+#[test]
 fn setcolor_can_preserve_a_caller_home_when_the_register_is_known() {
     for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
         for register in ["2", "register"] {

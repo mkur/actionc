@@ -12,6 +12,8 @@ pub(crate) enum GraphicsRoutine {
     SetColor,
     Plot,
     Locate,
+    DrawTo,
+    Fill,
 }
 
 impl GraphicsRoutine {
@@ -21,14 +23,16 @@ impl GraphicsRoutine {
             "SYS.SETCOLOR" => Some(Self::SetColor),
             "SYS.PLOT" => Some(Self::Plot),
             "SYS.LOCATE" => Some(Self::Locate),
+            "SYS.DRAWTO" => Some(Self::DrawTo),
+            "SYS.FILL" => Some(Self::Fill),
             _ => None,
         }
     }
 
     pub(crate) fn params(self) -> &'static [FundType] {
         match self {
-            Self::Position | Self::Plot | Self::Locate => &[FundType::Card, FundType::Byte],
             Self::SetColor => &[FundType::Byte, FundType::Byte, FundType::Byte],
+            _ => &[FundType::Card, FundType::Byte],
         }
     }
 
@@ -47,7 +51,6 @@ impl GraphicsRoutine {
     }
 
     pub(crate) fn matches_cart(self, address: u16) -> bool {
-        const CART: &[u8] = include_bytes!("../../roms/action.rom");
         let (entry, bytes): (u16, &[u8]) = match self {
             Self::Position => (0xa6ae, &[0x85,0x5b,0x86,0x5c,0x84,0x5a,0x85,0x55,0x86,0x56,0x84,0x54,0x60]),
             Self::SetColor => (0xa6ce, &[
@@ -56,12 +59,17 @@ impl GraphicsRoutine {
             ]),
             Self::Plot => (0xa6c3, &[0x20,0xb4,0xa6,0xa9,0x06,0xae,0xfd,0x02,0x4c,0xd1,0xa4]),
             Self::Locate => (0xa6bb, &[0x20,0xae,0xa6,0xa9,0x06,0x4c,0xad,0xa4]),
+            Self::DrawTo => (0xa68c, &[0x20,0x94,0xa6,0xa0,0x11,0x4c,0xde,0xa4]),
+            Self::Fill => (0xa6e9, &[0x20,0x94,0xa6,0xa0,0x12,0x4c,0xde,0xa4]),
         };
-        // OSS type 15's initial bank containing the public runtime entries.
-        let start = 0x1010 + usize::from(entry - 0xa000);
-        let matched = address == entry && CART.starts_with(b"CART\0\0\0\x0f")
-            && CART.get(start..start + bytes.len()) == Some(bytes);
-        matched && (!matches!(self, Self::Plot | Self::Locate) || Self::Position.matches_cart(0xa6ae))
+        address == entry && cart_matches(entry, bytes) && match self {
+            Self::Plot | Self::Locate => Self::Position.matches_cart(0xa6ae),
+            Self::DrawTo | Self::Fill => Self::Position.matches_cart(0xa6ae) && cart_matches(0xa694, &[
+                0x20,0xb4,0xa6,0xad,0xfd,0x02,0x8d,0xfb,0x02,0xa9,0x88,0x85,0xa5,
+                0xa9,0xa6,0x85,0xa6,0xa9,0x00,0x85,0xa3,0x85,0xa4,0xa9,0x06,0x60,
+            ]),
+            Self::Position | Self::SetColor => true,
+        }
     }
 
     pub(crate) fn matches_linked(self, image: &RuntimeImage, unit: &str, entry: &str) -> bool {
@@ -71,6 +79,8 @@ impl GraphicsRoutine {
             Self::SetColor => &["SETCOLOR"][..],
             Self::Plot => &["PLOT"][..],
             Self::Locate => &["LOCATE"][..],
+            Self::DrawTo => &["DRAWTO"][..],
+            Self::Fill => &["FILL"][..],
         };
         if !entry.eq_ignore_ascii_case(names[0]) { return false; }
 
@@ -98,12 +108,19 @@ impl GraphicsRoutine {
                 Self::SetColor => "5c9 1610 a085 98 f29 a285 8a a0a a0a a205 a0a6 9d 2c4 9d d016 60",
                 Self::Plot => "20 @POS1 6a9 ae 2fd 4c @PUTD",
                 Self::Locate => "20 @POSITION 6a9 4c @GETD",
+                Self::DrawTo => "20 @GRIO 11a0 4c @XIO",
+                Self::Fill => "20 @GRIO 12a0 4c @XIO",
             };
             matches_items(items, resolved_symbols, expected)
         });
-        matched && (!matches!(self, Self::Plot | Self::Locate)
-            || Self::Position.matches_linked(image, unit, "POSITION")
-            || (self == Self::Plot && matches_pos1(image)))
+        let pos1 = || matches_linked_helper(image, "POS1", "5585 5686 5484 60");
+        matched && match self {
+            Self::Plot => pos1(),
+            Self::Locate => Self::Position.matches_linked(image, unit, "POSITION"),
+            Self::DrawTo | Self::Fill => pos1() && matches_linked_helper(image, "GRIO",
+                "20 @POS1 ad 2fd 8d 2fb ad @DEV_S a585 ad @DEV_S+1 a685 a9 0 a385 a485 6a9 60"),
+            Self::Position | Self::SetColor => true,
+        }
     }
 
     /// Reviewed transfer at the end of the graphics wrapper. The program's
@@ -112,6 +129,8 @@ impl GraphicsRoutine {
         match self {
             Self::Plot => Some("PutD on S: (reads COLOR at $02FD)"),
             Self::Locate => Some("GetD on S: (successful pixel result at $A0)"),
+            Self::DrawTo => Some("XIO $11 on S: (reads COLOR and writes $02FB)"),
+            Self::Fill => Some("XIO $12 on S: (reads COLOR and writes $02FB)"),
             Self::Position | Self::SetColor => None,
         }
     }
@@ -126,7 +145,7 @@ impl GraphicsRoutine {
                     range(0x02c4 + register, 0x02c4 + register),
                     range(0xd016 + register, 0xd016 + register)]
             }),
-            Self::Plot | Self::Locate => None,
+            Self::Plot | Self::Locate | Self::DrawTo | Self::Fill => None,
         };
         CallFacts {
             abi_inputs_only: self.cio_boundary().is_none(),
@@ -139,17 +158,25 @@ impl GraphicsRoutine {
     }
 }
 
-fn matches_pos1(image: &RuntimeImage) -> bool {
-    image.routine_units.get("POS1").is_some_and(|unit| unit.name == "SYSGR")
+fn cart_matches(entry: u16, bytes: &[u8]) -> bool {
+    const CART: &[u8] = include_bytes!("../../roms/action.rom");
+    // OSS type 15's initial bank containing the public runtime entries.
+    let start = 0x1010 + usize::from(entry - 0xa000);
+    CART.starts_with(b"CART\0\0\0\x0f")
+        && CART.get(start..start + bytes.len()) == Some(bytes)
+}
+
+fn matches_linked_helper(image: &RuntimeImage, name: &str, words: &str) -> bool {
+    image.routine_units.get(name).is_some_and(|unit| unit.name == "SYSGR")
         && image.semir.modules.iter().flat_map(|m| &m.items).any(|item| {
             let SemItem::Routine(routine) = item else { return false; };
-            short_name(&routine.symbol.qualified_name).eq_ignore_ascii_case("POS1")
+            short_name(&routine.symbol.qualified_name).eq_ignore_ascii_case(name)
                 && routine.signature.kind == RoutineKind::Proc && routine.signature.params.is_empty()
                 && routine.locals.is_empty()
                 && matches!(routine.system_address.as_ref().map(|v| &v.kind), Some(SemExprKind::CurrentLocation))
                 && matches!(routine.body.as_slice(),
                     [SemStmt::MachineBlock { items, resolved_symbols, .. }]
-                        if matches_items(items, resolved_symbols, "5585 5686 5484 60"))
+                        if matches_items(items, resolved_symbols, words))
         })
 }
 
