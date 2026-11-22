@@ -1307,7 +1307,7 @@ mod tests {
     }
 
     #[test]
-    fn resident_cio_character_contracts_match_both_runtimes_and_backends() {
+    fn resident_cio_character_and_string_output_matches_both_runtimes_and_backends() {
         let max_steps = 100_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -1319,13 +1319,24 @@ mod tests {
                 );
                 assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
                 assert_eq!(outcome.memory().read(0x0600), b'A', "{runtime:?}/{mode:?}");
-                assert_eq!(outcome.vm.bus().host_file_bytes("OUTPUT.TXT"), Some(&b"Q"[..]));
+                assert_eq!(
+                    outcome.vm.bus().host_file_bytes("OUTPUT.TXT"),
+                    Some(&b"QR\x9BCD\x9B\x9BEF\x9B\x9B\x9B"[..]),
+                    "{runtime:?}/{mode:?}",
+                );
                 let calls = outcome.vm.bus().cio_observations();
-                for (device, command) in [(1, 0x07), (2, 0x0b)] {
-                    assert!(calls.iter().any(|call| call.channel == Some(device)
-                        && call.command == command && call.length == 0 && call.handled),
-                        "{runtime:?}/{mode:?} {calls:?}");
-                }
+                assert!(calls.iter().any(|call| call.channel == Some(1)
+                    && call.command == 0x07 && call.length == 0 && call.handled),
+                    "{runtime:?}/{mode:?} {calls:?}");
+                let writes = calls.iter().filter(|call| matches!(call.command, 0x09 | 0x0b))
+                    .map(|call| (call.channel, call.command, call.length, call.handled))
+                    .collect::<Vec<_>>();
+                assert_eq!(writes, [
+                    (Some(2), 0x0b, 0, true), (Some(2), 0x0b, 0, true), (Some(2), 0x0b, 0, true),
+                    (Some(2), 0x0b, 1, true), (Some(2), 0x09, 1, true), (Some(2), 0x0b, 0, true),
+                    (Some(2), 0x0b, 1, true), (Some(2), 0x09, 1, true), (Some(2), 0x0b, 0, true),
+                    (Some(2), 0x0b, 0, true),
+                ], "{runtime:?}/{mode:?}");
                 let opens = calls.iter().filter(|call| call.command == 3).collect::<Vec<_>>();
                 assert_eq!(opens.iter().map(|call| (call.channel, call.aux1, call.aux2)).collect::<Vec<_>>(),
                     [(Some(1), 4, 0), (Some(2), 8, 0)]);

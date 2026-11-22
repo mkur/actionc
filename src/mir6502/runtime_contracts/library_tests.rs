@@ -196,6 +196,64 @@ fn cio_character_reviews_match_both_providers_and_keep_dispatch_open() {
 }
 
 #[test]
+fn cio_character_output_reviews_capture_the_channel_and_source_byte() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCharacter, CioCommand, CioDevice};
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (source, device, character) in [
+            ("Put('Q)", CioDevice::Current, CioCharacter::Argument(0)),
+            ("PutE()", CioDevice::Current, CioCharacter::Fixed(0x9b)),
+            ("PutDE(2)", CioDevice::Argument(0), CioCharacter::Fixed(0x9b)),
+            ("PutD(2,'Q)", CioDevice::Argument(0), CioCharacter::Argument(1)),
+        ] {
+            let p = program(&format!("PROC Main() {source} RETURN"), runtime);
+            let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?)))
+                .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
+            assert_eq!(transfer.device, device);
+            assert_eq!(transfer.command, CioCommand::Fixed(0x0b));
+            assert_eq!(transfer.buffer, CioBuffer::Character(character));
+            assert!(library_invocation(&p, call).is_none());
+            if runtime == Runtime::Standalone {
+                let mut changed = p.clone();
+                changed.routines.iter_mut().find(|r| r.name.ends_with("::PutD1")).unwrap().blocks.clear();
+                assert!(reviewed_cio_transfer(&changed, call).is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn cio_string_output_reviews_distinguish_byte_and_record_dispatch() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice};
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (source, device, argument, command, end_on_zero, helper) in [
+            ("Print($0610)", CioDevice::Current, 0, 0x0b, None, "::Output"),
+            ("PrintD(2,$0610)", CioDevice::Argument(0), 1, 0x0b, None, "::Output"),
+            ("PrintE($0610)", CioDevice::Current, 0, 0x09, Some(0x9b), "::Prt"),
+            ("PrintDE(2,$0610)", CioDevice::Argument(0), 1, 0x09, Some(0x9b), "::Prt"),
+        ] {
+            let p = program(&format!("PROC Main() {source} RETURN"), runtime);
+            let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?)))
+                .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
+            assert_eq!(transfer.device, device);
+            assert_eq!(transfer.command, CioCommand::Fixed(command));
+            assert_eq!(transfer.buffer, CioBuffer::StringOutput { argument, end_on_zero });
+            assert!(library_invocation(&p, call).is_none());
+            if runtime == Runtime::Standalone {
+                let mut changed = p.clone();
+                changed.routines.iter_mut().find(|r| r.name.ends_with(helper)).unwrap().blocks.clear();
+                assert!(reviewed_cio_transfer(&changed, call).is_none());
+            }
+        }
+    }
+}
+
+#[test]
 fn cio_open_and_close_bind_the_selected_filename_and_command_paths() {
     use crate::callee6502::sys_cio::{CioBuffer, CioCommand::Fixed, FilenameBuffer};
     use crate::runtime::Runtime;
@@ -560,8 +618,8 @@ RETURN PROC Main() RETURN ENDMODULE";
             }
             if binding.kind == Some(MirLibraryRoutine::Zero) && runtime == crate::runtime::Runtime::Standalone {
                 let implementation = binding.implementation.as_ref().unwrap();
-                assert!(!implementation.fallthroughs.is_empty());
-                let (_, dependency) = implementation.fallthroughs[0];
+                assert!(!implementation.adjacent_entries.is_empty());
+                let (_, dependency) = implementation.adjacent_entries[0];
                 let mut changed = p.clone();
                 changed.routines.iter_mut().find(|r| r.id == dependency).unwrap().blocks[0].ops.clear();
                 assert!(library_invocation(&changed, call).is_none());

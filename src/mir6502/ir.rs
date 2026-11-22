@@ -187,7 +187,7 @@ pub struct MirRuntimeHelperDecl {
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct MirRuntimeImplementation {
     pub helper: Option<MirRuntimeHelper>,
-    pub fallthroughs: Vec<(RoutineId, RoutineId)>,
+    pub adjacent_entries: Vec<(RoutineId, RoutineId)>,
     pub target: MirRuntimeHelperTarget,
     pub routines: Vec<MirRoutine>,
     pub machines: Vec<MirMachineBlock>,

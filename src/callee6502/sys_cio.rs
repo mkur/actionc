@@ -10,6 +10,13 @@ use crate::semantic::{ValueType, ValueTypeBase};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CioRoutine {
     PutD,
+    Put,
+    PutE,
+    PutDE,
+    Print,
+    PrintE,
+    PrintD,
+    PrintDE,
     GetD,
     Close,
     Open,
@@ -35,12 +42,17 @@ pub(crate) enum CioDevice {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CioCharacter {
+    Read,
+    Argument(u8),
+    Fixed(u8),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CioBuffer {
-    /// IOCB length is zero. GET forwards incoming Y in A to the device;
-    /// PUT puts the public character argument in A.
-    Character {
-        output: bool,
-    },
+    /// IOCB length is zero. GET forwards incoming Y in A to the device.
+    /// PUT supplies the selected byte in A.
+    Character(CioCharacter),
     CloseDescriptor,
     FilenameCopy {
         argument: u8,
@@ -49,6 +61,13 @@ pub(crate) enum CioBuffer {
     /// The length byte is read before dispatch. Zero skips CIOV.
     CountedString {
         argument: u8,
+    },
+    /// The header supplies the length, and the payload begins at string + 1.
+    /// An empty payload skips the first dispatch and leaves Z set. Some paths
+    /// then send a byte in A with command $0B if XIOstr returns with Z set.
+    StringOutput {
+        argument: u8,
+        end_on_zero: Option<u8>,
     },
     /// With an ordinary destination, the device receives the requested byte count and payload address
     /// `destination + 1`. Zero skips dispatch. The wrapper replaces the
@@ -97,9 +116,18 @@ pub(crate) struct CioTransfer {
 }
 
 impl CioRoutine {
+    const EOL: u8 = 0x9b;
+
     pub(crate) fn for_interface(name: &str) -> Option<Self> {
         match crate::runtime_bindings::binding_key(name).as_str() {
             "SYS.PUTD" => Some(Self::PutD),
+            "SYS.PUT" => Some(Self::Put),
+            "SYS.PUTE" => Some(Self::PutE),
+            "SYS.PUTDE" => Some(Self::PutDE),
+            "SYS.PRINT" => Some(Self::Print),
+            "SYS.PRINTE" => Some(Self::PrintE),
+            "SYS.PRINTD" => Some(Self::PrintD),
+            "SYS.PRINTDE" => Some(Self::PrintDE),
             "SYS.GETD" => Some(Self::GetD),
             "SYS.CLOSE" => Some(Self::Close),
             "SYS.OPEN" => Some(Self::Open),
@@ -117,6 +145,13 @@ impl CioRoutine {
     pub(crate) fn name(self) -> &'static str {
         match self {
             Self::PutD => "PUTD",
+            Self::Put => "PUT",
+            Self::PutE => "PUTE",
+            Self::PutDE => "PUTDE",
+            Self::Print => "PRINT",
+            Self::PrintE => "PRINTE",
+            Self::PrintD => "PRINTD",
+            Self::PrintDE => "PRINTDE",
             Self::GetD => "GETD",
             Self::Close => "CLOSE",
             Self::Open => "OPEN",
@@ -132,16 +167,30 @@ impl CioRoutine {
 
     pub(crate) fn transfer(self, runtime: Runtime) -> CioTransfer {
         use CioCommand::{Argument, Fixed};
+        let device = match self {
+            Self::Put | Self::PutE | Self::Print | Self::PrintE | Self::InputS => CioDevice::Current,
+            _ => CioDevice::Argument(0),
+        };
         let (command, buffer, scratch, conditional_aux): (_, _, &[u8], _) = match self {
-            Self::PutD => (
-                Fixed(0x0b),
-                CioBuffer::Character { output: true },
-                &[0xa0, 0xa1, 0xa4],
-                None,
-            ),
+            Self::PutD | Self::Put | Self::PutE | Self::PutDE => {
+                let character = match self {
+                    Self::PutD => CioCharacter::Argument(1),
+                    Self::Put => CioCharacter::Argument(0),
+                    _ => CioCharacter::Fixed(Self::EOL),
+                };
+                let scratch: &[u8] = if self == Self::PutDE { &[0xa0, 0xa4] } else { &[0xa0, 0xa1, 0xa4] };
+                (Fixed(0x0b), CioBuffer::Character(character), scratch, None)
+            }
+            Self::Print | Self::PrintE | Self::PrintD | Self::PrintDE => {
+                let record = matches!(self, Self::PrintE | Self::PrintDE);
+                let argument = u8::from(device != CioDevice::Current);
+                let scratch: &[u8] = if device == CioDevice::Current { &[0xa1, 0xa3, 0xa5, 0xa6] } else { &[0xa3, 0xa5, 0xa6] };
+                (Fixed(if record { 0x09 } else { 0x0b }),
+                    CioBuffer::StringOutput { argument, end_on_zero: record.then_some(Self::EOL) }, scratch, None)
+            }
             Self::GetD => (
                 Fixed(0x07),
-                CioBuffer::Character { output: false },
+                CioBuffer::Character(CioCharacter::Read),
                 &[0xa0, 0xa4],
                 None,
             ),
@@ -186,7 +235,7 @@ impl CioRoutine {
             Self::Point => (Fixed(0x25), CioBuffer::NoTransfer, &[0xa1], None),
         };
         CioTransfer {
-            device: if self == Self::InputS { CioDevice::Current } else { CioDevice::Argument(0) },
+            device,
             command,
             buffer,
             scratch,
@@ -219,12 +268,18 @@ impl CioRoutine {
                     && signature.return_type.is_none()
                     && signature.params == [byte, character]
             }
+            Self::Put => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params == [character],
+            Self::PutE => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params.is_empty(),
+            Self::Print | Self::PrintE | Self::InputS => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params == [string],
             Self::GetD => {
                 matches!(signature.kind, RoutineKind::Func { .. })
                     && signature.return_type.as_ref() == Some(&character)
                     && signature.params == [byte]
             }
-            Self::Close => {
+            Self::Close | Self::PutDE => {
                 signature.kind == RoutineKind::Proc
                     && signature.return_type.is_none()
                     && signature.params == [byte]
@@ -247,12 +302,10 @@ impl CioRoutine {
                             string,
                         ]
             }
-            Self::InputD | Self::InputSD => signature.kind == RoutineKind::Proc
+            Self::InputD | Self::InputSD | Self::PrintD | Self::PrintDE => signature.kind == RoutineKind::Proc
                 && signature.return_type.is_none() && signature.params == [byte, string],
             Self::InputMD => signature.kind == RoutineKind::Proc
                 && signature.return_type.is_none() && signature.params == [byte.clone(), string, byte],
-            Self::InputS => signature.kind == RoutineKind::Proc
-                && signature.return_type.is_none() && signature.params == [string],
             Self::Note | Self::Point => {
                 let note = self == Self::Note;
                 let sector = ValueType { base: ValueTypeBase::Fund(FundType::Card), pointer: note };
@@ -266,6 +319,13 @@ impl CioRoutine {
     pub(crate) fn address(self) -> u16 {
         match self {
             Self::PutD => 0xa4d1,
+            Self::Put => 0xa4ce,
+            Self::PutE => 0xa4cc,
+            Self::PutDE => 0xa4da,
+            Self::Print => 0xa47f,
+            Self::PrintE => 0xa46c,
+            Self::PrintD => 0xa486,
+            Self::PrintDE => 0xa473,
             Self::GetD => 0xa4ad,
             Self::Close => 0xa479,
             Self::Open => 0xa444,
@@ -279,9 +339,19 @@ impl CioRoutine {
         }
     }
 
+    pub(crate) fn linked_branch_predecessor(self) -> Option<&'static str> {
+        (self == Self::PutDE).then_some("PUTD1")
+    }
+
     pub(crate) fn matches_cart(self, address: u16) -> bool {
         let entry: &[u8] = match self {
             Self::PutD => &[0x86, 0xa1, 0xa4, 0xa1, 0xa2, 0x0b, 0x4c, 0xaf, 0xa4],
+            Self::Put => &[0xaa, 0xa5, 0xb7],
+            Self::PutE => &[0xa9, Self::EOL],
+            Self::PutDE => &[0xa0, Self::EOL, 0xd0, 0xf7],
+            Self::Print | Self::PrintE => &[0x86, 0xa1, 0xaa, 0xa4, 0xa1, 0xa5, 0xb7],
+            Self::PrintD => &[0x20, 0x6e, 0xb0, 0x4c, 0xa5, 0xa3],
+            Self::PrintDE => &[0x20, 0x0c, 0xb0, 0x4c, 0xa5, 0xa3],
             Self::GetD => &[0xa2, 0x07],
             Self::Close => &[0x20, 0x26, 0xb0, 0x4c, 0xa5, 0xa3],
             Self::Open => &[
@@ -308,14 +378,18 @@ impl CioRoutine {
         address == self.address()
             && cart_matches(address, entry)
             && match self {
-                Self::PutD | Self::GetD => cart_matches(
-                    0xa4af,
-                    &[
-                        0x86, 0xa4, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0xa5, 0xa4, 0x9d, 0x42, 0x03,
-                        0xa9, 0x00, 0x9d, 0x48, 0x03, 0x9d, 0x49, 0x03, 0x98, 0x20, 0x56, 0xe4,
-                        0x85, 0xa0, 0x4c, 0xa5, 0xa3,
-                    ],
-                ),
+                Self::PutD | Self::GetD => cart_character_io_matches(),
+                Self::Put => Self::PutD.matches_cart(Self::PutD.address()),
+                Self::PutE => Self::Put.matches_cart(Self::Put.address()),
+                Self::PutDE => cart_matches(0xa4d5, &[0xa2, 0x0b, 0x4c, 0xaf, 0xa4]) && cart_character_io_matches(),
+                Self::Print => Self::PrintD.matches_cart(Self::PrintD.address()),
+                Self::PrintE => Self::PrintDE.matches_cart(Self::PrintDE.address()),
+                Self::PrintD => cart_matches(0xb06e, &[0x84, 0xa6, 0xa0, 0x0b, 0xd0, 0xc0])
+                    && cart_matches(0xb034, &[0x86, 0xa5, 0xa2, 0, 0x86, 0xa3]) && cart_xiostr_matches(),
+                Self::PrintDE => cart_matches(0xb00c, &[
+                    0x86, 0xa5, 0x84, 0xa6, 0xa2, 0, 0x86, 0xa3, 0xa0, 9, 0x20, 0x3a, 0xb0,
+                    0xd0, 0x0a, 0xa9, 0x0b, 0x9d, 0x42, 3, 0xa9, Self::EOL, 0x4c, 0x56, 0xe4, 0x60,
+                ]) && cart_xiostr_matches(),
                 Self::Close => {
                     cart_matches(
                         0xb026,
@@ -346,29 +420,33 @@ impl CioRoutine {
         if !self.matches_signature(&body.signature) {
             return false;
         }
-        let ccio = || {
-            linked_body_matches(
-                image,
-                "SYSIO",
-                "CCIO",
-                "a486 a0a a0a aa a4a5 9d 342 a9 0 9d 348 9d 349 98 20 e456 a085 4c @CHKERR",
-            )
-        };
         let matched = match self {
             Self::PutD => {
                 body_matches(body, "a186 a1a4")
                     && adjacent(image, "PUTD", "PUTD1")
-                    && linked_body_matches(image, "SYSIO", "PUTD1", "ba2 4c @CCIO")
-                    && ccio()
+                    && linked_put_character_matches(image)
             }
-            Self::GetD => body_matches(body, "7a2") && adjacent(image, "GETD", "CCIO") && ccio(),
+            Self::Put => body_matches(body, "aa a5 @DEVICE")
+                && adjacent(image, "PUT", "PUTD") && Self::PutD.matches_linked(image, unit, "PUTD"),
+            Self::PutE => body_matches(body, "a9 @EOL") && linked_eol_matches(image)
+                && adjacent(image, "PUTE", "PUT") && Self::Put.matches_linked(image, unit, "PUT"),
+            Self::PutDE => body_matches(body, "a0 @EOL f7d0") && linked_eol_matches(image)
+                && adjacent(image, "PUTD1", "PUTDE") && linked_put_character_matches(image),
+            Self::Print | Self::PrintE => {
+                let next = if self == Self::Print { Self::PrintD } else { Self::PrintDE };
+                body_matches(body, "a186 aa a1a4 a5 @DEVICE")
+                    && adjacent(image, self.name(), next.name()) && next.matches_linked(image, unit, next.name())
+            }
+            Self::PrintD => body_matches(body, "20 @OUTPUT 4c @CHKERR") && linked_output_dispatch_matches(image),
+            Self::PrintDE => body_matches(body, "20 @PRT 4c @CHKERR")
+                && linked_body_matches(image, "SYSLIB", "PRT", "a586 a684 a2 0 a386 9a0 20 @XIOSTR ad0 ba9 9d 342 9ba9 4c e456 60")
+                && linked_xiostr_matches(image),
+            Self::GetD => body_matches(body, "7a2") && adjacent(image, "GETD", "CCIO") && linked_character_io_matches(image),
             Self::Close => {
                 body_matches(body, "20 @CLOS 4c @CHKERR")
                     && linked_body_matches(image, "SYSLIB", "CLOS", "ffa2 a686 ca0 ad0")
-                    && linked_body_matches(image, "SYSLIB", "OUTPUT", "a684 ba0 4d0")
                     && adjacent(image, "CLOS", "OUTPUT")
-                    && adjacent(image, "OUTPUT", "IN")
-                    && linked_input_dispatch_matches(image)
+                    && linked_output_dispatch_matches(image)
             }
             Self::Open => {
                 linked_open_matches(image, body)
@@ -397,6 +475,35 @@ impl CioRoutine {
         };
         matched && linked_status_matches(image)
     }
+}
+
+fn cart_character_io_matches() -> bool {
+    cart_matches(0xa4af, &[
+        0x86, 0xa4, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0xa5, 0xa4, 0x9d, 0x42, 0x03,
+        0xa9, 0x00, 0x9d, 0x48, 0x03, 0x9d, 0x49, 0x03, 0x98, 0x20, 0x56, 0xe4,
+        0x85, 0xa0, 0x4c, 0xa5, 0xa3,
+    ])
+}
+
+fn linked_character_io_matches(image: &RuntimeImage) -> bool {
+    linked_body_matches(image, "SYSIO", "CCIO",
+        "a486 a0a a0a aa a4a5 9d 342 a9 0 9d 348 9d 349 98 20 e456 a085 4c @CHKERR")
+}
+
+fn linked_put_character_matches(image: &RuntimeImage) -> bool {
+    linked_body_matches(image, "SYSIO", "PUTD1", "ba2 4c @CCIO") && linked_character_io_matches(image)
+}
+
+fn linked_eol_matches(image: &RuntimeImage) -> bool {
+    image.semir.modules.iter().flat_map(|m| &m.items).any(|item| {
+        matches!(item, SemItem::Define(define)
+            if short_name(&define.symbol.qualified_name).eq_ignore_ascii_case("EOL") && define.value == "$9B")
+    })
+}
+
+fn linked_output_dispatch_matches(image: &RuntimeImage) -> bool {
+    linked_body_matches(image, "SYSLIB", "OUTPUT", "a684 ba0 4d0")
+        && adjacent(image, "OUTPUT", "IN") && linked_input_dispatch_matches(image)
 }
 
 fn cart_record_input_matches() -> bool {

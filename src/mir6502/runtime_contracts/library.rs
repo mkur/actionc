@@ -21,9 +21,13 @@ pub(in crate::mir6502) fn bind(
         "SYS.MOVEBLOCK" => Some(MirLibraryRoutine::MoveBlock),
         _ => None,
     };
+    let preceding_entry = match sys_review {
+        Some(SysReview::Cio(routine)) => routine.linked_branch_predecessor(),
+        _ => None,
+    };
     Arc::new(MirLibraryBinding {
         interface: Arc::new(interface.clone()), kind, sys_review,
-        implementation: MirRuntimeImplementation::capture(program, &target, None),
+        implementation: MirRuntimeImplementation::capture(program, &target, None, preceding_entry),
     })
 }
 

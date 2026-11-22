@@ -37,6 +37,9 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | DrawTo, Fill | Word column in A/X, byte row in Y / void | Unknown across CIO | Shared `GrIO` setup reads COLOR and writes `$02FB`. The reviewed entries reach XIO `$11` and `$12` respectively. |
 | Graphics | Byte mode in A / void | Unknown across CIO | Reviewed editor and screen close/open sequence. For S:, mode supplies AUX2 and `(mode & $30) XOR $1C` supplies AUX1. |
 | PutD, GetD | Channel in A, put character in X / GetD character at `$A0` on success | Unknown across CIO | Shared `CCIO` sets a zero IOCB length and commands `$0B` and `$07`. It stages the accumulator in `$A0` before status handling. |
+| Put, PutE, PutDE | Put takes the character in A. Put and PutE use the current channel. PutDE takes the channel in A. | Unknown across CIO | Shared `CCIO` sends a single byte with command `$0B`. PutE and PutDE supply `$9B`. |
+| Print, PrintD | Counted string. Print uses the current channel. PrintD takes an explicit channel. | Unknown across CIO | `Output` sends the payload with command `$0B` and skips dispatch for an empty string. |
+| PrintE, PrintDE | Same arguments as Print and PrintD, respectively. | Unknown across CIO | `Prt` uses command `$09` for the counted payload. If `XIOstr` returns with Z set, including when the payload is empty, it dispatches `$0B` with `$9B` in A. |
 | Close, Open | Channel in A / void. Open also takes a counted filename in X/Y and mode and auxiliary bytes in `$A3/$A4`. | Unknown across CIO | Commands `$0C` and `$03`. Open copies the filename through the pointer at `$9B/$9C` on cartridge and into `$0500` on standalone. Cartridge Graphics calls the internal open entry. |
 | XIO | Command in Y, AUX bytes in `$A3/$A4`, counted string pointer in `$A5/$A6` / void | Unknown across CIO | A zero AUX1 keeps the IOCB auxiliary bytes. A zero string length skips CIOV. DrawTo and Fill reach this path with commands `$11` and `$12`. |
 | InputD, InputMD, InputSD, InputS | Counted destination and channel. InputMD also takes a byte maximum. InputS reads the current channel. | Unknown across CIO | GET RECORD `$05` targets the payload at destination plus one. The maximum comes from the destination header, the `InputMD` argument, or 255 for `InputSD` and `InputS`. A zero maximum skips CIOV. `InS` saves the low returned count minus one, with zero kept as zero, before status handling. |
@@ -87,7 +90,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |
 | InputD, InputMD, InputSD, InputS, Note, Point | Returning CIO device and error-handler guarantees. Note's write-back also needs ordinary destination and pointer-scratch alias checks. |
-| Other Put/Print/Get and numeric Input routines | CIO/OS returning dependencies, device state and input/output buffers. |
+| Put, PutE, PutDE, Print, PrintE, PrintD, PrintDE | Returning CIO device and error-handler guarantees. |
+| Numeric Print and Input routines | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
 Ordinary Action wrappers use the existing acyclic analysis when all their

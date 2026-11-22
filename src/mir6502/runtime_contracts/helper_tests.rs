@@ -42,8 +42,8 @@ fn multiply_and_shift_contracts_keep_inputs_results_clobbers_and_binding_identit
         if runtime == crate::runtime::Runtime::Standalone {
             let d = selected_helper(&p, MirRuntimeHelper::Mul).unwrap();
             let binding = d.binding.as_ref().unwrap();
-            assert!(!binding.fallthroughs.is_empty(), "Mul's SetSign/SS1 dependency must be retained");
-            let (from, to) = binding.fallthroughs[0];
+            assert!(!binding.adjacent_entries.is_empty(), "Mul's SetSign/SS1 dependency must be retained");
+            let (from, to) = binding.adjacent_entries[0];
             let mut bad = p.clone();
             let i = bad.routines.iter().position(|r| r.id == from).unwrap();
             let j = bad.routines.iter().position(|r| r.id == to).unwrap();

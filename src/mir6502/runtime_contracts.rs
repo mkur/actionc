@@ -15,16 +15,28 @@ impl MirRuntimeImplementation {
         program: &MirProgram,
         target: &MirRuntimeHelperTarget,
         helper: Option<MirRuntimeHelper>,
+        preceding_entry: Option<&str>,
     ) -> Option<Arc<Self>> {
         let mut pending = BTreeSet::new();
+        let mut adjacent_entries = Vec::new();
         match target {
             MirRuntimeHelperTarget::Routine(id) => {
                 pending.insert(*id);
+                if let Some(name) = preceding_entry {
+                    // The linked review checked a branch into the preceding
+                    // entry. Retain both its code and its position.
+                    let pair = program.routines.windows(2).find(|pair| pair[1].id == *id)?;
+                    let previous = &pair[0];
+                    if !previous.name.rsplit("::").next()?.eq_ignore_ascii_case(name) {
+                        return None;
+                    }
+                    pending.insert(previous.id);
+                    adjacent_entries.push((previous.id, *id));
+                }
             }
             MirRuntimeHelperTarget::KnownAbsolute(_) => {}
             MirRuntimeHelperTarget::Deferred => return None,
         }
-        let mut fallthroughs = Vec::new();
         let mut visited = BTreeSet::new();
         let mut routines = Vec::new();
         let mut machines = Vec::new();
@@ -71,7 +83,7 @@ impl MirRuntimeImplementation {
                 if falls_through {
                     let index = program.routines.iter().position(|r| r.id == routine.id)?;
                     let next = program.routines.get(index + 1)?;
-                    fallthroughs.push((routine.id, next.id));
+                    adjacent_entries.push((routine.id, next.id));
                     pending.insert(next.id);
                 }
             }
@@ -79,7 +91,7 @@ impl MirRuntimeImplementation {
         }
         Some(Arc::new(Self {
             helper,
-            fallthroughs,
+            adjacent_entries,
             target: target.clone(),
             routines,
             machines,
@@ -88,7 +100,7 @@ impl MirRuntimeImplementation {
 
     pub(super) fn is_current(&self, program: &MirProgram, target: &MirRuntimeHelperTarget) -> bool {
         self.target == *target
-            && self.fallthroughs.iter().all(|(from, to)| program.routines.windows(2)
+            && self.adjacent_entries.iter().all(|(from, to)| program.routines.windows(2)
                 .any(|pair| pair[0].id == *from && pair[1].id == *to))
             && self
                 .routines
@@ -295,7 +307,7 @@ mod entry_tests;
 impl std::fmt::Debug for MirRuntimeImplementation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MirRuntimeImplementation").field("helper", &self.helper)
-            .field("target", &self.target).field("fallthroughs", &self.fallthroughs)
+            .field("target", &self.target).field("adjacent_entries", &self.adjacent_entries)
             .field("routines", &self.routines.iter().map(|r| r.id).collect::<Vec<_>>())
             .field("machines", &self.machines.iter().map(|m| m.id).collect::<Vec<_>>()).finish()
     }

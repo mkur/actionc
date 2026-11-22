@@ -1,4 +1,5 @@
 BYTE readCharacter=$0600
+BYTE currentOutput=$B7
 
 PROC Main()
   Open(1,"D:INPUT.TXT",4,0)
@@ -8,6 +9,18 @@ PROC Main()
   Close(1)
   Open(2,"D:OUTPUT.TXT",8,0)
   PutD(2,'Q)
+  currentOutput=2
+  Put('R)
+  PutE()
+  Print("C")
+  Print("")
+  PrintE("D")
+  PrintE("")
+  PrintD(2,"E")
+  PrintD(2,"")
+  PrintDE(2,"F")
+  PrintDE(2,"")
+  PutDE(2)
   Close(2)
   DO
   OD
