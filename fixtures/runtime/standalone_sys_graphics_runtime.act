@@ -3,6 +3,11 @@
 
 PROC Main()
   Position($1234,$56)
+  SetColor(4,1,2)
+  SetColor(5,1,2)
+  SetColor(132,1,2)
+  SetColor(133,1,2)
+  SetColor(255,1,2)
   SetColor(2,$0A,$0C)
 
   DO

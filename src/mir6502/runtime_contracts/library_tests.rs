@@ -3,15 +3,83 @@ use crate::mir6502::analysis::known_callees::{MirAcyclicEntryAnalysis, MirCallee
 use std::sync::atomic::{AtomicUsize, Ordering};
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
-fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
+fn checked_nir(source: &str) -> crate::nir::NirProgram {
     let path = std::env::temp_dir().join(format!("actionc-contract-{}-{}.act", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
     std::fs::write(&path, source).unwrap();
     let loaded = crate::includes::load_compilation(&path, &crate::includes::ModuleLoadOptions::default()).unwrap();
     std::fs::remove_file(path).unwrap();
     let model = crate::semantic::analyze_compilation_with_options(&loaded, crate::semantic::SemanticOptions::modern()).unwrap();
-    let nir = crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_compilation(&loaded, &model))).unwrap();
-    crate::mir6502::materialize_program_with_origin_and_runtime(crate::mir6502::lower_program(&nir).unwrap(),
+    crate::nir::optimize_program(&crate::nir::lower_program(&crate::semantic::ir::lower_compilation(&loaded, &model))).unwrap()
+}
+
+fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
+    crate::mir6502::materialize_program_with_origin_and_runtime(crate::mir6502::lower_program(&checked_nir(source)).unwrap(),
         &crate::mir6502::Mir6502Config { enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized() }, 0x3000, runtime).unwrap()
+}
+
+#[test]
+fn setcolor_can_preserve_a_caller_home_when_the_register_is_known() {
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        for register in ["2", "register"] {
+            let source = format!(
+                "BYTE FUNC Across(BYTE keep,register)
+                 SetColor({register},10,12)
+                 keep==+1
+                 RETURN(keep)
+                 PROC Main() BYTE out=$600 out=Across(13,2) RETURN"
+            );
+            let output = crate::mir6502::generate_output_with_config_and_runtime(
+                &checked_nir(&source), 0x3000, &crate::mir6502::Mir6502Config::optimized(), runtime,
+            ).unwrap();
+            let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+            assert_eq!(home.address < 256, register == "2", "{runtime:?} {register} {home:?}");
+        }
+    }
+}
+
+#[test]
+fn graphics_leaf_reviews_cover_fallthrough_and_guard_color_writes() {
+    let source = "MODULE CLIENT USE SYS
+PROC Color(BYTE register) SYS.SetColor(register,10,12) RETURN
+PROC Main() SYS.Position($1234,$56) SYS.SetColor(2,10,12) SYS.SetColor(133,10,12) RETURN ENDMODULE";
+    use crate::callee6502::sys_graphics::GraphicsRoutine;
+    use crate::mir6502::analysis::sites::MirSite;
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let mut writes = Vec::new();
+        let mut linked = None;
+        for routine in &p.routines {
+            for block in &routine.blocks {
+                for (op_index, call) in block.ops.iter().enumerate() {
+                    let MirOp::Call { abi, .. } = call else { continue; };
+                    if abi.library.is_none() { continue; }
+                    let summary = library_invocation(&p, call).unwrap_or_else(||
+                        panic!("missing {runtime:?} graphics review: {call:?}"));
+                    let values = buffers::argument_values(&p, routine).unwrap();
+                    let site = MirSite::Op { block: block.id, op_index };
+                    writes.push((summary.graphics.unwrap(), summary.normal_writes(&p, call, Some((&values, site)))));
+                    if summary.graphics == Some(GraphicsRoutine::Position) {
+                        linked = Some(call);
+                    }
+                }
+            }
+        }
+        assert!(writes.contains(&(GraphicsRoutine::Position, MirKnownMemoryWrites::Exact(
+            (0x54..=0x56).chain(0x5a..=0x5c).map(|n| MirMem::FixedZeroPage(MirFixedZpSlot(n))).collect()
+        ))), "{writes:?}");
+        assert!(writes.contains(&(GraphicsRoutine::SetColor, MirKnownMemoryWrites::Exact(vec![
+            MirMem::FixedZeroPage(MirFixedZpSlot(0xa0)), MirMem::FixedZeroPage(MirFixedZpSlot(0xa2)),
+            MirMem::Absolute(0x02c6), MirMem::Absolute(0xd018),
+        ]))), "{writes:?}");
+        assert_eq!(writes.iter().filter(|(_, w)| *w == MirKnownMemoryWrites::Unknown).count(), 2);
+        if runtime == crate::runtime::Runtime::Standalone {
+            let mut changed = p.clone();
+            let pos1 = changed.routines.iter_mut().find(|r| r.name.ends_with("::Pos1")).unwrap();
+            pos1.blocks.clear();
+            assert!(library_invocation(&changed, linked.unwrap()).is_none());
+        }
+    }
 }
 
 #[test]

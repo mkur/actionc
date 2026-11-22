@@ -971,12 +971,18 @@ mod tests {
         let max_steps = 2_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_runtime_fixture(
+                let color_addresses = [0xd01a, 0xd01b, 0xd09a, 0xd09b, 0xd115, 0xd018];
+                let outcome = run_runtime_fixture_with_setup(
                     "standalone_sys_graphics_runtime.act",
                     mode,
                     runtime,
                     false,
                     max_steps,
+                    |vm| {
+                        for address in color_addresses {
+                            vm.bus_mut().add_watchpoint(address);
+                        }
+                    },
                 );
                 assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
                 assert_eq!(
@@ -999,6 +1005,15 @@ mod tests {
                     0xAC,
                     "COLOR2 with {runtime:?}/{mode:?}"
                 );
+                assert_eq!(
+                    (0x5a..=0x5c).map(|address| outcome.memory().read(address)).collect::<Vec<_>>(),
+                    [0x56, 0x34, 0x12],
+                    "previous coordinates with {runtime:?}/{mode:?}"
+                );
+                let writes = outcome.vm.bus().events().iter().filter_map(|event| {
+                    (event.access == actionc_vm::BusAccess::Write).then_some((event.address, event.value))
+                }).collect::<Vec<_>>();
+                assert_eq!(writes, [(0xd01a, 0x12), (0xd09b, 0x12), (0xd115, 0x12), (0xd018, 0xac)]);
             }
         }
     }

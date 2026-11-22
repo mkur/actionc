@@ -1466,6 +1466,7 @@ pub(crate) enum MirLibraryRoutine { SCompare, SCopy, Zero, SetBlock, MoveBlock }
 pub struct MirLibraryBinding {
     pub(crate) interface: std::sync::Arc<MirRoutine>,
     pub(crate) kind: Option<MirLibraryRoutine>,
+    pub(crate) graphics: Option<crate::callee6502::sys_graphics::GraphicsRoutine>,
     pub(crate) implementation: Option<std::sync::Arc<MirRuntimeImplementation>>,
 }
 

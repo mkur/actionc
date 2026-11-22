@@ -62,6 +62,18 @@ impl super::invocation::InvocationSummary {
         values: Option<(&MirMachineValueAvailability, MirSite)>,
     ) -> crate::mir6502::analysis::known_callees::MirKnownMemoryWrites {
         use crate::mir6502::analysis::known_callees::MirKnownMemoryWrites;
+        if let Some(graphics) = self.graphics {
+            let register = argument_byte_value(program, call, 0, MirWidth::Byte, values);
+            let Some(ranges) = graphics.facts::<()>(register).writes else {
+                return MirKnownMemoryWrites::Unknown;
+            };
+            return MirKnownMemoryWrites::Exact(ranges.into_iter().flat_map(|range|
+                (range.start..=range.end).map(|address| match u8::try_from(address) {
+                    Ok(byte) => MirMem::FixedZeroPage(MirFixedZpSlot(byte)),
+                    Err(_) => MirMem::Absolute(address),
+                })
+            ).collect());
+        }
         let mut numeric = Vec::new();
         let mut has_pointee = false;
         for buffer in self.buffers.iter().filter(|b| b.write) {

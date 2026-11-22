@@ -102,7 +102,18 @@ pub(crate) fn semir_to_cart_projection(
         aggregate_result: None,
     };
     let record_layouts = lowerer.project_record_layouts(program)?;
-    let callee_reviews = super::ClassicCalleeReviews::collect(program, &lowerer.projection_names);
+    let mut callee_reviews = super::ClassicCalleeReviews::collect(program, &lowerer.projection_names);
+    for item in program.modules.iter().flat_map(|module| &module.items) {
+        let SemItem::Routine(routine) = item else { continue; };
+        let Some(&address) = addresses.get(&routine.symbol.id) else { continue; };
+        let Some(review) = crate::callee6502::sys_graphics::GraphicsRoutine::for_interface(
+            &routine.symbol.qualified_name,
+        ) else { continue; };
+        if routine.is_external && review.matches_signature(&routine.signature) && review.matches_cart(address) {
+            let name = lowerer.projection_names.get(&routine.symbol.id).unwrap_or(&routine.symbol.name);
+            callee_reviews.graphics.insert(super::normalize_name(name), (review, Some(address)));
+        }
+    }
     let program = lowerer.program(program);
     if lowerer.diagnostics.is_empty() {
         Ok(ClassicProjection {

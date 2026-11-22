@@ -269,11 +269,21 @@ impl Generator {
         let ExprKind::Name(name) = &callee.kind else {
             return false;
         };
-        let Some(info) = self.routines.get(&normalize_name(name)).cloned() else {
+        let name_key = normalize_name(name);
+        let Some(mut info) = self.routines.get(&name_key).cloned() else {
             return self.emit_indirect_call_or_tail_jump(name, args, span, tail_jump);
         };
         if args.len() > info.params.len() {
             return false;
+        }
+        if let Some(&(review, address)) = self.callee_reviews.graphics.get(&name_key)
+            && info.system_address == address && args.len() == info.params.len()
+        {
+            let register = args.first().and_then(|arg| match &arg.kind {
+                ExprKind::Number(number) => u8::try_from(number.value?).ok(),
+                _ => None,
+            });
+            info.effects = super::reviewed::classic_call_effects(&review.facts::<()>(register));
         }
         debug_assert_call_abi_shape(name, &info, args.len());
         let supplied_params = &info.params[..args.len()];

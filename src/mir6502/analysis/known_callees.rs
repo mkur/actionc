@@ -891,7 +891,7 @@ fn summarize_routine_writes(
         for (op_index, op) in block.ops.iter().enumerate() {
             if let Some(invocation) = normal.and_then(|p| crate::mir6502::runtime_contracts::invocation(p, routine, op))
                 .or_else(|| crate::mir6502::runtime_contracts::library_invocation(program, op)) {
-                if normal.is_none() && invocation.buffers.iter().any(|b| b.write) {
+                if normal.is_none() && (invocation.graphics.is_some() || invocation.buffers.iter().any(|b| b.write)) {
                     writes.make_unknown();
                 } else {
                     writes.merge(&invocation.normal_writes(program, op, Some((buffer_values.as_ref().unwrap_or(values), MirSite::Op { block: block.id, op_index }))));

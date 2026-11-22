@@ -62,6 +62,14 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
     }
 
     let resident = crate::runtime_source::select_runtime_image(&roots_by_unit)?;
+    let mut callee_reviews = application_projection.callee_reviews;
+    let graphics = external_roots.iter().filter_map(|(name, root)| {
+        let interface = &external_interfaces[name];
+        let review = crate::callee6502::sys_graphics::GraphicsRoutine::for_interface(&interface.qualified_name)?;
+        (review.matches_signature(&interface.signature)
+            && review.matches_linked(&resident.image, &root.unit.name, &root.routine))
+            .then_some((name.clone(), review))
+    }).collect::<Vec<_>>();
     let projection = runtime_image_projection(resident.image.semir)?;
     native_real.extend(projection.native_real.clone());
     compound_operations.extend(projection.compound_operations.clone());
@@ -87,6 +95,9 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             Ok((external.clone(), implementation.clone()))
         })
         .collect::<Result<BTreeMap<_, _>, Vec<Diagnostic>>>()?;
+    for (name, review) in graphics {
+        callee_reviews.graphics.insert(normalize_name(&rename_external[&name]), (review, None));
+    }
     rewrite_program_names(&mut application, &rename_external);
     remove_external_routines(&mut application);
 
@@ -108,7 +119,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
             &record_copies,
             &compound_operations,
             &static_initializers,
-        &application_projection.callee_reviews,
+            &callee_reviews,
             Some(&record_layouts),
             origin,
             true,
@@ -162,7 +173,7 @@ pub(crate) fn generate_semir_standalone_profile_at_origin(
         &record_copies,
         &compound_operations,
         &static_initializers,
-        &application_projection.callee_reviews,
+        &callee_reviews,
         Some(&record_layouts),
         origin,
         true,

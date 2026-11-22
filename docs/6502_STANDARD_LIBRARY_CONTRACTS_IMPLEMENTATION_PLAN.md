@@ -87,6 +87,12 @@ overlap and unproven register values. Rebuild `PMG.DM1` to verify that
 `SetColor` clears admission and record the next blocker, the selected homes
 and the image size.
 
+Qualification at origin `$3000` reached `PMMove` as the next entry blocker
+for `main` on both providers. The two loop counters stayed inline. The
+packaged images were 1,626 bytes on ActionCart and 2,163 on standalone.
+The focused caller placed its live parameter in ZP with a constant color
+register and kept it inline with a dynamic register.
+
 ## Slice 2. Plot and Locate
 
 Review the channel-6 paths from `Plot` through `Pos1` and `PutD`, and

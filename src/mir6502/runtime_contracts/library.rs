@@ -4,7 +4,12 @@ use super::*;
 use super::invocation::InvocationSummary;
 use super::buffers::{BufferAccess, BufferExtent};
 
-pub(in crate::mir6502) fn bind(program: &MirProgram, interface: &MirRoutine, target: MirRuntimeHelperTarget) -> Arc<MirLibraryBinding> {
+use crate::callee6502::sys_graphics::GraphicsRoutine;
+
+pub(in crate::mir6502) fn bind(
+    program: &MirProgram, interface: &MirRoutine, target: MirRuntimeHelperTarget,
+    graphics: Option<GraphicsRoutine>,
+) -> Arc<MirLibraryBinding> {
     let kind = match crate::runtime_bindings::binding_key(&interface.name).as_str() {
         "SYS.SCOMPARE" => Some(MirLibraryRoutine::SCompare),
         "SYS.SCOPY" => Some(MirLibraryRoutine::SCopy),
@@ -14,7 +19,7 @@ pub(in crate::mir6502) fn bind(program: &MirProgram, interface: &MirRoutine, tar
         _ => None,
     };
     Arc::new(MirLibraryBinding {
-        interface: Arc::new(interface.clone()), kind,
+        interface: Arc::new(interface.clone()), kind, graphics,
         implementation: MirRuntimeImplementation::capture(program, &target, None),
     })
 }
@@ -30,6 +35,32 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
     };
     if implementation.helper.is_some() || !implementation.is_current(program, &current) { return None; }
     let interface = &binding.interface;
+    if let Some(graphics) = binding.graphics {
+        use crate::ast::FundType;
+        use crate::mir6502::ir::MirAbiIntegerWidth::{Byte, Word};
+        let parameters = graphics.params().iter().map(|ty| MirDirectParamAbi::Scalar(
+            if *ty == FundType::Card { Word } else { Byte }
+        )).collect::<Vec<_>>();
+        if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)
+            || interface.direct_result_abi != Some(MirDirectResultAbi::Void)
+            || abi.params != args.iter().map(|a| a.home.clone()).collect::<Vec<_>>()
+        {
+            return None;
+        }
+        let lanes = crate::mir6502::abi::canonical_call_lanes(interface, args).ok()?;
+        crate::mir6502::abi::validate_direct_call_result(interface, op).ok()?;
+        return Some(InvocationSummary {
+            inputs: lanes.into_iter().map(|lane| match lane {
+                MirParamLane::Reg(reg) => MirArgHome::Reg(reg),
+                MirParamLane::ZeroPage(slot) => MirArgHome::FixedZeroPage(slot),
+            }).collect(),
+            definitions: Vec::new(),
+            register_definitions: MirRegisterSet::default(),
+            writes: Vec::new(),
+            buffers: Vec::new(),
+            graphics: Some(graphics),
+        });
+    }
     let (parameters, result, writes) = match binding.kind? {
         MirLibraryRoutine::SCompare => (
             vec![MirDirectParamAbi::Pointer, MirDirectParamAbi::Pointer],
@@ -56,6 +87,7 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
     let lanes = crate::mir6502::abi::canonical_call_lanes(interface, args).ok()?;
     crate::mir6502::abi::validate_direct_call_result(interface, op).ok()?;
     Some(InvocationSummary {
+        graphics: None,
         inputs: lanes.into_iter().map(|lane| match lane {
             MirParamLane::Reg(reg) => MirArgHome::Reg(reg),
             MirParamLane::ZeroPage(slot) => MirArgHome::FixedZeroPage(slot),
