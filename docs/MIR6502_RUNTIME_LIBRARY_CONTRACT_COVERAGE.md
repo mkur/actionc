@@ -39,6 +39,8 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | PutD, GetD | Channel in A, put character in X / GetD character at `$A0` on success | Unknown across CIO | Shared `CCIO` sets a zero IOCB length and commands `$0B` and `$07`. It stages the accumulator in `$A0` before status handling. |
 | Close, Open | Channel in A / void. Open also takes a counted filename in X/Y and mode and auxiliary bytes in `$A3/$A4`. | Unknown across CIO | Commands `$0C` and `$03`. Open copies the filename through the pointer at `$9B/$9C` on cartridge and into `$0500` on standalone. Cartridge Graphics calls the internal open entry. |
 | XIO | Command in Y, AUX bytes in `$A3/$A4`, counted string pointer in `$A5/$A6` / void | Unknown across CIO | A zero AUX1 keeps the IOCB auxiliary bytes. A zero string length skips CIOV. DrawTo and Fill reach this path with commands `$11` and `$12`. |
+| InputD, InputMD, InputSD, InputS | Counted destination and channel. InputMD also takes a byte maximum. InputS reads the current channel. | Unknown across CIO | GET RECORD `$05` targets the payload at destination plus one. The maximum comes from the destination header, the `InputMD` argument, or 255 for `InputSD` and `InputS`. A zero maximum skips CIOV. `InS` saves the low returned count minus one, with zero kept as zero, before status handling. |
+| Note, Point | Channel in A. Note takes pointers to a CARD sector and a BYTE offset. Point takes those values directly. | Unknown across CIO | `Note` (`$26`) copies AUX5 to the byte destination, then AUX3/AUX4 to the word destination after successful status handling. `Point` (`$25`) fills AUX3–AUX5 before dispatch. |
 | Paddle, Stick, STrig | Port in A / byte in A and `$A0` | `$A0` | Reads paddle shadow bytes, PIA ports or GTIA triggers respectively. Hardware reads retain their ordering. |
 | PTrig | Proven port 0–7 in A / byte in A and `$A0` | `$A0` | PIA read and indexed read of the in-body mask table. Unproven ports retain conservative effects because high bytes can index past the table. |
 | Rand | Limit in A / byte at `$A0` | `$A0` for proven zero. A nonzero or unproven limit also allows the union of the reviewed `MultI` scratch ranges. | Reads POKEY RANDOM at `$D20A`. A zero limit bypasses multiplication. |
@@ -84,7 +86,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
 | Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |
-| Other Put/Print/Get and Input routines, Note, Point | CIO/OS returning dependencies, device state and input/output buffers. |
+| InputD, InputMD, InputSD, InputS, Note, Point | Returning CIO device and error-handler guarantees. Note's write-back also needs ordinary destination and pointer-scratch alias checks. |
+| Other Put/Print/Get and numeric Input routines | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
 Ordinary Action wrappers use the existing acyclic analysis when all their

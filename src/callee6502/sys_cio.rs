@@ -14,12 +14,24 @@ pub(crate) enum CioRoutine {
     Close,
     Open,
     Xio,
+    InputD,
+    InputMD,
+    InputSD,
+    InputS,
+    Note,
+    Point,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CioCommand {
     Fixed(u8),
     Argument(u8),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CioDevice {
+    Argument(u8),
+    Current,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +50,31 @@ pub(crate) enum CioBuffer {
     CountedString {
         argument: u8,
     },
+    /// With an ordinary destination, the device receives the requested byte count and payload address
+    /// `destination + 1`. Zero skips dispatch. The wrapper replaces the
+    /// header with the low byte of the returned count minus one, saturating at zero.
+    RecordInput {
+        argument: u8,
+        maximum: InputMaximum,
+    },
+    /// The wrapper uses IOCB auxiliary bytes for the transfer.
+    NoTransfer,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum InputMaximum {
+    DestinationHeader,
+    Argument(u8),
+    Fixed(u8),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CioPosition {
+    /// Following successful status handling, copy AUX5 to the byte pointer,
+    /// then AUX3 and AUX4 to the word pointer in little-endian order.
+    ReadBack { sector_pointer: u8, offset_pointer: u8 },
+    /// Before dispatch, stage the sector in AUX3/AUX4 and the offset in AUX5.
+    Set { sector_argument: u8, offset_argument: u8 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,6 +85,7 @@ pub(crate) enum FilenameBuffer {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct CioTransfer {
+    pub device: CioDevice,
     pub command: CioCommand,
     pub buffer: CioBuffer,
     /// Possible wrapper writes before CIO dispatch or result/status staging.
@@ -55,6 +93,7 @@ pub(crate) struct CioTransfer {
     /// Public AUX1/AUX2 argument indices. Zero AUX1 keeps both IOCB bytes.
     pub conditional_aux: Option<(u8, u8)>,
     pub successful_result: Option<u8>,
+    pub position: Option<CioPosition>,
 }
 
 impl CioRoutine {
@@ -65,6 +104,12 @@ impl CioRoutine {
             "SYS.CLOSE" => Some(Self::Close),
             "SYS.OPEN" => Some(Self::Open),
             "SYS.XIO" => Some(Self::Xio),
+            "SYS.INPUTD" => Some(Self::InputD),
+            "SYS.INPUTMD" => Some(Self::InputMD),
+            "SYS.INPUTSD" => Some(Self::InputSD),
+            "SYS.INPUTS" => Some(Self::InputS),
+            "SYS.NOTE" => Some(Self::Note),
+            "SYS.POINT" => Some(Self::Point),
             _ => None,
         }
     }
@@ -76,6 +121,12 @@ impl CioRoutine {
             Self::Close => "CLOSE",
             Self::Open => "OPEN",
             Self::Xio => "XIO",
+            Self::InputD => "INPUTD",
+            Self::InputMD => "INPUTMD",
+            Self::InputSD => "INPUTSD",
+            Self::InputS => "INPUTS",
+            Self::Note => "NOTE",
+            Self::Point => "POINT",
         }
     }
 
@@ -121,13 +172,31 @@ impl CioRoutine {
                 &[],
                 Some((3, 4)),
             ),
+            Self::InputD | Self::InputMD | Self::InputSD | Self::InputS => {
+                let (argument, maximum, scratch): (_, _, &[u8]) = match self {
+                    Self::InputD => (1, InputMaximum::DestinationHeader, &[0xa0, 0xa3, 0xa5, 0xa6]),
+                    Self::InputMD => (1, InputMaximum::Argument(2), &[0xa0, 0xa1, 0xa2, 0xa3, 0xa5, 0xa6]),
+                    Self::InputSD => (1, InputMaximum::Fixed(255), &[0xa0, 0xa1, 0xa2, 0xa3, 0xa5, 0xa6]),
+                    Self::InputS => (0, InputMaximum::Fixed(255), &[0xa0, 0xa1, 0xa2, 0xa3, 0xa5, 0xa6]),
+                    _ => unreachable!(),
+                };
+                (Fixed(0x05), CioBuffer::RecordInput { argument, maximum }, scratch, None)
+            }
+            Self::Note => (Fixed(0x26), CioBuffer::NoTransfer, &[0xa1, 0xa2], None),
+            Self::Point => (Fixed(0x25), CioBuffer::NoTransfer, &[0xa1], None),
         };
         CioTransfer {
+            device: if self == Self::InputS { CioDevice::Current } else { CioDevice::Argument(0) },
             command,
             buffer,
             scratch,
             conditional_aux,
             successful_result: (self == Self::GetD).then_some(0xa0),
+            position: match self {
+                Self::Note => Some(CioPosition::ReadBack { sector_pointer: 1, offset_pointer: 2 }),
+                Self::Point => Some(CioPosition::Set { sector_argument: 1, offset_argument: 2 }),
+                _ => None,
+            },
         }
     }
 
@@ -178,6 +247,19 @@ impl CioRoutine {
                             string,
                         ]
             }
+            Self::InputD | Self::InputSD => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params == [byte, string],
+            Self::InputMD => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params == [byte.clone(), string, byte],
+            Self::InputS => signature.kind == RoutineKind::Proc
+                && signature.return_type.is_none() && signature.params == [string],
+            Self::Note | Self::Point => {
+                let note = self == Self::Note;
+                let sector = ValueType { base: ValueTypeBase::Fund(FundType::Card), pointer: note };
+                let offset = ValueType { pointer: note, ..byte.clone() };
+                signature.kind == RoutineKind::Proc
+                    && signature.return_type.is_none() && signature.params == [byte, sector, offset]
+            }
         }
     }
 
@@ -188,6 +270,12 @@ impl CioRoutine {
             Self::Close => 0xa479,
             Self::Open => 0xa444,
             Self::Xio => 0xa4de,
+            Self::InputD => 0xa4a7,
+            Self::InputMD => 0xa499,
+            Self::InputSD => 0xa493,
+            Self::InputS => 0xa48c,
+            Self::Note => 0xa60d,
+            Self::Point => 0xa634,
         }
     }
 
@@ -202,6 +290,20 @@ impl CioRoutine {
                 0xf9, 0x68, 0xa6, 0x9b, 0xa4, 0x9c, 0x20, 0x04, 0xb0, 0x4c, 0xa5, 0xa3,
             ],
             Self::Xio => &[0x20, 0x3a, 0xb0, 0x4c, 0xa5, 0xa3],
+            Self::InputD => &[0x20, 0xb6, 0xb0, 0x4c, 0xa5, 0xa3],
+            Self::InputMD => &[0x48, 0x86, 0xa1, 0x84, 0xa2, 0xa0, 0, 0xa5, 0xa3, 0x91, 0xa1, 0x68, 0xa4, 0xa2],
+            Self::InputSD => &[0x48, 0xa9, 0xff, 0x85, 0xa3, 0x68],
+            Self::InputS => &[0x86, 0xa2, 0xaa, 0xa4, 0xa2, 0xa5, 0xb7],
+            Self::Note => &[
+                0x86, 0xa1, 0x84, 0xa2, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0xa9, 0x26, 0x9d, 0x42,
+                3, 0x20, 0x56, 0xe4, 0x20, 0xa5, 0xa3, 0xa0, 0, 0xbd, 0x4e, 3, 0x91, 0xa3,
+                0xbd, 0x4c, 3, 0x91, 0xa1, 0xbd, 0x4d, 3, 0xc8, 0x91, 0xa1, 0x60,
+            ],
+            Self::Point => &[
+                0x86, 0xa1, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0x98, 0x9d, 0x4d, 3, 0xa5, 0xa1,
+                0x9d, 0x4c, 3, 0xa5, 0xa3, 0x9d, 0x4e, 3, 0xa9, 0x25, 0x9d, 0x42, 3, 0x20,
+                0x56, 0xe4, 0x4c, 0xa5, 0xa3,
+            ],
         };
         address == self.address()
             && cart_matches(address, entry)
@@ -225,6 +327,11 @@ impl CioRoutine {
                 }
                 Self::Open => cart_open_device_matches(),
                 Self::Xio => cart_xiostr_matches(),
+                Self::InputD => cart_record_input_matches(),
+                Self::InputMD => Self::InputD.matches_cart(Self::InputD.address()),
+                Self::InputSD => Self::InputMD.matches_cart(Self::InputMD.address()),
+                Self::InputS => Self::InputSD.matches_cart(Self::InputSD.address()),
+                Self::Note | Self::Point => true,
             }
             && cart_status_matches()
     }
@@ -259,11 +366,9 @@ impl CioRoutine {
                 body_matches(body, "20 @CLOS 4c @CHKERR")
                     && linked_body_matches(image, "SYSLIB", "CLOS", "ffa2 a686 ca0 ad0")
                     && linked_body_matches(image, "SYSLIB", "OUTPUT", "a684 ba0 4d0")
-                    && linked_body_matches(image, "SYSLIB", "IN", "a684 5a0 a586 a2 0 a386")
                     && adjacent(image, "CLOS", "OUTPUT")
                     && adjacent(image, "OUTPUT", "IN")
-                    && adjacent(image, "IN", "XIOSTR")
-                    && linked_xiostr_matches(image)
+                    && linked_input_dispatch_matches(image)
             }
             Self::Open => {
                 linked_open_matches(image, body)
@@ -273,9 +378,38 @@ impl CioRoutine {
             Self::Xio => {
                 body_matches(body, "20 @XIOSTR 4c @CHKERR") && linked_xiostr_matches(image)
             }
+            Self::InputD => body_matches(body, "20 @INS 4c @CHKERR")
+                && linked_body_matches(image, "SYSIO", "INS", "20 @IN a084 bd 348 3f0 38 1e9 a0 0 a591 a0a4 60")
+                && linked_input_dispatch_matches(image),
+            Self::InputMD => body_matches(body, "48 a186 a284 a0 0 a3a5 a191 68 a2a4")
+                && adjacent(image, "INPUTMD", "INPUTD") && Self::InputD.matches_linked(image, unit, "INPUTD"),
+            Self::InputSD => body_matches(body, "48 ffa9 a385 68")
+                && adjacent(image, "INPUTSD", "INPUTMD") && Self::InputMD.matches_linked(image, unit, "INPUTMD"),
+            Self::InputS => body_matches(body, "a286 aa a2a4 a5 @DEVICE")
+                && adjacent(image, "INPUTS", "INPUTSD") && Self::InputSD.matches_linked(image, unit, "INPUTSD"),
+            Self::Note => body_matches(body, concat!(
+                "a186 a284 a0a a0a aa 26a9 9d 342 20 e456 20 @CHKERR a0 0 ",
+                "bd 34e a391 bd 34c a191 bd 34d c8 a191 60",
+            )),
+            Self::Point => body_matches(body,
+                "a186 a0a a0a 98aa 9d 34d a1a5 9d 34c a3a5 9d 34e 25a9 9d 342 20 e456 4c @CHKERR",
+            ),
         };
         matched && linked_status_matches(image)
     }
+}
+
+fn cart_record_input_matches() -> bool {
+    cart_matches(0xb0b6, &[0x20, 0x30, 0xb0, 0x84, 0xa0, 0xbd, 0x48, 3, 0xf0, 3,
+        0x38, 0xe9, 1, 0xa0, 0, 0x91, 0xa5, 0xa4, 0xa0, 0x60])
+        && cart_matches(0xb030, &[0x84, 0xa6, 0xa0, 5, 0x86, 0xa5, 0xa2, 0, 0x86, 0xa3])
+        && cart_xiostr_matches()
+}
+
+fn linked_input_dispatch_matches(image: &RuntimeImage) -> bool {
+    linked_body_matches(image, "SYSLIB", "IN", "a684 5a0 a586 a2 0 a386")
+        && adjacent(image, "IN", "XIOSTR")
+        && linked_xiostr_matches(image)
 }
 
 pub(super) fn cart_open_device_matches() -> bool {

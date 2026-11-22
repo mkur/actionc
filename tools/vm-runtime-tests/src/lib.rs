@@ -1258,6 +1258,7 @@ mod tests {
             (0x0670, b"\x04LAST"),
             (0x0680, &[0x40, 0x01, 0x25, 0, 0, 0]),
             (0x0686, &[0xC0, 0x02, 0x50, 0, 0, 0]),
+            (0x0690, &[0, 0xa5]),
         ];
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -1287,6 +1288,16 @@ mod tests {
                 assert_eq!(outcome.vm.bus().cio_summary().opens, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().closes, 1);
                 assert_eq!(outcome.vm.bus().cio_summary().reads, 13);
+                let record_reads = outcome.vm.bus().cio_observations().iter()
+                    .filter(|call| call.command == 5 && (0x0641..=0x0691).contains(&call.buffer))
+                    .map(|call| (call.channel, call.buffer, call.length, call.bytes_read))
+                    .collect::<Vec<_>>();
+                assert_eq!(record_reads, [
+                    (Some(0), 0x0641, 255, Some(4)),
+                    (Some(0), 0x0651, 255, Some(5)),
+                    (Some(0), 0x0661, 5, Some(5)),
+                    (Some(0), 0x0671, 7, Some(5)),
+                ], "{runtime:?}/{mode:?}");
                 assert_eq!(
                     outcome.vm.bus().cio_summary().bytes_read,
                     input.len() as u64
@@ -1337,6 +1348,7 @@ mod tests {
             (0x0610, b"\x06SECOND"),
             (0x0620, b"\x06SECOND"),
             (0x0630, &[0x00, 0x00, 0x06]),
+            (0x0634, &[0xa5, 0x23, 0x01, 0x56, 0x5a]),
         ];
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -1347,8 +1359,9 @@ mod tests {
                     true,
                     max_steps,
                     |vm| {
-                        vm.bus_mut()
-                            .add_host_file("INPUT.TXT", b"FIRST\nSECOND\n".to_vec());
+                        let mut input = b"FIRST\nSECOND\n".to_vec();
+                        input.resize(0x12356, 0);
+                        vm.bus_mut().add_host_file("INPUT.TXT", input);
                         vm.bus_mut().add_host_output("OUTPUT.TXT");
                     },
                 );
@@ -1380,24 +1393,12 @@ mod tests {
                 assert_eq!(summary.writes, 2);
                 assert_eq!(summary.bytes_read, 20);
                 assert_eq!(summary.bytes_written, 4);
-                assert!(
-                    outcome
-                        .vm
-                        .bus()
-                        .cio_observations()
-                        .iter()
-                        .any(|observation| observation.command == 0x26 && observation.handled),
-                    "NOTE must be handled for {runtime:?}/{mode:?}"
-                );
-                assert!(
-                    outcome
-                        .vm
-                        .bus()
-                        .cio_observations()
-                        .iter()
-                        .any(|observation| observation.command == 0x25 && observation.handled),
-                    "POINT must be handled for {runtime:?}/{mode:?}"
-                );
+                let seeks = outcome.vm.bus().cio_observations().iter()
+                    .filter(|call| matches!(call.command, 0x25 | 0x26))
+                    .map(|call| (call.channel, call.command, call.handled))
+                    .collect::<Vec<_>>();
+                assert_eq!(seeks, [(Some(1), 0x26, true), (Some(1), 0x25, true),
+                    (Some(1), 0x25, true), (Some(1), 0x26, true)], "{runtime:?}/{mode:?}");
             }
         }
     }

@@ -4,6 +4,9 @@ BYTE ARRAY secondLine(16)=$0610
 BYTE ARRAY repeatedLine(16)=$0620
 CARD savedSector=$0630
 BYTE savedOffset=$0632
+BYTE seekBefore=$0634
+CARD farSector=$0635
+BYTE farOffset=$0637,seekAfter=$0638
 
 PROC Main()
   Open(1,"D:INPUT.TXT",4,0)
@@ -18,6 +21,9 @@ PROC Main()
 
   repeatedLine(0)=15
   InputD(1,repeatedLine)
+  seekBefore=$A5 seekAfter=$5A
+  Point(1,$0123,$56)
+  Note(1,@farSector,@farOffset)
   XIO(1,0,13,0,0,"D:INPUT.TXT")
   Close(1)
 

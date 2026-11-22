@@ -223,6 +223,67 @@ fn cio_open_and_close_bind_the_selected_filename_and_command_paths() {
 }
 
 #[test]
+fn cio_record_input_reviews_bind_all_entry_wrappers_and_keep_dispatch_open() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice, InputMaximum};
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (source, device, argument, maximum) in [
+            ("InputD(1,$0610)", CioDevice::Argument(0), 1, InputMaximum::DestinationHeader),
+            ("InputMD(1,$0610,7)", CioDevice::Argument(0), 1, InputMaximum::Argument(2)),
+            ("InputSD(1,$0610)", CioDevice::Argument(0), 1, InputMaximum::Fixed(255)),
+            ("InputS($0610)", CioDevice::Current, 0, InputMaximum::Fixed(255)),
+        ] {
+            let p = program(&format!("PROC Main() {source} RETURN"), runtime);
+            let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?)))
+                .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
+            assert_eq!(transfer.device, device);
+            assert_eq!(transfer.command, CioCommand::Fixed(5));
+            assert_eq!(transfer.buffer, CioBuffer::RecordInput { argument, maximum });
+            assert!(transfer.successful_result.is_none());
+            assert!(library_invocation(&p, call).is_none());
+            if runtime == Runtime::Standalone {
+                let mut changed = p.clone();
+                changed.routines.iter_mut().find(|r| r.name.ends_with("::InS")).unwrap().blocks.clear();
+                assert!(reviewed_cio_transfer(&changed, call).is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn cio_seek_reviews_distinguish_note_writeback_from_point_setup() {
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice, CioPosition};
+    use crate::runtime::Runtime;
+
+    let source = "CARD sector=$610 BYTE offset=$612
+                  PROC Main() Note(1,@sector,@offset) Point(1,sector,offset) RETURN";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter_map(|call| Some((call, reviewed_cio_transfer(&p, call)?))).collect::<Vec<_>>();
+        let [(note, read), (point, write)] = calls.as_slice() else { panic!("missing seek reviews on {runtime:?}"); };
+        assert_eq!(read.command, CioCommand::Fixed(0x26));
+        assert_eq!(write.command, CioCommand::Fixed(0x25));
+        assert_eq!(read.position, Some(CioPosition::ReadBack { sector_pointer: 1, offset_pointer: 2 }));
+        assert_eq!(write.position, Some(CioPosition::Set { sector_argument: 1, offset_argument: 2 }));
+        for &(call, transfer) in &calls {
+            assert_eq!(transfer.device, CioDevice::Argument(0));
+            assert_eq!(transfer.buffer, CioBuffer::NoTransfer);
+            assert!(transfer.successful_result.is_none());
+            assert!(library_invocation(&p, call).is_none());
+        }
+        if runtime == Runtime::Standalone {
+            let mut changed = p.clone();
+            changed.routines.iter_mut().find(|r| r.name.ends_with("::ChkErr")).unwrap().blocks.clear();
+            assert!(reviewed_cio_transfer(&changed, note).is_none());
+            assert!(reviewed_cio_transfer(&changed, point).is_none());
+        }
+    }
+}
+
+#[test]
 fn xio_reviews_the_public_command_lane_and_counted_string_without_a_device_proof() {
     use crate::callee6502::sys_cio::{CioBuffer, CioCommand};
     use crate::runtime::Runtime;

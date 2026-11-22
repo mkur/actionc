@@ -18,6 +18,7 @@ BYTE ARRAY stringMaximum(8)=$0660
 BYTE ARRAY stringDirect(8)=$0670
 REAL realDefault=$0680
 REAL realDevice=$0686
+BYTE ARRAY stringEmpty(8)=$0690
 
 PROC Main()
   Open(0,"Q:",4,0)
@@ -37,6 +38,9 @@ PROC Main()
   InputMD(0,stringMaximum,5)
   stringDirect(0)=7
   InputD(0,stringDirect)
+  stringEmpty(0)=123
+  stringEmpty(1)=$A5
+  InputMD(0,stringEmpty,0)
   Close(0)
 
   DO
