@@ -61,6 +61,9 @@ impl<'a> ResidenceCalls<'a> {
 
     /// Diagnostics read already established facts; tracing does not run analysis.
     pub fn entry_description(&self, call: &MirOp) -> Option<String> {
+        if let Some(boundary) = crate::mir6502::runtime_contracts::library::graphics_cio_boundary(self.program, call) {
+            return Some(format!("reviewed graphics wrapper, open CIO boundary: {boundary}"));
+        }
         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
         if let Some(current) = self.reviewed_fingerprints.get(target) {
             return Some(match current {
@@ -91,6 +94,9 @@ impl<'a> ResidenceCalls<'a> {
         if MirAtariFppService::from_canonical_call(call).is_some()
             || crate::mir6502::runtime_contracts::library_invocation(self.program, call).is_some() {
             return Ok(BTreeSet::new());
+        }
+        if crate::mir6502::runtime_contracts::library::graphics_cio_boundary(self.program, call).is_some() {
+            return Err("unreviewed graphics CIO continuation");
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)

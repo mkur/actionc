@@ -181,6 +181,16 @@ mod tests {
         max_steps: u64,
         setup: impl FnOnce(&mut CompilerVm),
     ) -> RunOutcome {
+        let mut vm = load_runtime_fixture(name, mode, runtime, load_os);
+        setup(&mut vm);
+        VmRunner::new(vm).run(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        })
+    }
+
+    fn load_runtime_fixture(name: &str, mode: CompileMode, runtime: Runtime, load_os: bool) -> CompilerVm {
         let fixture = runtime_fixture(name);
         let compiled = compile_file(
             &fixture,
@@ -204,12 +214,7 @@ mod tests {
         }
         vm.load_atari_object_for_execution(profile, compiled.object_bytes())
             .unwrap_or_else(|error| panic!("load {runtime:?} {name} with {mode:?}: {error}"));
-        setup(&mut vm);
-        VmRunner::new(vm).run(RunRequest {
-            max_steps,
-            history_len: 8,
-            ..RunRequest::default()
-        })
+        vm
     }
 
     #[test]
@@ -1405,6 +1410,56 @@ mod tests {
                         "graphics command ${command:02X} must be handled for {runtime:?}/{mode:?}"
                     );
                 }
+            }
+        }
+    }
+
+    struct FailedGraphicsCio {
+        command: u8,
+        injected: bool,
+    }
+
+    impl actionc_vm::VmRunHooks for FailedGraphicsCio {
+        type Error = std::convert::Infallible;
+
+        fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), Self::Error> {
+            let registers = vm.cpu().registers();
+            if !self.injected && registers.pc == 0xe456 && registers.x == 0x60
+                && vm.bus().ram().read(0x0342 + u16::from(registers.x)) == self.command
+            {
+                vm.set_pc(0x0760);
+                self.injected = true;
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn resident_graphics_locate_can_reach_a_returning_error_handler() {
+        let max_steps = 100_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let mut vm = load_runtime_fixture("resident_graphics_io.act", mode, runtime, true);
+                let ram = vm.bus_mut().ram_mut();
+                // A and Y simulate a failed CIO return. The returning error
+                // handler deliberately writes into the compiler's ZP pool.
+                ram.map(0x0760, &[0xa9, 0x31, 0xa0, 0x82, 0x60]).unwrap();
+                let handler = if runtime == Runtime::ActionCart { 0x04cb } else {
+                    ram.write_word(0x000a, 0x0770);
+                    0x0770
+                };
+                ram.map(handler, &[0xe6, 0xec, 0x60]).unwrap();
+                ram.write(0x00ec, 0x39);
+                let mut hook = FailedGraphicsCio { command: 7, injected: false };
+                let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
+                    max_steps,
+                    history_len: 8,
+                    ..RunRequest::default()
+                }, &mut hook).unwrap();
+                assert!(hook.injected, "{runtime:?}/{mode:?}");
+                assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+                assert_eq!(outcome.memory().read(0x00ec), 0x3a, "{runtime:?}/{mode:?}");
+                assert_eq!(outcome.memory().read(0x0601), 5, "{runtime:?}/{mode:?}");
             }
         }
     }

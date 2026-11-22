@@ -24,8 +24,8 @@ pub(in crate::mir6502) fn bind(
     })
 }
 
-pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -> Option<InvocationSummary> {
-    let MirOp::Call { target, abi, args, .. } = op else { return None; };
+fn current_binding<'a>(program: &MirProgram, op: &'a MirOp) -> Option<&'a MirLibraryBinding> {
+    let MirOp::Call { target, abi, .. } = op else { return None; };
     let binding = abi.library.as_ref()?;
     let implementation = binding.implementation.as_ref()?;
     let current = match target {
@@ -34,8 +34,20 @@ pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -
         _ => return None,
     };
     if implementation.helper.is_some() || !implementation.is_current(program, &current) { return None; }
+    Some(binding)
+}
+
+pub(in crate::mir6502) fn graphics_cio_boundary(program: &MirProgram, op: &MirOp) -> Option<&'static str> {
+    let binding = current_binding(program, op)?;
+    binding.graphics?.cio_boundary()
+}
+
+pub(in crate::mir6502) fn library_invocation(program: &MirProgram, op: &MirOp) -> Option<InvocationSummary> {
+    let binding = current_binding(program, op)?;
+    let MirOp::Call { abi, args, .. } = op else { return None; };
     let interface = &binding.interface;
     if let Some(graphics) = binding.graphics {
+        if graphics.cio_boundary().is_some() { return None; }
         use crate::ast::FundType;
         use crate::mir6502::ir::MirAbiIntegerWidth::{Byte, Word};
         let parameters = graphics.params().iter().map(|ty| MirDirectParamAbi::Scalar(
@@ -123,6 +135,7 @@ impl std::fmt::Debug for MirLibraryBinding {
         f.debug_struct("MirLibraryBinding").field("interface", &self.interface.name)
             .field("id", &self.interface.id).field("parameters", &self.interface.frame.direct_parameter_abi)
             .field("result", &self.interface.direct_result_abi).field("kind", &self.kind)
+            .field("graphics", &self.graphics)
             .field("implementation", &self.implementation).finish()
     }
 }

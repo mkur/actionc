@@ -1,4 +1,5 @@
 use super::*;
+use super::library::graphics_cio_boundary;
 use crate::mir6502::analysis::known_callees::{MirAcyclicEntryAnalysis, MirCalleeEntryStage, MirKnownCalleeSummaries, MirKnownMemoryReads, MirKnownMemoryWrites};
 use std::sync::atomic::{AtomicUsize, Ordering};
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -15,6 +16,27 @@ fn checked_nir(source: &str) -> crate::nir::NirProgram {
 fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
     crate::mir6502::materialize_program_with_origin_and_runtime(crate::mir6502::lower_program(&checked_nir(source)).unwrap(),
         &crate::mir6502::Mir6502Config { enable_small_leaf_inlining: false, ..crate::mir6502::Mir6502Config::optimized() }, 0x3000, runtime).unwrap()
+}
+
+#[test]
+fn plot_and_locate_reviews_keep_the_cio_boundary_open() {
+    let source = "BYTE colorResult=$0600 PROC Main()
+                  Plot(10,20) colorResult=Locate(10,20) RETURN";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter(|call| graphics_cio_boundary(&p, call).is_some()).collect::<Vec<_>>();
+        assert_eq!(calls.len(), 2, "{runtime:?}");
+        assert_eq!(graphics_cio_boundary(&p, calls[0]), Some("PutD on S: (reads COLOR at $02FD)"));
+        assert_eq!(graphics_cio_boundary(&p, calls[1]), Some("GetD on S: (successful pixel result at $A0)"));
+        assert!(calls.iter().all(|call| library_invocation(&p, call).is_none()));
+        if runtime == crate::runtime::Runtime::Standalone {
+            let mut changed = p.clone();
+            let position = changed.routines.iter_mut().find(|r| r.name.ends_with("::Pos1")).unwrap();
+            position.blocks.clear();
+            assert!(calls.iter().all(|call| graphics_cio_boundary(&changed, call).is_none()));
+        }
+    }
 }
 
 #[test]
