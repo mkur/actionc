@@ -38,6 +38,9 @@ consumer without a combined representation retains an unknown footprint.
 
 ## Remaining public-library coverage
 
+The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
+starts with the seven public graphics routines, in four slices on both providers.
+
 | Interfaces | Missing returning proof components |
 | --- | --- |
 | SCopyS, SAssign | Subrange arithmetic, bounded string effects, jumps into SCopy interiors. |
@@ -46,7 +49,8 @@ consumer without a combined representation retains an unknown footprint.
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek/PeekC, Poke/PokeC | Explicit numeric memory access semantics and complete selected implementation effects; identity is retained now. |
 | Rand, Sound, SndRst, Paddle/PTrig/Stick/STrig | Device/state observations and hardware writes. |
-| Graphics, Position, DrawTo, Locate, Plot, SetColor, Fill | OS/graphics calls, screen/device writes and retained state. |
+| Position, SetColor | Fixed-address effects, `Pos1` fallthrough, and register-dependent color writes. |
+| Plot, Locate, DrawTo, Fill, Graphics | Screen CIO and status handling, plus graphics state, pixels and `Locate`'s result. |
 | Put/Print/Get families, Input families, Open/Close/XIO/Note/Point | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
