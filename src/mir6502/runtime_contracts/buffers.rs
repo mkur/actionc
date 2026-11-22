@@ -62,17 +62,17 @@ impl super::invocation::InvocationSummary {
         values: Option<(&MirMachineValueAvailability, MirSite)>,
     ) -> crate::mir6502::analysis::known_callees::MirKnownMemoryWrites {
         use crate::mir6502::analysis::known_callees::MirKnownMemoryWrites;
-        if let Some(graphics) = self.graphics {
+        if let Some(review) = self.sys_review {
+            if matches!(review, crate::callee6502::sys_review::SysReview::Memory(_)) {
+                // The address and any footprint preconditions were proved at
+                // this invocation's actual argument setup.
+                return MirKnownMemoryWrites::Exact(self.writes.clone());
+            }
             let register = argument_byte_value(program, call, 0, MirWidth::Byte, values);
-            let Some(ranges) = graphics.facts::<()>(register).writes else {
+            let Some(ranges) = review.facts::<()>(register.map(u16::from), None).writes else {
                 return MirKnownMemoryWrites::Unknown;
             };
-            return MirKnownMemoryWrites::Exact(ranges.into_iter().flat_map(|range|
-                (range.start..=range.end).map(|address| match u8::try_from(address) {
-                    Ok(byte) => MirMem::FixedZeroPage(MirFixedZpSlot(byte)),
-                    Err(_) => MirMem::Absolute(address),
-                })
-            ).collect());
+            return MirKnownMemoryWrites::Exact(absolute_writes(ranges));
         }
         let mut numeric = Vec::new();
         let mut has_pointee = false;
@@ -95,6 +95,15 @@ impl super::invocation::InvocationSummary {
             MirKnownMemoryWrites::Pointee { fixed: self.writes.clone(), numeric, formals: BTreeSet::new(), ordinary: false, caller_dependent: true, opaque_preserves: None }
         } else { MirKnownMemoryWrites::Exact(self.writes.clone()) }
     }
+}
+
+pub(super) fn absolute_writes(ranges: Vec<crate::callee6502::DataRange<()>>) -> Vec<MirMem> {
+    ranges.into_iter().flat_map(|range| (range.start..=range.end).map(|address|
+        match u8::try_from(address) {
+            Ok(byte) => MirMem::FixedZeroPage(MirFixedZpSlot(byte)),
+            Err(_) => MirMem::Absolute(address),
+        }
+    )).collect()
 }
 
 pub(in crate::mir6502) fn argument_word(program: &MirProgram, call: &MirOp, offset: u16,

@@ -19,6 +19,159 @@ fn program(source: &str, runtime: crate::runtime::Runtime) -> MirProgram {
 }
 
 #[test]
+fn memory_reviews_separate_result_widths_and_guard_store_footprints() {
+    use super::library::{library_invocation_at, reviewed_memory_routine};
+    use crate::callee6502::sys_memory::MemoryRoutine::{Peek, PeekC, Poke, PokeC};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+    let source = "CARD value=$622 BYTE lowResult=$620
+        PROC Main()
+          lowResult=Peek($D202) value=PeekC($FFFF) lowResult=Peek($D4FF)
+          Poke($0610,$34) PokeC($0611,$BEEF)
+          PokeC($00A0,$6FDF) PokeC($00A1,$7342) PokeC($3005,$1234)
+        RETURN";
+    let slot = |byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte));
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let mut reviews = Vec::new();
+        for routine in &p.routines {
+            for block in &routine.blocks {
+                for (op_index, call) in block.ops.iter().enumerate() {
+                    let Some(kind) = reviewed_memory_routine(&p, call) else { continue; };
+                    let site = MirSite::Op { block: block.id, op_index };
+                    reviews.push((kind, library_invocation_at(&p, routine, site, call, Some(0x3000))));
+                }
+            }
+        }
+        assert_eq!(reviews.iter().map(|(kind, _)| *kind).collect::<Vec<_>>(),
+            [Peek, PeekC, Peek, Poke, PokeC, PokeC, PokeC, PokeC], "{runtime:?}");
+        assert_eq!(reviews[0].1.as_ref().unwrap().definitions, [slot(0xa0)]);
+        assert_eq!(reviews[1].1.as_ref().unwrap().definitions, [slot(0xa0), slot(0xa1)]);
+        assert_eq!(reviews[0].1.as_ref().unwrap().writes, (0xa0..=0xa3).map(slot).collect::<Vec<_>>());
+        assert!(reviews[2].1.is_none());
+        assert_eq!(reviews[3].1.as_ref().unwrap().writes, [slot(0xa0), slot(0xa1), MirMem::Absolute(0x0610)]);
+        assert_eq!(reviews[4].1.as_ref().unwrap().writes, [
+            slot(0xa0), slot(0xa1), MirMem::Absolute(0x0611), MirMem::Absolute(0x0612),
+        ]);
+        assert!(reviews[5..].iter().all(|(_, review)| review.is_none()), "{runtime:?}");
+    }
+    let reads = Peek.facts::<()>(Some(0xffff), None).reads.unwrap();
+    assert_eq!(reads.iter().map(|range| (range.start, range.end)).collect::<Vec<_>>(),
+        [(0xa2, 0xa3), (0xffff, 0xffff), (0, 0)]);
+    assert_eq!(PokeC.numeric_observations(0xa0, Some(0xdf)), [(0xa0, 1), (0xe0, 1)]);
+    assert_eq!(PokeC.numeric_observations(0xa1, Some(0x42)), [(0xa1, 1), (0x42a2, 1)]);
+}
+
+#[test]
+fn fixed_memory_argument_admits_a_live_home_while_a_numeric_cursor_stays_conservative() {
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        for (destination, resident) in [("$0610", true), ("destination", false)] {
+            let source = format!(
+                "BYTE FUNC Across(BYTE keep CARD destination)
+                 Poke({destination},7) keep==+1 RETURN(keep)
+                 PROC Main() BYTE out=$600 out=Across(13,$0610) RETURN"
+            );
+            let output = crate::mir6502::generate_output_with_config_and_runtime(
+                &checked_nir(&source), 0x3000, &config, runtime,
+            ).unwrap();
+            let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+            assert_eq!(home.address < 256, resident, "{runtime:?} {destination} {home:?}");
+        }
+    }
+}
+
+#[test]
+fn the_second_peek_read_protects_an_observed_zero_page_byte() {
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let home = |address| {
+            let source = format!(
+                "BYTE observed=$620
+                 BYTE FUNC Across(BYTE keep)
+                 observed=Peek(${address:04X}) keep==+1 RETURN(keep)
+                 PROC Main() BYTE out=$600 out=Across(13) RETURN"
+            );
+            let output = crate::mir6502::generate_output_with_config_and_runtime(
+                &checked_nir(&source), 0x3000, &config, runtime,
+            ).unwrap();
+            output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap().address
+        };
+        let preferred = home(0x0610u16);
+        assert!(preferred < 256, "{runtime:?} ${preferred:04X}");
+        assert_ne!(home(preferred - 1), preferred, "{runtime:?}");
+    }
+}
+
+#[test]
+fn sound_voice_proof_is_rechecked_after_argument_setup() {
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        for (voice, resident) in [("1", true), ("voice", false), ("4", false)] {
+            let source = format!(
+                "BYTE FUNC Across(BYTE keep,voice)
+                 Sound({voice},10,4,7) keep==+1 RETURN(keep)
+                 PROC Main() BYTE out=$600 out=Across(13,2) RETURN"
+            );
+            let output = crate::mir6502::generate_output_with_config_and_runtime(
+                &checked_nir(&source), 0x3000, &config, runtime,
+            ).unwrap();
+            let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+            assert_eq!(home.address < 256, resident, "{runtime:?} {voice} {home:?}");
+        }
+    }
+}
+
+#[test]
+fn reviewed_hardware_calls_define_results_and_check_guarded_operands() {
+    use crate::callee6502::{sys_hardware::HardwareRoutine::*, sys_review::SysReview::Hardware};
+    use crate::mir6502::analysis::sites::MirSite;
+    use super::library::library_invocation_at;
+    let source = "BYTE ARRAY observed(6)=$600
+    PROC Main()
+        observed(0)=Paddle(2) observed(1)=PTrig(1) observed(2)=Stick(3) observed(3)=STrig(2)
+        observed(4)=Rand(0) observed(5)=Rand(10) Sound(2,3,4,5) SndRst()
+        Sound(4,3,4,5) observed(1)=PTrig(200)
+    RETURN";
+    let slot = |value| MirMem::FixedZeroPage(MirFixedZpSlot(value));
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let mut witnessed = Vec::new();
+        for routine in &p.routines {
+            let Some(values) = buffers::argument_values(&p, routine) else { continue; };
+            for block in &routine.blocks {
+                for (op_index, call) in block.ops.iter().enumerate() {
+                    let MirOp::Call { abi, .. } = call else { continue; };
+                    let Some(Hardware(hardware)) = abi.library.as_ref().and_then(|b| b.sys_review) else { continue; };
+                    let site = MirSite::Op { block: block.id, op_index };
+                    let reviewed = library_invocation_at(&p, routine, site, call, None).map(|invocation| {
+                        let writes = invocation.normal_writes(&p, call, Some((&values, site)));
+                        (invocation.definitions, writes)
+                    });
+                    witnessed.push((hardware, reviewed));
+                }
+            }
+        }
+        let result = Some((vec![slot(0xa0)], MirKnownMemoryWrites::Exact(vec![slot(0xa0)])));
+        for hardware in [Paddle, PTrig, Stick, STrig] {
+            assert!(witnessed.contains(&(hardware, result.clone())), "{runtime:?} {witnessed:?}");
+        }
+        assert!(witnessed.contains(&(Rand, result)));
+        assert!(witnessed.iter().any(|(hw, footprint)| *hw == Rand && matches!(footprint,
+            Some((_, MirKnownMemoryWrites::Exact(writes))) if writes.contains(&slot(0x84)))));
+        assert!(witnessed.contains(&(Sound, Some((vec![], MirKnownMemoryWrites::Exact(vec![
+            slot(0xa2), MirMem::Absolute(0xd204), MirMem::Absolute(0xd205),
+        ]))))), "{runtime:?} {witnessed:?}");
+        assert!(witnessed.contains(&(Sound, None)) && witnessed.contains(&(PTrig, None)));
+        assert!(witnessed.iter().any(|(hw, footprint)| *hw == SndRst && matches!(footprint,
+            Some((_, MirKnownMemoryWrites::Exact(writes))) if writes.contains(&MirMem::Absolute(0xd20f)))));
+    }
+}
+
+#[test]
 fn cio_character_reviews_match_both_providers_and_keep_dispatch_open() {
     use crate::callee6502::sys_cio::{CioCommand::Fixed, CioRoutine};
     let source = "BYTE character=$600 PROC Main()
@@ -201,8 +354,8 @@ PROC Main() SYS.Position($1234,$56) SYS.SetColor(2,10,12) SYS.SetColor(133,10,12
                         panic!("missing {runtime:?} graphics review: {call:?}"));
                     let values = buffers::argument_values(&p, routine).unwrap();
                     let site = MirSite::Op { block: block.id, op_index };
-                    writes.push((summary.graphics.unwrap(), summary.normal_writes(&p, call, Some((&values, site)))));
-                    if summary.graphics == Some(GraphicsRoutine::Position) {
+                    writes.push((match summary.sys_review.unwrap() { crate::callee6502::sys_review::SysReview::Graphics(graphics) => graphics, _ => unreachable!() }, summary.normal_writes(&p, call, Some((&values, site)))));
+                    if summary.sys_review == Some(crate::callee6502::sys_review::SysReview::Graphics(GraphicsRoutine::Position)) {
                         linked = Some(call);
                     }
                 }

@@ -279,11 +279,13 @@ impl Generator {
         if let Some(&(review, address)) = self.callee_reviews.sys.get(&name_key)
             && info.system_address == address && args.len() == info.params.len()
         {
-            let register = args.first().and_then(|arg| match &arg.kind {
-                ExprKind::Number(number) => u8::try_from(number.value?).ok(),
+            let argument = args.first().and_then(|arg| match &arg.kind {
+                ExprKind::Number(number) => u16::try_from(number.value?).ok(),
                 _ => None,
             });
-            info.effects = super::reviewed::classic_call_effects(&review.facts::<()>(register));
+            let facts = review.facts::<()>(argument, Some(self.emitter.origin));
+            info.effects = super::reviewed::classic_call_effects(&facts);
+            info.facts.returns_a_equals_a0 = facts.returns_a_equals_a0;
         }
         debug_assert_call_abi_shape(name, &info, args.len());
         let supplied_params = &info.params[..args.len()];

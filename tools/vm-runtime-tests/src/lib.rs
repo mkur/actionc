@@ -1568,12 +1568,18 @@ mod tests {
         let max_steps = 50_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_runtime_fixture(
+                let outcome = run_runtime_fixture_with_setup(
                     "resident_memory_strings.act",
                     mode,
                     runtime,
                     false,
                     max_steps,
+                    |vm| {
+                        vm.bus_mut().write(0xd202, 0xaa);
+                        vm.bus_mut().write(0xd203, 0xbb);
+                        vm.bus_mut().add_watchpoint(0xd202);
+                        vm.bus_mut().add_watchpoint(0xd203);
+                    },
                 );
                 assert_eq!(
                     outcome.stop_reason(),
@@ -1589,12 +1595,16 @@ mod tests {
                     "SAssign result with {runtime:?}/{mode:?}"
                 );
                 assert_eq!(
-                    (0..3)
+                    (0..6)
                         .map(|offset| outcome.memory().read(0x0620 + offset))
                         .collect::<Vec<_>>(),
-                    [0x34, 0xEF, 0xBE],
+                    [0x34, 0xEF, 0xBE, 0xAA, 0x6F, 0x73],
                     "Peek/Poke result with {runtime:?}/{mode:?}"
                 );
+                let hardware_reads = outcome.vm.bus().events().iter().filter_map(|event|
+                    (event.access == actionc_vm::BusAccess::Read).then_some(event.address)
+                ).collect::<Vec<_>>();
+                assert_eq!(hardware_reads, [0xd202, 0xd203], "{runtime:?}/{mode:?}");
             }
         }
     }
@@ -1615,6 +1625,8 @@ mod tests {
                         vm.bus_mut().ram_mut().write(0x0272, 0x66);
                         vm.bus_mut().write(0xD300, 0xA5);
                         vm.bus_mut().write(0xD012, 0x7F);
+                        vm.bus_mut().add_watchpoint(0xD20A);
+                        vm.bus_mut().add_watchpoint(0x0272);
                     },
                 );
                 assert_eq!(
@@ -1624,12 +1636,17 @@ mod tests {
                     outcome.report
                 );
                 assert_eq!(
-                    (0..11)
+                    (0..12)
                         .map(|offset| outcome.memory().read(0x0600 + offset))
                         .collect::<Vec<_>>(),
-                    [5, 0x66, 4, 0, 5, 10, 0x7F, 0x34, 0xA7, 0, 0],
+                    [5, 0x66, 4, 0, 5, 10, 0x7F, 0x34, 0xA7, 0, 0, 0x80],
                     "hardware helper results with {runtime:?}/{mode:?}"
                 );
+                for (address, count) in [(0xd20a, 2), (0x0272, 1)] {
+                    assert_eq!(outcome.vm.bus().events().iter().filter(|event|
+                        event.address == address && event.access == actionc_vm::BusAccess::Read
+                    ).count(), count, "{runtime:?}/{mode:?} ${address:04X}");
+                }
             }
         }
     }

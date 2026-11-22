@@ -13,6 +13,7 @@ pub(in crate::mir6502) struct ResidenceCalls<'a> {
     entries: BTreeMap<RoutineId, Option<Arc<MirCalleeEntryFact>>>,
     reviewed_fingerprints: BTreeMap<RoutineId, Option<u64>>,
     acyclic: Option<MirAcyclicEntryAnalysis<'a>>,
+    origin: Option<u16>,
     stage: MirCalleeEntryStage,
 }
 
@@ -29,6 +30,7 @@ impl<'a> ResidenceCalls<'a> {
             entries: BTreeMap::new(),
             reviewed_fingerprints: BTreeMap::new(),
             acyclic: origin.map(|origin| MirAcyclicEntryAnalysis::at_origin(program, origin)),
+            origin,
             stage,
         }
     }
@@ -90,6 +92,17 @@ impl<'a> ResidenceCalls<'a> {
         self.check_inputs(call, false)
     }
 
+    pub(super) fn inputs_at(
+        &mut self, routine: &MirRoutine, site: MirSite, call: &MirOp,
+    ) -> Result<BTreeSet<u8>, &'static str> {
+        if self.stage == MirCalleeEntryStage::ActualEntry
+            && crate::mir6502::runtime_contracts::library::library_invocation_at(self.program, routine, site, call, self.origin).is_some()
+        {
+            return Ok(BTreeSet::new());
+        }
+        self.inputs(call)
+    }
+
     fn check_inputs(&mut self, call: &MirOp, require_entry: bool) -> Result<BTreeSet<u8>, &'static str> {
         if self.stage != MirCalleeEntryStage::ActualEntry {
             return Err("residence inputs require expanded callee facts");
@@ -103,6 +116,9 @@ impl<'a> ResidenceCalls<'a> {
         }
         if crate::mir6502::runtime_contracts::library::reviewed_cio_transfer(self.program, call).is_some() {
             return Err("unreviewed SYS CIO continuation");
+        }
+        if crate::mir6502::runtime_contracts::library::requires_argument_proof(self.program, call) {
+            return Err("unproven SYS call argument or footprint");
         }
         if matches!(call, MirOp::RuntimeHelper { .. }) {
             return crate::mir6502::runtime_contracts::helper_invocation(self.program, call)
@@ -196,7 +212,11 @@ impl<'a> ResidenceCalls<'a> {
             return Ok(MirKnownMemoryWrites::Exact(MirAtariFppService::workspace()
                 .map(|byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte))).collect()));
         }
-        if let Some(s) = crate::mir6502::runtime_contracts::library_invocation(self.program, call) {
+        let library = match site {
+            Some((routine, site)) => crate::mir6502::runtime_contracts::library::library_invocation_at(self.program, routine, site, call, self.origin),
+            None => crate::mir6502::runtime_contracts::library_invocation(self.program, call),
+        };
+        if let Some(s) = library {
             let values = site.and_then(|(routine, site)| {
                 Some((crate::mir6502::runtime_contracts::buffers::argument_values(self.program, routine)?, site))
             });

@@ -336,7 +336,7 @@ fn linked_status_matches(image: &RuntimeImage) -> bool {
     ) && linked_body_matches(image, "SYSLIB", "ERROR", "6c a 0")
 }
 
-fn linked_routine<'a>(
+pub(super) fn linked_routine<'a>(
     image: &'a RuntimeImage,
     unit: &str,
     name: &str,
@@ -369,11 +369,11 @@ fn body_matches(routine: &crate::semantic::ir::SemRoutine, expected: &str) -> bo
         if matches_items(items, resolved_symbols, expected))
 }
 
-fn linked_body_matches(image: &RuntimeImage, unit: &str, name: &str, expected: &str) -> bool {
+pub(super) fn linked_body_matches(image: &RuntimeImage, unit: &str, name: &str, expected: &str) -> bool {
     linked_routine(image, unit, name).is_some_and(|routine| body_matches(routine, expected))
 }
 
-fn adjacent(image: &RuntimeImage, first: &str, second: &str) -> bool {
+pub(super) fn adjacent(image: &RuntimeImage, first: &str, second: &str) -> bool {
     let mut items = image.semir.modules.iter().flat_map(|m| &m.items).peekable();
     items.any(|item| {
         matches!(item, SemItem::Routine(routine)

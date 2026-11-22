@@ -11,11 +11,11 @@ use crate::mir6502::runtime_contracts::{SARGS_STATE, selected_helper};
 
 fn needs_proof(p: &MirProgram, r: &MirRoutine) -> bool {
     r.frame.local_homes.iter().flatten().any(|b| matches!(b.home, MirLocalHome::PersistentZeroPage(_)))
-        || (!r.frame.resident_bytes().is_empty() && has_pointee_writes(p, r))
+        || (!r.frame.resident_bytes().is_empty() && needs_observation_proof(p, r))
 }
 
-pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
-    // A caller inherits the layout obligation for writes in a descendant.
+pub(super) fn needs_observation_proof(p: &MirProgram, r: &MirRoutine) -> bool {
+    // A caller inherits the layout obligation for numeric observations in a descendant.
     // A verified terminal argument handoff ends the input lifetime at entry to
     // the target. Its ABI scratch may coincide with those argument lanes.
     let survives_reviewed_call = r.frame.parameter_handoff.is_none();
@@ -31,7 +31,12 @@ pub(super) fn has_pointee_writes(p: &MirProgram, r: &MirRoutine) -> bool {
             return true;
         }
         for op in r.blocks.iter().flat_map(|b| &b.ops) {
-            if writes_ordinary_pointee(op) || super::super::runtime_contracts::library::may_write_buffer(op) { return true; }
+            use super::super::runtime_contracts::library;
+            if writes_ordinary_pointee(op) || library::may_write_buffer(op)
+                || library::reviewed_memory_routine(p, op).is_some()
+            {
+                return true;
+            }
             if let MirOp::Call { target: MirCallTarget::Routine(id), .. } = op { pending.push(*id); }
         }
     }
@@ -251,6 +256,8 @@ fn check(
 /// source exposure. Unknown pointee footprints are deliberately not numeric
 /// observations; undecodable explicit machine operands still prevent a proof.
 pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMemory>) -> Result<Vec<(u16, u16)>, UnresolvedObservation> {
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::mir6502::runtime_contracts::{buffers, library, library_invocation};
     let mut out: Vec<_> = crate::mir6502::analysis::known_callees::numeric_buffer_observations(p)
         .into_iter().map(|(_, address, size, _)| (address, size)).collect();
     out.extend(crate::mir6502::analysis::known_callees::native_numeric_observations(p));
@@ -265,8 +272,8 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
             continue;
         }
         let values = r.blocks.iter().flat_map(|b| &b.ops)
-            .any(|op| super::super::runtime_contracts::library_invocation(p, op).is_some())
-            .then(|| super::super::runtime_contracts::buffers::argument_values(p, r)).flatten();
+            .any(|op| library_invocation(p, op).is_some() || library::reviewed_memory_routine(p, op).is_some())
+            .then(|| buffers::argument_values(p, r)).flatten();
         for b in &r.blocks {
             for memory in b
                 .ops
@@ -302,12 +309,18 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                 }
             }
             for (op_index, op) in b.ops.iter().enumerate() {
-                if let Some(contract) = super::super::runtime_contracts::library_invocation(p, op) {
+                let site = values.as_ref().map(|v| (v, MirSite::Op { block: b.id, op_index }));
+                if let Some(contract) = library_invocation(p, op) {
                     for buffer in contract.buffers {
-                        let (base, bytes) = buffer.project(p, op, values.as_ref().map(|v|
-                            (v, crate::mir6502::analysis::sites::MirSite::Op { block: b.id, op_index })));
+                        let (base, bytes) = buffer.project(p, op, site);
                         if let Some(base) = base && bytes != 0 { out.push((base, bytes)); }
                     }
+                }
+                if let Some(routine) = library::reviewed_memory_routine(p, op)
+                    && let Some(address) = buffers::argument_word(p, op, 0, site)
+                {
+                    let low_value = buffers::argument_byte_value(p, op, 2, MirWidth::Byte, site);
+                    out.extend(routine.numeric_observations(address, low_value));
                 }
                 if let MirOp::Load {
                     src: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },

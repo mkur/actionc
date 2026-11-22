@@ -293,6 +293,11 @@ pub(super) fn matches_items(
             .zip(expected)
             .enumerate()
             .all(|(index, (item, expected))| {
+                if expected == "*+5" {
+                    return matches!(item, MachineItem::AddressExpr(expr)
+                        if matches!(expr.atom, MachineAddressAtom::Current)
+                            && expr.offset == 5 && expr.selector.is_none() && !expr.explicit_address);
+                }
                 let Some(name) = expected.strip_prefix('@') else {
                     return matches!(item, MachineItem::Number(number)
                     if number.value == u64::from_str_radix(expected, 16).ok());

@@ -60,7 +60,7 @@ pub(in crate::mir6502) fn verify_with_address_control(routine: &MirRoutine,
                 };
                 // A sibling can occupy an implicit entry byte even when only a
                 // different value survives this call.
-                match facts.inputs(op) {
+                match facts.inputs_at(routine, site, op) {
                         Ok(inputs) if resident.iter().any(|(_, slot)| inputs.contains(&slot.0)) =>
                             return vec![MirDiagnostic::routine(&routine.name, "resident home overlaps a callee entry input")],
                         Err(reason) => return vec![MirDiagnostic::routine(&routine.name, reason)],

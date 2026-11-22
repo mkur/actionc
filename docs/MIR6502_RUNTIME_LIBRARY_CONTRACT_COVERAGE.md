@@ -39,11 +39,34 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | PutD, GetD | Channel in A, put character in X / GetD character at `$A0` on success | Unknown across CIO | Shared `CCIO` sets a zero IOCB length and commands `$0B` and `$07`. It stages the accumulator in `$A0` before status handling. |
 | Close, Open | Channel in A / void. Open also takes a counted filename in X/Y and mode and auxiliary bytes in `$A3/$A4`. | Unknown across CIO | Commands `$0C` and `$03`. Open copies the filename through the pointer at `$9B/$9C` on cartridge and into `$0500` on standalone. Cartridge Graphics calls the internal open entry. |
 | XIO | Command in Y, AUX bytes in `$A3/$A4`, counted string pointer in `$A5/$A6` / void | Unknown across CIO | A zero AUX1 keeps the IOCB auxiliary bytes. A zero string length skips CIOV. DrawTo and Fill reach this path with commands `$11` and `$12`. |
+| Paddle, Stick, STrig | Port in A / byte in A and `$A0` | `$A0` | Reads paddle shadow bytes, PIA ports or GTIA triggers respectively. Hardware reads retain their ordering. |
+| PTrig | Proven port 0–7 in A / byte in A and `$A0` | `$A0` | PIA read and indexed read of the in-body mask table. Unproven ports retain conservative effects because high bytes can index past the table. |
+| Rand | Limit in A / byte at `$A0` | `$A0` for proven zero. A nonzero or unproven limit also allows the union of the reviewed `MultI` scratch ranges. | Reads POKEY RANDOM at `$D20A`. A zero limit bypasses multiplication. |
+| Sound | Proven voice 0–3 in A, pitch in X, distortion in Y and volume at `$A3` / void | `$A2` and the voice's two POKEY registers | An unproven voice retains the error continuation and conservative effects. |
+| SndRst | No arguments / void | `$0232`, `$D200–$D208`, `$D20F` | Reads the serial-control shadow at `$0232` and resets POKEY audio state. |
+| Peek, PeekC | Numeric address in A/X / BYTE at `$A0` or CARD at `$A0/$A1` | `$A0–$A3` for a proven address outside cartridge bank controls | Both entries read two bytes, including the wrapped second address. A known observation protects both bytes against home relocation. |
+| Poke, PokeC | Numeric address in A/X and low value in Y. PokeC also takes the high byte at `$A3`. | `$A0/$A1` and one or two proven destination bytes | Qualified writes stay below the image and outside the stack and hardware. PokeC at `$A0` or `$A1` can redirect its second store and retains conservative writes. |
 
 These assembly entries consume the public ABI directly, including fifth/sixth
 argument bytes. They do not acquire a synthesized SArgs prologue. An unknown
 buffer extent stays uncertain independently of the finite scratch set. A
 consumer without a combined representation retains an unknown footprint.
+
+A focused MIR6502 caller keeps a live byte in ZP across `Sound` with a
+proven voice. The dynamic and out-of-range controls use inline storage.
+Before/after MIR6502 builds at origin `$3000` produced byte-identical
+images for the three toolkit callers on cartridge and standalone.
+[SORT.DM1](../samples/toolkit/modern/SORT.DM1) ·
+[PMG.DM2](../samples/toolkit/modern/PMG.DM2) ·
+[MUSIC.DEM](../samples/toolkit/modern/MUSIC.DEM)
+
+In standalone MIR6502, the reviewed `Peek` label falls through directly to
+`PeekC` with the address in A/X. Building Lipsum at `$3000` reduced the
+standalone XEX from 902 to 894 bytes by removing two parameter stores and
+their inline storage. The cartridge build was byte-identical at 453 bytes.
+The computed addresses in the glyph loop retain conservative effects, and
+both builds have the same source ZP homes.
+[Lipsum caller](../samples/benchmarks/bench/lipsum.act#L19)
 
 ## Remaining public-library coverage
 
@@ -58,8 +81,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | StrB/StrC/StrI, ValB/ValC/ValI | Conversion scratch, string effects and internal returning dependencies. |
 | StrLC/StrLI, ValLC/ValLI and LONGCARD/LONGINT I/O | Public wide ABI metadata is available. String effects, conversion scratch and I/O dependencies still restrict entry certificates; ordinary bodies can use available helper facts. |
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
-| Peek/PeekC, Poke/PokeC | Explicit numeric memory access semantics and complete selected implementation effects; identity is retained now. |
-| Rand, Sound, SndRst, Paddle/PTrig/Stick/STrig | Device/state observations and hardware writes. |
+| Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
+| Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |
 | Other Put/Print/Get and Input routines, Note, Point | CIO/OS returning dependencies, device state and input/output buffers. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |

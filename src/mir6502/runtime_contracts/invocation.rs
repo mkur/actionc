@@ -8,7 +8,7 @@ use crate::mir6502::analysis::{
 };
 
 pub(in crate::mir6502) struct InvocationSummary {
-    pub graphics: Option<crate::callee6502::sys_graphics::GraphicsRoutine>,
+    pub sys_review: Option<crate::callee6502::sys_review::SysReview>,
     pub inputs: Vec<MirArgHome>,
     pub definitions: Vec<MirMem>,
     pub register_definitions: MirRegisterSet,
@@ -48,7 +48,7 @@ impl InvocationSummary {
 pub(in crate::mir6502) fn invocation(program: &MirProgram, routine: &MirRoutine, op: &MirOp) -> Option<InvocationSummary> {
     if let Some(capture) = sargs_capture(program, routine, op) {
         return Some(InvocationSummary {
-            graphics: None,
+            sys_review: None,
             inputs: capture.inputs,
             writes: capture.definitions.iter().cloned().chain(capture.scratch).collect(),
             definitions: capture.definitions,
@@ -97,5 +97,5 @@ pub(in crate::mir6502) fn helper_invocation(program: &MirProgram, op: &MirOp) ->
         },
         _ => return None,
     };
-    Some(InvocationSummary { inputs: args.clone(), definitions, register_definitions, writes, buffers: Vec::new(), graphics: None })
+    Some(InvocationSummary { inputs: args.clone(), definitions, register_definitions, writes, buffers: Vec::new(), sys_review: None })
 }

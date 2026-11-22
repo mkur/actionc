@@ -2,7 +2,8 @@
 BYTE ARRAY destination(8)="ABCDE"
 BYTE ARRAY source="xy"
 BYTE ARRAY stringResult(8)=$0600
-BYTE ARRAY memoryResult(3)=$0620
+BYTE ARRAY memoryResult(6)=$0620
+BYTE retargetedLow=$E0, retargetedHigh=$42A2
 
 PROC Main()
   CARD value
@@ -21,6 +22,11 @@ PROC Main()
   value=PeekC($0611)
   memoryResult(1)=value
   memoryResult(2)=value RSH 8
+  memoryResult(3)=Peek($D202)
+  PokeC($00A0,$6FDF)
+  PokeC($00A1,$7342)
+  memoryResult(4)=retargetedLow
+  memoryResult(5)=retargetedHigh
 
   DO
   OD

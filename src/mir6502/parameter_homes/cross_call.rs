@@ -89,7 +89,7 @@ pub(super) fn propose_configured(
                 .collect();
             let default_leaf = acyclic && lifetimes && calls.is_empty();
             if !default_leaf && (calls.is_empty() || (!multiple && calls.len() != 1)) { return None; }
-            let observed_zp = if physical::has_pointee_writes(input, retained) {
+            let observed_zp = if physical::needs_observation_proof(input, retained) {
                 match &*observations {
                     Ok(bytes) if lifetimes => bytes,
                     Ok(_) => &empty,
@@ -131,7 +131,7 @@ pub(super) fn propose_configured(
         let mut fixed_inputs = BTreeSet::new();
         for (call_index, (site, call)) in calls.iter().enumerate() {
             if lifetimes {
-                match facts.inputs(call) {
+                match facts.inputs_at(routine, *site, call) {
                     Ok(inputs) => fixed_inputs.extend(inputs),
                     Err(reason) => {
                         trace.event("cross-call-candidate", || serde_json::json!({
@@ -151,7 +151,9 @@ pub(super) fn propose_configured(
                     if let Some(chains) = &chains
                         && matches!(call, MirOp::Call { .. })
                         && MirAtariFppService::from_canonical_call(call).is_none()
-                        && super::super::runtime_contracts::library_invocation(selected, call).is_none() {
+                        && super::super::runtime_contracts::library_invocation(selected, call).is_none()
+                        && !super::super::runtime_contracts::library::requires_argument_proof(selected, call)
+                    {
                         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
                             return Err("unknown planning dependency");
                         };

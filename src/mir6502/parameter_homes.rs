@@ -99,7 +99,7 @@ fn propose(input: &MirProgram, selected: &MirProgram, mixed: bool, origin: u16) 
             || super::materialize::arithmetic_homes::reduced_constants(routine, &layout)
                 .is_some_and(|view| admission::check(&addresses, &view, false, mixed, Some(selected)).is_ok());
         if !admitted { continue; }
-        let forbidden = if physical::has_pointee_writes(input, routine) {
+        let forbidden = if physical::needs_observation_proof(input, routine) {
             let Ok(bytes) = &*observations else { continue };
             bytes
         } else { &empty };

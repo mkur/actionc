@@ -26,7 +26,7 @@ impl<'a> ExpandedConflicts<'a> {
                 };
                 let mut bytes = BTreeSet::new();
                 if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) {
-                    entry.extend(facts.inputs(op)?);
+                    entry.extend(facts.inputs_at(routine, site, op)?);
                     let writes = facts.home_writes_at(routine, site, op).map(|w| {
                         zero_page::pool_bytes()
                             .filter(|b| !w.preserves_private_fixed_byte(MirFixedZpSlot(*b), &fixed))

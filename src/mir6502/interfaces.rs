@@ -79,7 +79,7 @@ pub(super) fn resolve_interfaces(
         );
         let selected_runtime = crate::runtime_source::select_runtime_image(&roots_by_unit)
             .map_err(frontend_diagnostics)?;
-        let runtime_program = super::standalone::lower_runtime_image(&selected_runtime.image)?;
+        let mut runtime_program = super::standalone::lower_runtime_image(&selected_runtime.image)?;
         let mut implementation_roots = BTreeMap::new();
         for (external_id, (unit, routine)) in &external_roots {
             let interface_name = &external[&external_id];
@@ -109,6 +109,20 @@ pub(super) fn resolve_interfaces(
                     .find(|candidate| candidate.id == implementation)
                     .expect("runtime routine exists"),
             )?;
+            if sys_reviews.get(external_id) == Some(&SysReview::Memory(
+                crate::callee6502::sys_memory::MemoryRoutine::Peek,
+            )) {
+                // The reviewed empty Peek label falls through to the raw PeekC
+                // entry. Keep Peek's public BYTE signature and pass A/X on
+                // directly, without synthesizing private parameter stores.
+                let alias = runtime_program.routines.iter_mut()
+                    .find(|candidate| candidate.id == implementation).expect("runtime routine exists");
+                for slot in &mut alias.frame.params {
+                    if let super::ir::MirStorageBase::Param(id) = slot.base {
+                        slot.base = super::ir::MirStorageBase::ParamAbiOnly(id);
+                    }
+                }
+            }
             implementation_roots.insert(*external_id, implementation);
         }
         let selected = super::standalone::bind_runtime_selection(

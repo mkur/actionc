@@ -352,7 +352,7 @@ fn supplied_home_checks_each_lane_of_native_wrapper_destinations() {
     let selected = crate::mir6502::materialize_program(input.clone(), &Default::default()).unwrap();
     for p in [&input, &selected] {
         let hold = p.routines.iter().find(|r| r.name == "Hold").unwrap();
-        assert!(physical::has_pointee_writes(p, hold));
+        assert!(physical::needs_observation_proof(p, hold));
         assert!(
             physical::numeric_observations(p, None)
                 .unwrap()

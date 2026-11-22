@@ -4,6 +4,8 @@ use crate::codegen::{AddressingMode, decode_6502_opcode};
 pub(crate) mod installed_callbacks;
 pub(crate) mod sys_cio;
 pub(crate) mod sys_graphics;
+pub(crate) mod sys_hardware;
+pub(crate) mod sys_memory;
 pub(crate) mod sys_review;
 
 pub(crate) enum OpaqueTarget<'a> {
