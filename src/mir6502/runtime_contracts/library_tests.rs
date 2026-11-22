@@ -60,6 +60,32 @@ fn draw_and_fill_share_grio_without_sharing_command_identity() {
 }
 
 #[test]
+fn graphics_reports_the_mode_change_boundary_without_preservation() {
+    let source = "MODULE CLIENT USE SYS PROC Main() SYS.Graphics($18) RETURN ENDMODULE";
+    for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
+        let p = program(source, runtime);
+        let calls = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+            .filter(|call| graphics_cio_boundary(&p, call).is_some()).collect::<Vec<_>>();
+        assert_eq!(calls.len(), 1, "{runtime:?}");
+        let call = calls[0];
+        assert_eq!(graphics_cio_boundary(&p, call),
+            Some("Close/Open on E: and S: (screen mode in AUX2, derived access in AUX1)"));
+        assert!(library_invocation(&p, call).is_none());
+        if runtime == crate::runtime::Runtime::Standalone {
+            let mut changed = p.clone();
+            let open = changed.routines.iter_mut().find(|r| r.name.ends_with("::Open")).unwrap();
+            open.blocks.clear();
+            assert!(graphics_cio_boundary(&changed, call).is_none());
+        }
+    }
+
+    let shadow = program("PROC Graphics(BYTE mode) RETURN PROC Main() Graphics(8) RETURN",
+        crate::runtime::Runtime::ActionCart);
+    assert!(shadow.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+        .all(|op| graphics_cio_boundary(&shadow, op).is_none()));
+}
+
+#[test]
 fn setcolor_can_preserve_a_caller_home_when_the_register_is_known() {
     for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {
         for register in ["2", "register"] {

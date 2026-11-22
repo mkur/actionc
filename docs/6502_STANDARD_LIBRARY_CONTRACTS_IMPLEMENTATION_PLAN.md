@@ -87,7 +87,7 @@ overlap and unproven register values. Rebuild `PMG.DM1` to verify that
 `SetColor` clears admission and record the next blocker, the selected homes
 and the image size.
 
-Qualification at origin `$3000` reached `PMMove` as the next entry blocker
+Qualification with the current PMG allocator work at origin `$3000` reached `PMMove` as the next entry blocker
 for `main` on both providers. The two loop counters stayed inline. The
 packaged images were 1,626 bytes on ActionCart and 2,163 on standalone.
 The focused caller placed its live parameter in ZP with a constant color
@@ -130,6 +130,13 @@ as a reference for how to represent a returning callback. Test the sequence
 and modes, including a failing open, and keep screen and OS state changes
 observable. [Resident graphics source](../corpora/action-runtime/extracted/SYSGR.ACT) ·
 [TN CIO reviews](../samples/tn/modern/LIB.ACT)
+
+The VM checks confirm the channel 0 and channel 6 close/open order and the
+mode bytes for `Graphics(0)` and `Graphics($18)` in both backends and
+runtimes. An injected failed screen open or pixel read reaches a returning
+handler that overwrites `$EC`. The five CIO-backed reviews retain unknown
+transitive writes. [Mode fixture](../fixtures/runtime/resident_graphics_modes.act) ·
+[Failure controls](../tools/vm-runtime-tests/src/lib.rs)
 
 ## Acceptance for each slice
 

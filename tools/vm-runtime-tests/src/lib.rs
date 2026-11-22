@@ -1442,32 +1442,64 @@ mod tests {
 
     #[test]
     fn resident_graphics_locate_can_reach_a_returning_error_handler() {
-        let max_steps = 100_000;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let mut vm = load_runtime_fixture("resident_graphics_io.act", mode, runtime, true);
-                let ram = vm.bus_mut().ram_mut();
-                // A and Y simulate a failed CIO return. The returning error
-                // handler deliberately writes into the compiler's ZP pool.
-                ram.map(0x0760, &[0xa9, 0x31, 0xa0, 0x82, 0x60]).unwrap();
-                let handler = if runtime == Runtime::ActionCart { 0x04cb } else {
-                    ram.write_word(0x000a, 0x0770);
-                    0x0770
-                };
-                ram.map(handler, &[0xe6, 0xec, 0x60]).unwrap();
-                ram.write(0x00ec, 0x39);
-                let mut hook = FailedGraphicsCio { command: 7, injected: false };
-                let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
-                    max_steps,
-                    history_len: 8,
-                    ..RunRequest::default()
-                }, &mut hook).unwrap();
-                assert!(hook.injected, "{runtime:?}/{mode:?}");
-                assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
-                assert_eq!(outcome.memory().read(0x00ec), 0x3a, "{runtime:?}/{mode:?}");
+                let outcome = run_failed_graphics_cio("resident_graphics_io.act", mode, runtime, 7);
                 assert_eq!(outcome.memory().read(0x0601), 5, "{runtime:?}/{mode:?}");
             }
         }
+    }
+
+    #[test]
+    fn resident_graphics_modes_use_the_reviewed_open_close_sequence() {
+        let max_steps = 100_000;
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                let fixture = "resident_graphics_modes.act";
+                let outcome = run_runtime_fixture(fixture, mode, runtime, true, max_steps);
+                assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+                let calls = outcome.vm.bus().cio_observations().iter()
+                    .map(|observation| (observation.channel, observation.command))
+                    .collect::<Vec<_>>();
+                assert_eq!(calls, [(Some(0), 12), (Some(0), 3), (Some(6), 12), (Some(6), 3)].repeat(2),
+                    "{runtime:?}/{mode:?}");
+                let screen_opens = outcome.vm.bus().cio_observations().iter()
+                    .filter(|observation| observation.channel == Some(6) && observation.command == 3)
+                    .map(|observation| (observation.aux1, observation.aux2))
+                    .collect::<Vec<_>>();
+                assert_eq!(screen_opens, [(0x1c, 0), (0x0c, 0x18)], "{runtime:?}/{mode:?}");
+
+                let failure = run_failed_graphics_cio(fixture, mode, runtime, 3);
+                assert_eq!(failure.vm.bus().graphics_mode(), Some(0x0c), "{runtime:?}/{mode:?}");
+            }
+        }
+    }
+
+    fn run_failed_graphics_cio(
+        fixture: &str, mode: CompileMode, runtime: Runtime, command: u8,
+    ) -> RunOutcome {
+        let max_steps = 100_000;
+        let mut vm = load_runtime_fixture(fixture, mode, runtime, true);
+        let ram = vm.bus_mut().ram_mut();
+        // A and Y simulate a failed CIO return. The returning error
+        // handler deliberately writes into the compiler's ZP pool.
+        ram.map(0x0760, &[0xa9, 0x31, 0xa0, 0x82, 0x60]).unwrap();
+        let handler = if runtime == Runtime::ActionCart { 0x04cb } else {
+            ram.write_word(0x000a, 0x0770);
+            0x0770
+        };
+        ram.map(handler, &[0xe6, 0xec, 0x60]).unwrap();
+        ram.write(0x00ec, 0x39);
+        let mut hook = FailedGraphicsCio { command, injected: false };
+        let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
+            max_steps,
+            history_len: 8,
+            ..RunRequest::default()
+        }, &mut hook).unwrap();
+        assert!(hook.injected, "{runtime:?}/{mode:?}");
+        assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+        assert_eq!(outcome.memory().read(0x00ec), 0x3a, "{runtime:?}/{mode:?}");
+        outcome
     }
 
     #[test]

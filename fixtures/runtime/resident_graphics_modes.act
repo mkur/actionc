@@ -1,0 +1,6 @@
+PROC Main()
+  Graphics(0)
+  Graphics($18)
+  DO
+  OD
+RETURN
