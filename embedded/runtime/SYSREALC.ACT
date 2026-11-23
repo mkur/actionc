@@ -48,7 +48,8 @@ PROC CartInputRD(BYTE device REAL POINTER destination)
 RETURN
 
 PROC CartInputR(REAL POINTER destination)
-  STRING text(127)
+  ; InputS can transfer 255 bytes after the counted string header.
+  STRING text(256)
 
   CartRealInputS(text)
   SysValR(text,destination)

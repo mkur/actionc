@@ -14,6 +14,13 @@ mod tests {
         RunRequest, StopReason, VmRunner,
     };
 
+    mod real_input;
+
+    #[test]
+    fn resident_real_input_uses_the_selected_channel_and_parses_returning_records() {
+        real_input::qualify("resident_real_input.act");
+    }
+
     const RESULT_START: u16 = 0x0600;
     const ERROR_TRAP: u16 = 0x0700;
 
@@ -197,6 +204,10 @@ mod tests {
             &CompileOptions::for_mode(mode).with_runtime(runtime),
         )
         .unwrap_or_else(|error| panic!("compile {runtime:?} {name} with {mode:?}: {error}"));
+        load_runtime_object(compiled.object_bytes(), runtime, load_os)
+    }
+
+    fn load_runtime_object(object: &[u8], runtime: Runtime, load_os: bool) -> CompilerVm {
         let profile = match runtime {
             Runtime::ActionCart => ExecutionProfile::CartridgeObject,
             Runtime::Standalone => ExecutionProfile::StandaloneObject,
@@ -212,8 +223,8 @@ mod tests {
             )
             .expect("load Atari OS ROM for standalone runtime call");
         }
-        vm.load_atari_object_for_execution(profile, compiled.object_bytes())
-            .unwrap_or_else(|error| panic!("load {runtime:?} {name} with {mode:?}: {error}"));
+        vm.load_atari_object_for_execution(profile, object)
+            .unwrap_or_else(|error| panic!("load {runtime:?} runtime fixture: {error}"));
         vm
     }
 
@@ -1567,10 +1578,16 @@ mod tests {
         }
     }
 
+    struct PartialRecord {
+        buffer: u16,
+        capacity: u16,
+        bytes: &'static [u8],
+    }
+
     struct FailedCio {
         channel: u8,
         command: u8,
-        partial_record: Option<&'static [u8]>,
+        partial_record: Option<PartialRecord>,
         injected: bool,
     }
 
@@ -1582,15 +1599,16 @@ mod tests {
             if !self.injected && registers.pc == 0xe456 && registers.x == self.channel << 4
                 && vm.bus().ram().read(0x0342 + u16::from(registers.x)) == self.command
             {
-                if let Some(record) = self.partial_record {
+                if let Some(record) = &self.partial_record {
                     let ram = vm.bus_mut().ram_mut();
                     let iocb = u16::from(registers.x);
                     let buffer = ram.read_word(actionc_vm::IOCB_BUFFER_BASE + iocb);
                     let length = actionc_vm::IOCB_LENGTH_BASE + iocb;
-                    assert_eq!(buffer, 0x0551);
-                    assert_eq!(ram.read_word(length), 19);
-                    ram.map(buffer, record).unwrap();
-                    ram.write_word(length, record.len() as u16);
+                    assert_eq!(buffer, record.buffer);
+                    assert_eq!(ram.read_word(length), record.capacity);
+                    assert!(record.bytes.len() <= usize::from(record.capacity));
+                    ram.map(buffer, record.bytes).unwrap();
+                    ram.write_word(length, record.bytes.len() as u16);
                 }
                 vm.set_pc(0x0760);
                 self.injected = true;
@@ -1603,7 +1621,8 @@ mod tests {
     fn resident_graphics_locate_can_reach_a_returning_error_handler() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_failed_cio("resident_graphics_io.act", mode, runtime, 6, 7, None);
+                let vm = load_runtime_fixture("resident_graphics_io.act", mode, runtime, true);
+                let outcome = run_failed_cio(vm, mode, runtime, 6, 7, None);
                 assert_eq!(outcome.memory().read(0x0601), 5, "{runtime:?}/{mode:?}");
             }
         }
@@ -1613,9 +1632,9 @@ mod tests {
     fn resident_numeric_input_parses_a_partial_record_after_a_returning_cio_error() {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_failed_cio(
-                    "resident_numeric_input_error.act", mode, runtime, 1, 5, Some(b"-7\x9b"),
-                );
+                let vm = load_runtime_fixture("resident_numeric_input_error.act", mode, runtime, true);
+                let record = PartialRecord { buffer: 0x0551, capacity: 19, bytes: b"-7\x9b" };
+                let outcome = run_failed_cio(vm, mode, runtime, 1, 5, Some(record));
                 let number = u16::from_le_bytes([outcome.memory().read(0x0600), outcome.memory().read(0x0601)]);
                 assert_eq!(number as i16, -7, "{runtime:?}/{mode:?}");
             }
@@ -1641,28 +1660,31 @@ mod tests {
                     .collect::<Vec<_>>();
                 assert_eq!(screen_opens, [(0x1c, 0), (0x0c, 0x18)], "{runtime:?}/{mode:?}");
 
-                let failure = run_failed_cio(fixture, mode, runtime, 6, 3, None);
+                let vm = load_runtime_fixture(fixture, mode, runtime, true);
+                let failure = run_failed_cio(vm, mode, runtime, 6, 3, None);
                 assert_eq!(failure.vm.bus().graphics_mode(), Some(0x0c), "{runtime:?}/{mode:?}");
             }
         }
     }
 
     fn run_failed_cio(
-        fixture: &str, mode: CompileMode, runtime: Runtime, channel: u8, command: u8,
-        partial_record: Option<&'static [u8]>,
+        mut vm: CompilerVm, mode: CompileMode, runtime: Runtime, channel: u8, command: u8,
+        partial_record: Option<PartialRecord>,
     ) -> RunOutcome {
         let max_steps = 100_000;
-        let mut vm = load_runtime_fixture(fixture, mode, runtime, true);
         let ram = vm.bus_mut().ram_mut();
         // A and Y simulate a failed CIO return. The returning error
         // handler deliberately writes into the compiler's ZP pool.
         ram.map(0x0760, &[0xa9, 0x31, 0xa0, 0x82, 0x60]).unwrap();
-        let handler = if runtime == Runtime::ActionCart { 0x04cb } else {
+        if runtime == Runtime::ActionCart {
+            ram.map(0x04cb, &[0x4c, 0x70, 0x07]).unwrap(); // JMP $0770
+        } else {
             ram.write_word(0x000a, 0x0770);
-            0x0770
-        };
-        ram.map(handler, &[0xe6, 0xec, 0x60]).unwrap();
+        }
+        // Count in fixture RAM because AFP may reuse $EC after the handler returns.
+        ram.map(0x0770, &[0xe6, 0xec, 0xee, 0x7f, 0x07, 0x60]).unwrap(); // INC $EC / INC $077F / RTS
         ram.write(0x00ec, 0x39);
+        ram.write(0x077f, 0);
         let mut hook = FailedCio { channel, command, partial_record, injected: false };
         let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
             max_steps,
@@ -1671,7 +1693,7 @@ mod tests {
         }, &mut hook).unwrap();
         assert!(hook.injected, "{runtime:?}/{mode:?}");
         assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
-        assert_eq!(outcome.memory().read(0x00ec), 0x3a, "{runtime:?}/{mode:?}");
+        assert_eq!(outcome.memory().read(0x077f), 1, "{runtime:?}/{mode:?}: error handler calls");
         outcome
     }
 

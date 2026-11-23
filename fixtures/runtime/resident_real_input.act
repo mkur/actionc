@@ -1,0 +1,20 @@
+; Channel zero, the current device and the explicit device have different records.
+MODULE REAL_INPUT_TEST
+USE SYS
+
+BYTE done=$06A0
+REAL defaultValue=$0681,explicitValue=$0691
+
+PROC Main()
+  Open(0,"Q:",4,0)
+  Open(2,"D:CURRENT.TXT",4,0)
+  Open(3,"D:EXPLICIT.TXT",4,0)
+  DEVICE=2
+  SYS.InputR(@defaultValue)
+  SYS.InputRD(3,@explicitValue)
+  DEVICE=0
+  Close(3) Close(2) Close(0)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE
