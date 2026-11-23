@@ -419,10 +419,41 @@ mod tests {
 
     #[test]
     fn native_real_library_runs_in_both_backends_and_runtimes() {
+        const RANDOM: u16 = 0xD20A;
+        const SAMPLES: [u8; 2] = [0x34, 0xA0];
+
+        struct SecondSample(Option<u8>);
+        impl actionc_vm::VmRunHooks for SecondSample {
+            type Error = std::convert::Infallible;
+
+            fn before_step(&mut self, vm: &mut CompilerVm) -> Result<(), Self::Error> {
+                if let Some(next) = self.0
+                    && vm.bus().events().last().is_some_and(|event| {
+                        event.address == RANDOM && event.access == actionc_vm::BusAccess::Read
+                    })
+                {
+                    vm.bus_mut().write(RANDOM, next);
+                    self.0 = None;
+                }
+                Ok(())
+            }
+        }
+
         for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
             for runtime in [Runtime::ActionCart, Runtime::Standalone] {
-                let outcome =
-                    run_runtime_fixture("native_real_library.act", mode, runtime, true, 1_000_000);
+                let mut vm = load_runtime_fixture("native_real_library.act", mode, runtime, true);
+                vm.bus_mut().write(RANDOM, SAMPLES[0]);
+                vm.bus_mut().add_watchpoint(RANDOM);
+                let outcome = VmRunner::new(vm)
+                    .run_with_hooks(
+                        RunRequest {
+                            max_steps: 1_000_000,
+                            history_len: 8,
+                            ..RunRequest::default()
+                        },
+                        &mut SecondSample(Some(SAMPLES[1])),
+                    )
+                    .unwrap();
                 let bytes = |address: u16, length: u16| {
                     (0..length)
                         .map(|offset| outcome.memory().read(address + offset))
@@ -468,13 +499,12 @@ mod tests {
                     "{context}; rnd={:?}",
                     bytes(0x0678, 6)
                 );
-                assert_eq!(
-                    bytes(0x0681, 1),
-                    [1],
-                    "{context}; rnd={:?}, reconstructed={:?}",
-                    bytes(0x0678, 6),
-                    bytes(0x067F, 2)
-                );
+                let reads: Vec<_> = outcome.vm.bus().events().iter()
+                    .filter(|event| event.address == RANDOM && event.access == actionc_vm::BusAccess::Read)
+                    .map(|event| event.value)
+                    .collect();
+                assert_eq!(reads, SAMPLES, "{context}");
+                assert_eq!(bytes(0x067F, 2), [SAMPLES[1], SAMPLES[0]], "{context}");
                 for (address, expected) in [
                     (0x0682, [0x40, 0x02, 0, 0, 0, 0]),
                     (0x0688, [0xC0, 0x03, 0, 0, 0, 0]),

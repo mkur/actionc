@@ -48,16 +48,26 @@ impl Generator {
             return false;
         }
         let pointer = runtime_zp::ARRAY_ADDR;
-        if !self.emit_slot_address(slot, pointer) {
-            return false;
-        }
-        let destination = StorageSlot::indirect_indexed_y(pointer, slot.size)
-            .signed(slot.signed)
-            .volatile(slot.is_volatile);
-        self.emit_lda_zero_page_value_only(pointer.offset(1));
-        self.emitter.emit_pha();
-        self.emit_lda_zero_page_value_only(pointer);
-        self.emitter.emit_pha();
+        // A fixed address survives the RHS and arithmetic helpers. Keep its
+        // storage identity so the final store updates the tracked value.
+        let capture_pointer = matches!(
+            slot.space,
+            AddressSpace::AbsoluteX | AddressSpace::IndirectIndexedY
+        );
+        let destination = if capture_pointer {
+            if !self.emit_slot_address(slot, pointer) {
+                return false;
+            }
+            self.emit_lda_zero_page_value_only(pointer.offset(1));
+            self.emitter.emit_pha();
+            self.emit_lda_zero_page_value_only(pointer);
+            self.emitter.emit_pha();
+            StorageSlot::indirect_indexed_y(pointer, slot.size)
+                .signed(slot.signed)
+                .volatile(slot.is_volatile)
+        } else {
+            slot
+        };
         let right = StorageSlot::zero_page(
             runtime_zp::ARGS.address(),
             self.expr_size(value).unwrap_or(slot.size),
@@ -69,14 +79,16 @@ impl Generator {
         // The cartridge captures the address before RHS effects, but reads
         // its value afterwards. Restore the pointer, then keep it safe across
         // arithmetic helpers as well.
-        self.emit_pla();
-        self.emit_sta_zero_page(pointer);
-        self.emit_pla();
-        self.emit_sta_zero_page(pointer.offset(1));
-        self.emit_lda_zero_page_value_only(pointer.offset(1));
-        self.emitter.emit_pha();
-        self.emit_lda_zero_page_value_only(pointer);
-        self.emitter.emit_pha();
+        if capture_pointer {
+            self.emit_pla();
+            self.emit_sta_zero_page(pointer);
+            self.emit_pla();
+            self.emit_sta_zero_page(pointer.offset(1));
+            self.emit_lda_zero_page_value_only(pointer.offset(1));
+            self.emitter.emit_pha();
+            self.emit_lda_zero_page_value_only(pointer);
+            self.emitter.emit_pha();
+        }
         let left =
             StorageSlot::zero_page(runtime_zp::VALUE_TEMP.address(), slot.size).signed(slot.signed);
         for byte in 0..slot.size {
@@ -129,10 +141,12 @@ impl Generator {
         if !emitted {
             return false;
         }
-        self.emit_pla();
-        self.emit_sta_zero_page(pointer);
-        self.emit_pla();
-        self.emit_sta_zero_page(pointer.offset(1));
+        if capture_pointer {
+            self.emit_pla();
+            self.emit_sta_zero_page(pointer);
+            self.emit_pla();
+            self.emit_sta_zero_page(pointer.offset(1));
+        }
         self.emit_copy_slot_to_slot(result, destination)
     }
 }

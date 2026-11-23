@@ -30,7 +30,6 @@ BYTE ARRAY text(20)=$0648
 BYTE done=$065C
 BYTE rnd_in_range=$067E
 CARD rnd_bits=$067F
-BYTE rnd_has_low_bits=$0681
 
 PROC Main()
   source=0
@@ -68,10 +67,6 @@ PROC Main()
     FI
   FI
   rnd_bits=CARD(rnd_result*65536.0)
-  rnd_has_low_bits=0
-  IF (rnd_bits&$FF)<>0 THEN
-    rnd_has_low_bits=1
-  FI
   source=2.9
   MATH.Floor(@source,@floor_positive)
   source=-2.1
