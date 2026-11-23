@@ -91,7 +91,7 @@ fn check(output: &CodegenOutput, mode: CompileMode, runtime: Runtime) {
     for i in 0..2 {
         // InS subtracts one from the returned count even without an EOL.
         // Keeping the final '8' would produce a different packed REAL.
-        let record = PartialRecord {
+        let record = FailedCioRequest::PartialRead {
             expected_buffer: Some(buffers[i]),
             capacity: capacities[i],
             bytes: b"-7.258",
@@ -101,8 +101,8 @@ fn check(output: &CodegenOutput, mode: CompileMode, runtime: Runtime) {
             mode,
             runtime,
             channels[i],
-            5,
-            Some(record),
+            record,
+            CLOBBER_ZP,
             &[0x82],
         );
         let (default, explicit) = if i == 0 {

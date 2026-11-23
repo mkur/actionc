@@ -1194,6 +1194,73 @@ mod tests {
     }
 
     #[test]
+    fn long_integer_output_routes_eol_after_a_returning_cio_error() {
+        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
+        let files = [(2, "CURRENT.TXT"), (3, "EXPLICIT.TXT"), (4, "AFTER.TXT")];
+        let redirect = [0xa9, 4, 0x85, 0xb7, 0x60]; // LDA #4 / STA DEVICE / RTS
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [
+                CompileMode::Compatibility,
+                CompileMode::Optimized,
+                CompileMode::Mir6502,
+            ] {
+                let mut fixture =
+                    load_runtime_fixture("long_integer_output_error.act", mode, runtime, true);
+                for (_, name) in files {
+                    fixture.bus_mut().add_host_output(name);
+                }
+                for (choice, digits, digit_channel, eol_channel) in [
+                    (0, b"4294967295".as_slice(), 2, 4),  // PrintLCE
+                    (1, b"-2147483648".as_slice(), 2, 4), // PrintLIE
+                    (2, b"4294967295".as_slice(), 3, 3),  // PrintLCDE
+                    (3, b"-2147483648".as_slice(), 3, 3), // PrintLIDE
+                ] {
+                    let mut vm = fixture.clone();
+                    vm.bus_mut().ram_mut().write(0x0600, choice);
+                    let outcome = run_failed_cio(
+                        vm,
+                        mode,
+                        runtime,
+                        digit_channel,
+                        FailedCioRequest::BufferedWrite(digits),
+                        &redirect,
+                        &[0x82],
+                    );
+                    let context = format!("{runtime:?}/{mode:?}, choice {choice}");
+                    assert_eq!(
+                        outcome.memory().read(0x0601),
+                        4,
+                        "{context}: DEVICE after return"
+                    );
+                    assert_eq!(
+                        outcome.memory().read(0x0602),
+                        0xa5,
+                        "{context}: fixture completion"
+                    );
+
+                    // The digit transfer was intercepted. Only the single-byte EOL reaches CIO.
+                    let bus = outcome.vm.bus();
+                    let writes: Vec<_> = bus
+                        .cio_observations()
+                        .iter()
+                        .filter(|call| matches!(call.command, CIO_COMMAND_PUTCHR | CIO_COMMAND_PUTREC))
+                        .map(|call| (call.channel, call.command, call.length, call.bytes_written))
+                        .collect();
+                    assert_eq!(writes, [(Some(eol_channel), CIO_COMMAND_PUTCHR, 0, Some(1))], "{context}");
+                    for (channel, name) in files {
+                        let expected: &[u8] = if channel == eol_channel { &[0x9b] } else { &[] };
+                        assert_eq!(
+                            bus.host_file_bytes(name),
+                            Some(expected),
+                            "{context}: {name}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn long_integer_input_returns_wide_values_from_console_and_explicit_devices() {
         let input = b"4294967295\x9B-2147483648\x9B +65536 \x9B2147483647\x9B42\x9B-42\x9B";
         for (mode, runtime) in [CompileMode::Compatibility, CompileMode::Optimized, CompileMode::Mir6502].into_iter().flat_map(|mode| [Runtime::ActionCart, Runtime::Standalone].into_iter().map(move |runtime| (mode, runtime))) {
@@ -1241,14 +1308,14 @@ mod tests {
                         } else {
                             &terminated[..terminated.len() - 1]
                         };
-                        let record = PartialRecord {
+                        let record = FailedCioRequest::PartialRead {
                             expected_buffer: None,
                             capacity: 255,
                             bytes,
                         };
                         let errors: &[u8] = if has_eol { &[0x82] } else { &[0x82, 104] };
                         let outcome =
-                            run_failed_cio(vm, mode, runtime, channel, 5, Some(record), errors);
+                            run_failed_cio(vm, mode, runtime, channel, record, CLOBBER_ZP, errors);
                         let context =
                             format!("{runtime:?}/{mode:?}, choice {choice}, EOL {has_eol}");
                         // The injected GET RECORD is the fixture's only read.
@@ -1633,16 +1700,29 @@ mod tests {
         }
     }
 
-    struct PartialRecord {
-        expected_buffer: Option<u16>,
-        capacity: u16,
-        bytes: &'static [u8],
+    enum FailedCioRequest {
+        Command(u8),
+        PartialRead {
+            expected_buffer: Option<u16>,
+            capacity: u16,
+            bytes: &'static [u8],
+        },
+        BufferedWrite(&'static [u8]),
+    }
+
+    impl FailedCioRequest {
+        fn command(&self) -> u8 {
+            match self {
+                Self::Command(command) => *command,
+                Self::PartialRead { .. } => actionc_vm::CIO_COMMAND_GETREC,
+                Self::BufferedWrite(_) => actionc_vm::CIO_COMMAND_PUTCHR,
+            }
+        }
     }
 
     struct FailedCio {
         channel: u8,
-        command: u8,
-        partial_record: Option<PartialRecord>,
+        request: FailedCioRequest,
         injected: bool,
         error_codes: Vec<u8>,
     }
@@ -1655,21 +1735,38 @@ mod tests {
             if registers.pc == 0x0770 {
                 self.error_codes.push(registers.a);
             }
-            if !self.injected && registers.pc == 0xe456 && registers.x == self.channel << 4
-                && vm.bus().ram().read(0x0342 + u16::from(registers.x)) == self.command
+            let iocb = u16::from(registers.x);
+            if !self.injected
+                && registers.pc == actionc_vm::CIOV
+                && registers.x == self.channel << 4
+                && vm.bus().ram().read(actionc_vm::IOCB_COMMAND_BASE + iocb)
+                    == self.request.command()
             {
-                if let Some(record) = &self.partial_record {
-                    let ram = vm.bus_mut().ram_mut();
-                    let iocb = u16::from(registers.x);
-                    let buffer = ram.read_word(actionc_vm::IOCB_BUFFER_BASE + iocb);
-                    let length = actionc_vm::IOCB_LENGTH_BASE + iocb;
-                    if let Some(expected) = record.expected_buffer {
-                        assert_eq!(buffer, expected);
+                let ram = vm.bus_mut().ram_mut();
+                let buffer = ram.read_word(actionc_vm::IOCB_BUFFER_BASE + iocb);
+                let length = actionc_vm::IOCB_LENGTH_BASE + iocb;
+                match &self.request {
+                    FailedCioRequest::Command(_) => {}
+                    FailedCioRequest::PartialRead {
+                        expected_buffer,
+                        capacity,
+                        bytes,
+                    } => {
+                        if let Some(expected) = expected_buffer {
+                            assert_eq!(buffer, *expected);
+                        }
+                        assert_eq!(ram.read_word(length), *capacity);
+                        assert!(bytes.len() <= usize::from(*capacity));
+                        ram.map(buffer, bytes).unwrap();
+                        ram.write_word(length, bytes.len() as u16);
                     }
-                    assert_eq!(ram.read_word(length), record.capacity);
-                    assert!(record.bytes.len() <= usize::from(record.capacity));
-                    ram.map(buffer, record.bytes).unwrap();
-                    ram.write_word(length, record.bytes.len() as u16);
+                    FailedCioRequest::BufferedWrite(expected) => {
+                        let count = ram.read_word(length);
+                        assert_eq!(usize::from(count), expected.len());
+                        let bytes: Vec<_> = (0..count).map(|i| ram.read(buffer + i)).collect();
+                        assert_eq!(bytes, *expected, "payload of failed digit write");
+                        ram.write_word(length, 0); // The device accepted no bytes.
+                    }
                 }
                 vm.set_pc(0x0760);
                 self.injected = true;
@@ -1683,7 +1780,7 @@ mod tests {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
                 let vm = load_runtime_fixture("resident_graphics_io.act", mode, runtime, true);
-                let outcome = run_failed_cio(vm, mode, runtime, 6, 7, None, &[0x82]);
+                let outcome = run_failed_cio(vm, mode, runtime, 6, FailedCioRequest::Command(7), CLOBBER_ZP, &[0x82]);
                 assert_eq!(outcome.memory().read(0x0601), 5, "{runtime:?}/{mode:?}");
             }
         }
@@ -1694,8 +1791,8 @@ mod tests {
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
                 let vm = load_runtime_fixture("resident_numeric_input_error.act", mode, runtime, true);
-                let record = PartialRecord { expected_buffer: Some(0x0551), capacity: 19, bytes: b"-7\x9b" };
-                let outcome = run_failed_cio(vm, mode, runtime, 1, 5, Some(record), &[0x82]);
+                let record = FailedCioRequest::PartialRead { expected_buffer: Some(0x0551), capacity: 19, bytes: b"-7\x9b" };
+                let outcome = run_failed_cio(vm, mode, runtime, 1, record, CLOBBER_ZP, &[0x82]);
                 let number = u16::from_le_bytes([outcome.memory().read(0x0600), outcome.memory().read(0x0601)]);
                 assert_eq!(number as i16, -7, "{runtime:?}/{mode:?}");
             }
@@ -1722,37 +1819,60 @@ mod tests {
                 assert_eq!(screen_opens, [(0x1c, 0), (0x0c, 0x18)], "{runtime:?}/{mode:?}");
 
                 let vm = load_runtime_fixture(fixture, mode, runtime, true);
-                let failure = run_failed_cio(vm, mode, runtime, 6, 3, None, &[0x82]);
+                let failure = run_failed_cio(vm, mode, runtime, 6, FailedCioRequest::Command(3), CLOBBER_ZP, &[0x82]);
                 assert_eq!(failure.vm.bus().graphics_mode(), Some(0x0c), "{runtime:?}/{mode:?}");
             }
         }
     }
 
+    const CLOBBER_ZP: &[u8] = &[0xe6, 0xec, 0x60]; // INC $EC / RTS
+
     fn run_failed_cio(
-        mut vm: CompilerVm, mode: CompileMode, runtime: Runtime, channel: u8, command: u8,
-        partial_record: Option<PartialRecord>, expected_errors: &[u8],
+        mut vm: CompilerVm,
+        mode: CompileMode,
+        runtime: Runtime,
+        channel: u8,
+        request: FailedCioRequest,
+        handler: &[u8],
+        expected_errors: &[u8],
     ) -> RunOutcome {
         let max_steps = 100_000;
         let ram = vm.bus_mut().ram_mut();
-        // A and Y simulate a failed CIO return. The returning error
-        // handler deliberately writes into the compiler's ZP pool.
+        // Return the injected CIO failure in A and Y.
         ram.map(0x0760, &[0xa9, 0x31, 0xa0, 0x82, 0x60]).unwrap();
         if runtime == Runtime::ActionCart {
             ram.map(0x04cb, &[0x4c, 0x70, 0x07]).unwrap(); // JMP $0770
         } else {
             ram.write_word(0x000a, 0x0770);
         }
-        ram.map(0x0770, &[0xe6, 0xec, 0x60]).unwrap(); // INC $EC / RTS
+        ram.map(0x0770, handler).unwrap();
         ram.write(0x00ec, 0x39);
-        let mut hook = FailedCio { channel, command, partial_record, injected: false, error_codes: Vec::new() };
-        let outcome = VmRunner::new(vm).run_with_hooks(RunRequest {
-            max_steps,
-            history_len: 8,
-            ..RunRequest::default()
-        }, &mut hook).unwrap();
-        assert!(hook.injected, "{runtime:?}/{mode:?}: expected CIO command {command} on channel {channel}");
+        let command = request.command();
+        let mut hook = FailedCio {
+            channel,
+            request,
+            injected: false,
+            error_codes: Vec::new(),
+        };
+        let outcome = VmRunner::new(vm)
+            .run_with_hooks(
+                RunRequest {
+                    max_steps,
+                    history_len: 8,
+                    ..RunRequest::default()
+                },
+                &mut hook,
+            )
+            .unwrap();
+        assert!(
+            hook.injected,
+            "{runtime:?}/{mode:?}: expected CIO command {command} on channel {channel}"
+        );
         assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
-        assert_eq!(hook.error_codes, expected_errors, "{runtime:?}/{mode:?}: error codes at handler entry");
+        assert_eq!(
+            hook.error_codes, expected_errors,
+            "{runtime:?}/{mode:?}: error codes at handler entry"
+        );
         outcome
     }
 

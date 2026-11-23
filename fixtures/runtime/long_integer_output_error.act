@@ -1,0 +1,23 @@
+; The VM fails the digit write and installs a returning handler that sets DEVICE=4.
+MODULE LONG_OUTPUT_ERROR
+USE SYS
+
+BYTE choice=$0600,deviceAfter=$0601,done=$0602
+
+PROC Main()
+  SYS.Open(2,"D:CURRENT.TXT",8,0)
+  SYS.Open(3,"D:EXPLICIT.TXT",8,0)
+  SYS.Open(4,"D:AFTER.TXT",8,0)
+  DEVICE=2
+  IF choice=0 THEN SYS.PrintLCE($FFFFFFFF)
+  ELSEIF choice=1 THEN SYS.PrintLIE(-2147483648)
+  ELSEIF choice=2 THEN SYS.PrintLCDE(3,$FFFFFFFF)
+  ELSE SYS.PrintLIDE(3,-2147483648)
+  FI
+  deviceAfter=DEVICE
+  DEVICE=0
+  SYS.Close(4) SYS.Close(3) SYS.Close(2)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE
