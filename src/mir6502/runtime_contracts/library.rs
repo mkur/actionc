@@ -23,13 +23,10 @@ pub(in crate::mir6502) fn bind(
         "SYS.MOVEBLOCK" => Some(MirLibraryRoutine::MoveBlock),
         _ => None,
     };
-    let preceding_entry = match sys_review {
-        Some(SysReview::Cio(routine)) => routine.linked_branch_predecessor(),
-        _ => None,
-    };
+    let backward_branch = sys_review.and_then(SysReview::linked_backward_branch);
     Arc::new(MirLibraryBinding {
         interface: Arc::new(interface.clone()), kind, sys_review,
-        implementation: MirRuntimeImplementation::capture(program, &target, None, preceding_entry),
+        implementation: MirRuntimeImplementation::capture(program, &target, None, backward_branch),
     })
 }
 
@@ -107,6 +104,12 @@ pub(in crate::mir6502) fn reviewed_decimal_routine(program: &MirProgram, op: &Mi
     Some(routine)
 }
 
+pub(in crate::mir6502) fn decimal_buffer(program: &MirProgram, op: &MirOp, routine: DecimalRoutine,
+    values: Option<(&MirMachineValueAvailability, MirSite)>,
+) -> Option<u16> {
+    super::buffers::argument_word(program, op, routine.buffer_byte_offset(), values)
+}
+
 fn string_argument(program: &MirProgram, op: &MirOp, values: Option<(&MirMachineValueAvailability, MirSite)>, index: usize) -> Option<u16> {
     // Before expansion the two pointer operands are still words. The byte
     // arguments name their future lanes, which have not been set up yet.
@@ -139,7 +142,8 @@ fn library_invocation_with_values(
         use crate::mir6502::ir::MirAbiIntegerWidth::{Byte, Word};
         let argument = |index| match review {
             SysReview::Strings(_) => string_argument(program, op, values, index),
-            SysReview::Memory(_) | SysReview::Decimal(_) => super::buffers::argument_word(program, op, 0, values),
+            SysReview::Memory(_) => super::buffers::argument_word(program, op, 0, values),
+            SysReview::Decimal(decimal) => decimal_buffer(program, op, decimal, values),
             _ => super::buffers::argument_byte_value(program, op, 0, MirWidth::Byte, values).map(u16::from),
         };
         let facts = review.facts::<()>(argument, origin);
@@ -164,7 +168,9 @@ fn library_invocation_with_values(
             SysReview::Decimal(decimal) if decimal.parses() => (
                 vec![MirDirectParamAbi::Pointer], MirDirectResultAbi::Scalar(integer_width(decimal.integer())),
             ),
-            SysReview::Decimal(_) => return None,
+            SysReview::Decimal(decimal) => (
+                vec![scalar(decimal.integer()), MirDirectParamAbi::Pointer], MirDirectResultAbi::Void,
+            ),
             SysReview::Cio(_) => return None,
         };
         if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)

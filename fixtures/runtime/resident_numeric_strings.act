@@ -18,6 +18,15 @@ PROC Main()
   minusOne=0
   minusOne==-1
 
+  byteZero(4)=$A5
+  byteMax(4)=$A5
+  cardZero(6)=$A5
+  cardValue(6)=$A5
+  cardMax(6)=$A5
+  intMin(7)=$A5
+  intMinusOne(7)=$A5
+  intMax(7)=$A5
+
   StrB(0,byteZero)
   StrB(255,byteMax)
   StrC(0,cardZero)

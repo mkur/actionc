@@ -93,7 +93,15 @@ impl SysReview {
             Self::Hardware(routine) => routine.facts(byte()),
             Self::Memory(routine) => routine.facts(argument(0), origin),
             Self::Strings(routine) => routine.facts(StringArguments::from_arguments(argument), origin),
-            Self::Decimal(routine) => routine.facts(argument(0)),
+            Self::Decimal(routine) => routine.facts(argument(routine.buffer_argument()), origin),
+        }
+    }
+
+    pub(crate) fn linked_backward_branch(self) -> Option<(&'static str, &'static str)> {
+        match self {
+            Self::Cio(routine) => routine.linked_backward_branch(),
+            Self::Decimal(DecimalRoutine::StrI) => Some(("STRI", "STRC")),
+            _ => None,
         }
     }
 

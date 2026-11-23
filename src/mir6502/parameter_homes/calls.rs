@@ -72,7 +72,7 @@ impl<'a> ResidenceCalls<'a> {
         if let Some([ifp, fasc]) = crate::mir6502::runtime_contracts::library::reviewed_decimal_routine(self.program, call)
             .and_then(|routine| routine.fpp_services())
         {
-            return Some(format!("reviewed SYS formatter, open Atari FPP boundary: IFP ${ifp:04X}, FASC ${fasc:04X}"));
+            return Some(format!("reviewed SYS formatter with IFP ${ifp:04X} and FASC ${fasc:04X}, destination proof required"));
         }
         let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else { return None; };
         if let Some(current) = self.reviewed_fingerprints.get(target) {

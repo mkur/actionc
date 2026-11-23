@@ -15,24 +15,13 @@ impl MirRuntimeImplementation {
         program: &MirProgram,
         target: &MirRuntimeHelperTarget,
         helper: Option<MirRuntimeHelper>,
-        preceding_entry: Option<&str>,
+        backward_branch: Option<(&str, &str)>,
     ) -> Option<Arc<Self>> {
         let mut pending = BTreeSet::new();
         let mut adjacent_entries = Vec::new();
         match target {
             MirRuntimeHelperTarget::Routine(id) => {
                 pending.insert(*id);
-                if let Some(name) = preceding_entry {
-                    // The linked review checked a branch into the preceding
-                    // entry. Retain both its code and its position.
-                    let pair = program.routines.windows(2).find(|pair| pair[1].id == *id)?;
-                    let previous = &pair[0];
-                    if !previous.name.rsplit("::").next()?.eq_ignore_ascii_case(name) {
-                        return None;
-                    }
-                    pending.insert(previous.id);
-                    adjacent_entries.push((previous.id, *id));
-                }
             }
             MirRuntimeHelperTarget::KnownAbsolute(_) => {}
             MirRuntimeHelperTarget::Deferred => return None,
@@ -45,6 +34,19 @@ impl MirRuntimeImplementation {
                 continue;
             }
             let routine = program.routines.iter().find(|r| r.id == id)?;
+            // The review binds a branch to the preceding entry, including
+            // when the branch is in a dependency of the selected routine.
+            if let Some((entry, preceding)) = backward_branch
+                && routine.name.rsplit("::").next()?.eq_ignore_ascii_case(entry)
+            {
+                let pair = program.routines.windows(2).find(|pair| pair[1].id == id)?;
+                let previous = &pair[0];
+                if !previous.name.rsplit("::").next()?.eq_ignore_ascii_case(preceding) {
+                    return None;
+                }
+                pending.insert(previous.id);
+                adjacent_entries.push((previous.id, id));
+            }
             for op in routine.blocks.iter().flat_map(|b| &b.ops) {
                 if let MirOp::Call {
                     target: MirCallTarget::Routine(id),

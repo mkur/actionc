@@ -1168,15 +1168,15 @@ mod tests {
     #[test]
     fn resident_numeric_strings_match_under_both_runtimes_and_backends() {
         let max_steps = 100_000;
-        let expected: &[(u16, &[u8])] = &[
-            (0x0600, b"\x010"),
-            (0x0610, b"\x03255"),
-            (0x0620, b"\x010"),
-            (0x0630, b"\x041234"),
-            (0x0640, b"\x0565535"),
-            (0x0650, b"\x06-32768"),
-            (0x0660, b"\x02-1"),
-            (0x0670, b"\x0532767"),
+        let expected: &[(u16, &[u8], u16)] = &[
+            (0x0600, b"\x010", 4),
+            (0x0610, b"\x03255", 4),
+            (0x0620, b"\x010", 6),
+            (0x0630, b"\x041234", 6),
+            (0x0640, b"\x0565535", 6),
+            (0x0650, b"\x06-32768", 7),
+            (0x0660, b"\x02-1", 7),
+            (0x0670, b"\x0532767", 7),
         ];
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
@@ -1193,7 +1193,7 @@ mod tests {
                     "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
                     outcome.report
                 );
-                for &(start, bytes) in expected {
+                for &(start, bytes, bound) in expected {
                     assert_eq!(
                         (0..bytes.len())
                             .map(|offset| outcome.memory().read(start + offset as u16))
@@ -1201,8 +1201,28 @@ mod tests {
                         bytes,
                         "string at ${start:04X} with {runtime:?}/{mode:?}"
                     );
+                    assert_eq!(
+                        outcome.memory().read(start + bound),
+                        0xa5,
+                        "write past the destination bound at ${start:04X} with {runtime:?}/{mode:?}"
+                    );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn resident_signed_formatter_keeps_its_backward_branch_target() {
+        let max_steps = 10_000;
+        for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+            let outcome = run_runtime_fixture(
+                "resident_stri_only.act", mode, Runtime::Standalone, true, max_steps,
+            );
+            assert_eq!(outcome.stop_reason(), StopReason::StepLimit { max_steps });
+            assert_eq!(
+                (0x0600..=0x0602).map(|address| outcome.memory().read(address)).collect::<Vec<_>>(),
+                b"\x0242", "standalone StrI with {mode:?}"
+            );
         }
     }
 
@@ -1240,6 +1260,22 @@ mod tests {
                     expected.as_slice(),
                     "numeric CIO output with {runtime:?}/{mode:?}"
                 );
+                let integer_lengths = [
+                    1, 0, 3, 0, 2, 0, 1, 0, // BYTE digits, separators and line endings
+                    1, 0, 5, 0, 4, 0, 2, 0, // CARD digits, separators and line endings
+                    0, 1, 0, 5, 0, 0, 4, 0, 0, 5, 0, // INT, including separate minus signs
+                ];
+                let calls = outcome.vm.bus().cio_observations();
+                assert!(calls.len() >= integer_lengths.len(), "missing CIO calls with {runtime:?}/{mode:?}");
+                for (call, length) in calls.iter().zip(integer_lengths) {
+                    assert_eq!(
+                        (call.channel, call.command, call.length), (Some(0), 0x0b, length),
+                        "numeric CIO dispatch with {runtime:?}/{mode:?}"
+                    );
+                    if length != 0 {
+                        assert_eq!(call.buffer, 0x0551);
+                    }
+                }
             }
         }
     }

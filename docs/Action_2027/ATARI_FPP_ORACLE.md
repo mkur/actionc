@@ -168,6 +168,31 @@ is held in compiler-generated frame storage because FPP calls may clobber
 registers, flags, FR0, FR1, and workspace. The audited structured effect proves
 that the frame byte itself survives the call.
 
+## SYS Integer String Formatting
+
+`CToStr` places an unsigned word in FR0, calls IFP and FASC, and copies the
+ATASCII digits from INBUFF to the counted string at `$0550`. A sweep of all
+65,536 magnitudes on Atari OS-B and the bundled AltirraOS confirmed one to five
+decimal digits, bit 7 set on the final digit, and a balanced stack. FASC pointed
+INBUFF to `$0580` or `$0581` on both ROMs. The probe entered with decimal mode
+clear. [Atari OS-B ROM](https://github.com/sidneycadot/Atari8bit_OSB-NTSC-ROM/blob/10272c5e558457423e37f1e126e940c3d4cc6a2f/atariosb-ntsc.rom) · [AltirraOS `mathpack.s`](https://github.com/atari800/atari800/blob/bbe287d6d2c233bc8bad92ed2b2637f6a3859eb6/emuos/src/mathpack.s#L390)
+
+| ROM | Zero-page writes during IFP and FASC | Page-five writes |
+| --- | --- | --- |
+| Atari OS-B | `$D4–$DA`, `$F3/$F4`, `$F7/$F8` | `$057F–$058A` |
+| Bundled AltirraOS | `$D4–$D9`, `$F3/$F4`, `$F7–$F9` | `$0580–$058A` |
+
+FASC uses bytes beyond the final displayed digit while constructing the result.
+The SYS review covers both documented FPP RAM windows, `$00D4–$00FF` and
+`$057E–$05FF`, plus the hardware stack and `$0550–$0555` for the Action counted
+magnitude. [Atari System Reference Manual, Chapter 11](https://www.atarionline.pl/biblioteka/materialy_ksiazkowe/Atari%20System%20Reference%20Manual.pdf)
+
+`StrB`, `StrC`, and `StrI` copy to a caller-supplied destination. Their maximum
+output sizes are 4, 6, and 7 bytes, including the length byte and the possible
+sign. The destination must be proven below the loaded image and hardware range,
+with no overlap with the wrapper's ABI scratch or formatter workspace. A write
+through a pointer into its own pointer cells can redirect the remaining copy.
+
 ## Compatibility Baseline
 
 `REAL` must remain an ordinary identifier in the parser. The semantic

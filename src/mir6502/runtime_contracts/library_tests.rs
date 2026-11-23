@@ -146,7 +146,7 @@ fn bounded_string_writes_admit_a_live_home_and_unknown_bounds_stay_conservative(
 }
 
 #[test]
-fn decimal_reviews_keep_the_public_width_and_the_unresolved_fpp_boundary() {
+fn decimal_reviews_keep_the_public_width_and_guard_formatter_destinations() {
     use super::library::{library_invocation_at, reviewed_decimal_routine};
     use crate::callee6502::sys_decimal::DecimalRoutine::*;
     use crate::mir6502::analysis::sites::MirSite;
@@ -157,6 +157,8 @@ fn decimal_reviews_keep_the_public_width_and_the_unresolved_fpp_boundary() {
           parsedByte=ValB($0610) parsedCard=ValC($0610) parsedInt=ValI($FFFF)
           parsedInt=ValI($D4FF)
           StrB(parsedByte,$610) StrC(parsedCard,$620) StrI(parsedInt,$630)
+          StrB(parsedByte,$A2) StrC(parsedCard,$552) StrI(parsedInt,$580)
+          StrI(parsedInt,$3000)
         RETURN";
     let slot = |byte| MirMem::FixedZeroPage(MirFixedZpSlot(byte));
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
@@ -173,19 +175,41 @@ fn decimal_reviews_keep_the_public_width_and_the_unresolved_fpp_boundary() {
             }
         }
         assert_eq!(reviews.iter().map(|(kind, _)| *kind).collect::<Vec<_>>(),
-            [ValB, ValC, ValI, ValI, StrB, StrC, StrI], "{runtime:?}");
+            [ValB, ValC, ValI, ValI, StrB, StrC, StrI, StrB, StrC, StrI, StrI], "{runtime:?}");
         for (index, (_, contract)) in reviews[..3].iter().enumerate() {
             let contract = contract.as_ref().unwrap();
             assert_eq!(contract.definitions, (0xa0..=if index == 0 { 0xa0 } else { 0xa1 }).map(slot).collect::<Vec<_>>());
             assert_eq!(contract.writes, (0xa0..=0xa5).map(slot)
                 .chain((0x0100..=0x01ff).map(MirMem::Absolute)).collect::<Vec<_>>());
         }
-        assert!(reviews[3..].iter().all(|(_, contract)| contract.is_none()));
+        assert!(reviews[3].1.is_none());
+        assert!(reviews[7..].iter().all(|(_, contract)| contract.is_none()));
         for (kind, _) in &reviews[4..] {
             assert_eq!(kind.fpp_services(), Some([0xd9aa, 0xd8e6]));
         }
+        for ((kind, contract), destination) in reviews[4..7].iter().zip([0x0610, 0x0620, 0x0630]) {
+            let write_set = &contract.as_ref().unwrap().writes;
+            let destination_writes: Vec<_> = write_set.iter().filter_map(|memory| match memory {
+                MirMem::Absolute(address) if (0x0610..=0x063f).contains(address) => Some(*address),
+                _ => None,
+            }).collect();
+            assert_eq!(destination_writes, (destination..destination + kind.buffer_bytes()).collect::<Vec<_>>());
+            assert!(write_set.contains(&slot(0xd4)));
+            assert!(write_set.contains(&MirMem::Absolute(0x05ff)));
+        }
+        if runtime == Runtime::Standalone {
+            let only_signed = program("PROC Main() StrI(42,$0610) RETURN", runtime);
+            let (routine, site, call) = only_signed.routines.iter().flat_map(|routine| {
+                routine.blocks.iter().flat_map(move |block| block.ops.iter().enumerate()
+                    .map(move |(op_index, op)| (routine, MirSite::Op { block: block.id, op_index }, op)))
+            }).find(|(_, _, op)| reviewed_decimal_routine(&only_signed, op) == Some(StrI)).unwrap();
+            assert!(library_invocation_at(&only_signed, routine, site, call, Some(0x3000)).is_some());
+            let mut stale = only_signed.clone();
+            stale.routines.iter_mut().find(|r| r.name.ends_with("::StrC")).unwrap().blocks.clear();
+            assert!(reviewed_decimal_routine(&stale, call).is_none());
+        }
     }
-    let reads = ValI.facts::<()>(Some(0xffff)).reads.unwrap();
+    let reads = ValI.facts::<()>(Some(0xffff), None).reads.unwrap();
     assert_eq!(reads.iter().map(|range| (range.start, range.end)).collect::<Vec<_>>(),
         [(0xa0, 0xa5), (0x0100, 0x01ff), (0xffff, 0xffff), (0, 254)]);
 }
@@ -217,6 +241,33 @@ fn numeric_parse_keeps_a_live_home_and_the_linked_aliases_share_one_entry() {
                         // ValC is reached as a fallthrough even when it isn't a public root.
                         assert_eq!(entry("ValC"), entry("ValI"));
                     }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn numeric_formatting_keeps_a_live_home_only_for_an_ordinary_destination() {
+    use crate::runtime::Runtime;
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for formatter in ["StrB", "StrC"] {
+            for (destination, resident) in [("$0610", true), ("$0580", false), ("cursor", false)] {
+                let source = format!(
+                    "CARD cursor=$620
+                     BYTE FUNC Across(BYTE keep)
+                     {formatter}(42,{destination}) keep==+1 RETURN(keep)
+                     PROC Main() BYTE out=$600 out=Across(13) RETURN"
+                );
+                let output = crate::mir6502::generate_output_with_config_and_runtime(
+                    &checked_nir(&source), 0x3000, &config, runtime,
+                ).unwrap();
+                let home = output.map.storage_symbols.iter().find(|symbol| symbol.name == "keep"
+                    && symbol.scope == crate::codegen::CodegenSymbolScope::Routine("Across".into())).unwrap();
+                assert_eq!(home.address < 256, resident, "{runtime:?} {formatter} {destination} {home:?}");
+                if resident {
+                    assert!(home.address < 0xd4, "{runtime:?} {formatter} {destination} {home:?}");
                 }
             }
         }
@@ -518,6 +569,48 @@ fn cio_numeric_input_reviews_keep_the_public_result_and_parser_dependency() {
                 }
                 for alias in p.routines.iter().filter(|r| ["::InputBD", "::InputCD", "::ValB", "::ValC"].iter().any(|name| r.name.ends_with(name))) {
                     assert!(alias.frame.params.iter().all(|param| matches!(param.base, MirStorageBase::ParamAbiOnly(_))), "{}", alias.name);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn cio_integer_print_reviews_bind_all_entries_and_keep_the_device_open() {
+    use crate::ast::FundType;
+    use crate::callee6502::sys_cio::{CioBuffer, CioCommand, CioDevice};
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (family, integer) in [("B", FundType::Byte), ("C", FundType::Card), ("I", FundType::Int)] {
+            for (suffix, explicit, end) in [("", false, false), ("E", false, true), ("D", true, false), ("DE", true, true)] {
+                let device = if explicit { CioDevice::Argument(0) } else { CioDevice::Current };
+                let args = if explicit { "5,42" } else { "42" };
+                let source = format!("PROC Main() Print{family}{suffix}({args}) RETURN");
+                let p = program(&source, runtime);
+                let (call, transfer) = p.routines.iter().flat_map(|r| &r.blocks).flat_map(|b| &b.ops)
+                    .find_map(|call| Some((call, reviewed_cio_transfer(&p, call)?)))
+                    .unwrap_or_else(|| panic!("missing review for {source} on {runtime:?}"));
+                assert_eq!(transfer.device, device);
+                assert_eq!(transfer.command, CioCommand::Fixed(0x0b));
+                assert_eq!(transfer.buffer, CioBuffer::IntegerOutput {
+                    staging: 0x0550, integer,
+                    negative_prefix: (integer == FundType::Int).then_some(b'-'),
+                    end: end.then_some(0x9b),
+                });
+                assert!(transfer.successful_result.is_empty());
+                assert!(library_invocation(&p, call).is_none());
+
+                if runtime == Runtime::Standalone {
+                    let mut dependencies = vec!["::CToStr", "::ChkErr"];
+                    if explicit && end {
+                        dependencies.push("::PutD1");
+                    }
+                    for name in dependencies {
+                        let mut changed = p.clone();
+                        changed.routines.iter_mut().find(|r| r.name.ends_with(name)).unwrap().blocks.clear();
+                        assert!(reviewed_cio_transfer(&changed, call).is_none(), "{source} with {name} changed");
+                    }
                 }
             }
         }

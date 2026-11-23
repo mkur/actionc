@@ -1,0 +1,8 @@
+; A positive StrI value branches back to StrC, even when StrC is not a public root.
+BYTE ARRAY result(7)=$0600
+
+PROC Main()
+  StrI(42,result)
+  DO
+  OD
+RETURN

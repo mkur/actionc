@@ -35,7 +35,7 @@ pub(super) fn needs_observation_proof(p: &MirProgram, r: &MirRoutine) -> bool {
             if writes_ordinary_pointee(op) || library::may_write_buffer(op)
                 || library::reviewed_memory_routine(p, op).is_some()
                 || library::reviewed_string_routine(p, op).is_some()
-                || library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses())
+                || library::reviewed_decimal_routine(p, op).is_some()
             {
                 return true;
             }
@@ -276,7 +276,7 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
         let values = r.blocks.iter().flat_map(|b| &b.ops)
             .any(|op| library_invocation(p, op).is_some() || library::reviewed_memory_routine(p, op).is_some()
                 || library::reviewed_string_routine(p, op).is_some()
-                || library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses()))
+                || library::reviewed_decimal_routine(p, op).is_some())
             .then(|| buffers::argument_values(p, r)).flatten();
         for b in &r.blocks {
             for memory in b
@@ -329,10 +329,18 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                 if let Some(routine) = library::reviewed_string_routine(p, op) {
                     out.extend(routine.numeric_observations(library::string_arguments(p, op, site)));
                 }
-                if library::reviewed_decimal_routine(p, op).is_some_and(|routine| routine.parses())
-                    && let Some(address) = buffers::argument_word(p, op, 0, site)
-                {
-                    out.push((address, crate::callee6502::sys_decimal::DecimalRoutine::PARSER_READ_BYTES));
+                if let Some(decimal) = library::reviewed_decimal_routine(p, op) {
+                    if !decimal.parses() {
+                        out.extend(crate::callee6502::sys_decimal::FORMAT_WORKSPACE.iter()
+                            .map(|&(start, end)| (start, end - start + 1)));
+                    }
+                    if let Some(address) = library::decimal_buffer(p, op, decimal, site) {
+                        if decimal.may_retarget_destination(address) {
+                            out.extend([(0, u16::MAX), (u16::MAX, 1)]);
+                        } else {
+                            out.push((address, decimal.buffer_bytes()));
+                        }
+                    }
                 }
                 if let MirOp::Load {
                     src: MirAddr::AbsoluteIndexedX { base } | MirAddr::AbsoluteIndexedY { base },

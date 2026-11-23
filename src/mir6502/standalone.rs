@@ -1153,8 +1153,32 @@ fn discover_runtime_dependency_graph(
         graph.add_node(MirLinkNode::Static(static_data.id));
     }
 
-    for routine in &program.routines {
+    for (index, routine) in program.routines.iter().enumerate() {
         let source = MirLinkNode::Routine(routine.id);
+        if routine.name.starts_with("M_ACTION_RUNTIME_RESIDENT_") {
+            use crate::callee6502::sys_review::SysReview;
+
+            let name = runtime_routine_name(&routine.name, "ACTION_RUNTIME_RESIDENT");
+            let review = SysReview::for_interface(&format!("SYS.{name}"));
+            if let Some((entry, predecessor)) = review.and_then(SysReview::linked_backward_branch)
+                && entry.eq_ignore_ascii_case(name)
+            {
+                // Retain the reviewed branch target even when its operand is
+                // a literal relative offset with no relocation in the source.
+                let preceding = index.checked_sub(1)
+                    .map(|index| &program.routines[index])
+                    .filter(|r| {
+                        runtime_routine_name(&r.name, "ACTION_RUNTIME_RESIDENT")
+                            .eq_ignore_ascii_case(predecessor)
+                    })
+                    .ok_or_else(|| diagnostic(format!(
+                        "reviewed runtime entry {entry} must follow {predecessor}"
+                    )))?;
+                add_checked_runtime_edge(
+                    &mut graph, source, MirLinkNode::Routine(preceding.id), LinkReason::RequiredPrefix,
+                )?;
+            }
+        }
         // Adjacent declarations with no body are entry aliases for the next
         // resident routine. Their empty, unreachable MIR block is as much a
         // fallthrough edge as a machine block whose final instruction is not
@@ -2235,6 +2259,7 @@ mod tests {
         assert!(has_edge("ValC", "ValI", LinkReason::EntryAlias));
         assert!(has_edge("Zero", "SetBlock", LinkReason::MachineFallthrough));
         assert!(has_edge("PutDE", "PutD1", LinkReason::RequiredPrefix));
+        assert!(has_edge("StrI", "StrC", LinkReason::RequiredPrefix));
         assert!(has_edge("InputID", "InputD", LinkReason::MachineRelocation));
 
         assert!(

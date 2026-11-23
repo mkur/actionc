@@ -322,6 +322,7 @@ edge	routine	SOUND	routine	ERROR	machine-relocation
 edge	routine	STRB	routine	STRC	machine-fallthrough
 edge	routine	STRC	routine	CTOSTR	machine-relocation
 edge	routine	STRI	routine	CTOSTR	machine-relocation
+edge	routine	STRI	routine	STRC	required-prefix
 edge	routine	SYSINPUTLC	routine	SYSINPUTLCD	direct-call
 edge	routine	SYSINPUTLCD	routine	INPUTMD	direct-call
 edge	routine	SYSINPUTLCD	routine	SYSLONGERROR	direct-call

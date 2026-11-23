@@ -8,6 +8,35 @@ use crate::runtime_source::RuntimeImage;
 use crate::semantic::ir::SemRoutineSignature;
 use crate::semantic::{ValueType, ValueTypeBase};
 
+pub(crate) const FORMAT_STAGING: u16 = 0x0550;
+/// Hardware stack, counted magnitude staging, and the two documented FPP RAM windows.
+pub(crate) const FORMAT_WORKSPACE: [(u16, u16); 4] = [
+    (0x0100, 0x01ff),
+    (FORMAT_STAGING, FORMAT_STAGING + 5),
+    (0x057e, 0x05ff),
+    (0x00d4, 0x00ff),
+];
+
+pub(super) fn cart_formatter_matches() -> bool {
+    cart_matches(
+        0xb10f,
+        &[
+            0x85, 0xd4, 0x86, 0xd5, 0x20, 0xaa, 0xd9, 0x20, 0xe6, 0xd8, 0xa0, 0xff, 0xa2, 0, 0xc8,
+            0xe8, 0xb1, 0xf3, 0x9d, 0x50, 5, 0x10, 0xf7, 0x49, 0x80, 0x9d, 0x50, 5, 0x8e, 0x50, 5,
+            0x60,
+        ],
+    )
+}
+
+pub(super) fn linked_formatter_matches(image: &RuntimeImage) -> bool {
+    linked_body_matches(
+        image,
+        "SYSIO",
+        "CTOSTR",
+        "d485 d586 20 d9aa 20 d8e6 ffa0 a2 0 c8 e8 f3b1 9d 550 f710 8049 9d 550 8e 550 60",
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DecimalRoutine {
     ValB,
@@ -68,6 +97,34 @@ impl DecimalRoutine {
         (!self.parses()).then_some([0xd9aa, 0xd8e6])
     }
 
+    pub(crate) fn buffer_argument(self) -> usize {
+        usize::from(!self.parses())
+    }
+
+    pub(crate) fn buffer_byte_offset(self) -> u16 {
+        match self {
+            Self::StrB => 1,
+            Self::StrC | Self::StrI => 2,
+            _ => 0,
+        }
+    }
+
+    pub(crate) fn buffer_bytes(self) -> u16 {
+        match self {
+            Self::StrB => 4,
+            Self::StrC => 6,
+            Self::StrI => 7,
+            _ => Self::PARSER_READ_BYTES,
+        }
+    }
+
+    pub(crate) fn may_retarget_destination(self, address: u16) -> bool {
+        !self.parses()
+            && [0xa2u16, 0xa3]
+                .into_iter()
+                .any(|byte| byte.wrapping_sub(address) < self.buffer_bytes())
+    }
+
     pub(crate) fn matches_signature(self, signature: &SemRoutineSignature) -> bool {
         let string = ValueType {
             base: ValueTypeBase::Fund(FundType::Char),
@@ -99,11 +156,6 @@ impl DecimalRoutine {
             0xa0, 0x90, 2, 0xe6, 0xa1, 0xc8, 0xc4, 0xa3, 0x30, 0xca, 0xa5, 0xa2, 0xf0, 0x0d, 0x38,
             0xa9, 0, 0xe5, 0xa0, 0x85, 0xa0, 0xa9, 0, 0xe5, 0xa1, 0x85, 0xa1, 0x60,
         ];
-        const FORMAT: &[u8] = &[
-            0x85, 0xd4, 0x86, 0xd5, 0x20, 0xaa, 0xd9, 0x20, 0xe6, 0xd8, 0xa0, 0xff, 0xa2, 0, 0xc8,
-            0xe8, 0xb1, 0xf3, 0x9d, 0x50, 5, 0x10, 0xf7, 0x49, 0x80, 0x9d, 0x50, 5, 0x8e, 0x50, 5,
-            0x60,
-        ];
         if self.parses() {
             return address == 0xa59a && cart_matches(address, VAL);
         }
@@ -114,7 +166,7 @@ impl DecimalRoutine {
             _ => unreachable!(),
         };
         address == entry
-            && cart_matches(0xb10f, FORMAT)
+            && cart_formatter_matches()
             && cart_matches(
                 0xa54c,
                 &[
@@ -164,10 +216,7 @@ impl DecimalRoutine {
         }
         signature_matches(self)
             && signature_matches(Self::StrC)
-            && matches(
-                "CTOSTR",
-                "d485 d586 20 d9aa 20 d8e6 ffa0 a2 0 c8 e8 f3b1 9d 550 f710 8049 9d 550 8e 550 60",
-            )
+            && linked_formatter_matches(image)
             && matches("STRC", "a284 20 @CTOSTR c8 b9 550 a291 88 f810 60")
             && match self {
                 Self::StrB => {
@@ -184,15 +233,18 @@ impl DecimalRoutine {
             }
     }
 
-    pub(crate) fn facts<Id>(self, source: Option<u16>) -> CallFacts<Id> {
-        let Some(source) = source.filter(|_| self.parses()) else {
+    pub(crate) fn facts<Id>(self, buffer: Option<u16>, origin: Option<u16>) -> CallFacts<Id> {
+        let Some(buffer) = buffer else {
             return CallFacts::default();
         };
+        if !self.parses() {
+            return self.format_facts(buffer, origin);
+        }
         // Y always addresses one 256-byte window. The parser may inspect the
         // first payload byte even for an empty string. An explicit read of the
         // cartridge bank-control page makes the return path uncertain.
         if (0..Self::PARSER_READ_BYTES)
-            .any(|offset| (0xd500..=0xd5ff).contains(&source.wrapping_add(offset)))
+            .any(|offset| (0xd500..=0xd5ff).contains(&buffer.wrapping_add(offset)))
         {
             return CallFacts::default();
         }
@@ -201,11 +253,11 @@ impl DecimalRoutine {
             end,
             global: None,
         };
-        let end = u32::from(source) + u32::from(Self::PARSER_READ_BYTES) - 1;
+        let end = u32::from(buffer) + u32::from(Self::PARSER_READ_BYTES) - 1;
         let mut reads = vec![
             range(0xa0, 0xa5),
             range(0x0100, 0x01ff),
-            range(source, end.min(0xffff) as u16),
+            range(buffer, end.min(0xffff) as u16),
         ];
         if end > 0xffff {
             reads.push(range(0, end as u16));
@@ -219,6 +271,54 @@ impl DecimalRoutine {
             // The digit loop also uses a balanced PHA/PLA at the caller's
             // unknown stack depth. That temporary byte is still observable.
             writes: Some(vec![range(0xa0, 0xa5), range(0x0100, 0x01ff)]),
+            ..CallFacts::default()
+        }
+    }
+
+    fn format_facts<Id>(self, destination: u16, origin: Option<u16>) -> CallFacts<Id> {
+        let Some(end) = destination.checked_add(self.buffer_bytes() - 1) else {
+            return CallFacts::default();
+        };
+        let disjoint = |start, last| destination > last || end < start;
+        // Reject a destination that can overwrite the pointer, staging,
+        // executing code, hardware, or the math-pack workspace itself.
+        if !origin.is_some_and(|origin| origin > 0x05ff && end < origin && end < 0xd000)
+            || !disjoint(0xa0, 0xa3)
+            || !FORMAT_WORKSPACE
+                .iter()
+                .all(|&(start, last)| disjoint(start, last))
+        {
+            return CallFacts::default();
+        }
+        let range = |start, end| DataRange {
+            start,
+            end,
+            global: None,
+        };
+        let workspace = || {
+            FORMAT_WORKSPACE
+                .iter()
+                .map(|&(start, end)| range(start, end))
+        };
+        let scratch = match self {
+            Self::StrB => range(0xa2, 0xa3),
+            Self::StrC => range(0xa2, 0xa2),
+            Self::StrI => range(0xa0, 0xa2),
+            _ => unreachable!(),
+        };
+        CallFacts {
+            abi_inputs_only: true,
+            reads: Some(
+                std::iter::once(range(0xa0, 0xa3))
+                    .chain(workspace())
+                    .collect(),
+            ),
+            writes: Some(
+                [scratch, range(destination, end)]
+                    .into_iter()
+                    .chain(workspace())
+                    .collect(),
+            ),
             ..CallFacts::default()
         }
     }

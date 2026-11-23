@@ -2,6 +2,7 @@
 //! returning error continuation are independent of this implementation.
 use super::sys_graphics::{cart_matches, matches_items, short_name};
 use super::sys_numeric_input::NumericInput;
+use super::sys_numeric_print::NumericPrint;
 use crate::ast::{FundType, RoutineKind};
 use crate::runtime::Runtime;
 use crate::runtime_source::RuntimeImage;
@@ -27,6 +28,7 @@ pub(crate) enum CioRoutine {
     InputSD,
     InputS,
     NumericInput(NumericInput),
+    NumericPrint(NumericPrint),
     Note,
     Point,
 }
@@ -70,6 +72,14 @@ pub(crate) enum CioBuffer {
     StringOutput {
         argument: u8,
         end_on_zero: Option<u8>,
+    },
+    /// A counted decimal magnitude. The optional sign and line ending are
+    /// separate single-character CIO transfers before and after the magnitude.
+    IntegerOutput {
+        staging: u16,
+        integer: FundType,
+        negative_prefix: Option<u8>,
+        end: Option<u8>,
     },
     /// With an ordinary destination, the device receives the requested byte count and payload address
     /// `destination + 1`. Zero skips dispatch. The wrapper replaces the
@@ -147,7 +157,8 @@ impl CioRoutine {
             "SYS.INPUTS" => Some(Self::InputS),
             "SYS.NOTE" => Some(Self::Note),
             "SYS.POINT" => Some(Self::Point),
-            other => NumericInput::for_interface(other).map(Self::NumericInput),
+            other => NumericInput::for_interface(other).map(Self::NumericInput)
+                .or_else(|| NumericPrint::for_interface(other).map(Self::NumericPrint)),
         }
     }
 
@@ -170,6 +181,7 @@ impl CioRoutine {
             Self::InputSD => "INPUTSD",
             Self::InputS => "INPUTS",
             Self::NumericInput(input) => input.name(),
+            Self::NumericPrint(print) => print.name(),
             Self::Note => "NOTE",
             Self::Point => "POINT",
         }
@@ -180,6 +192,7 @@ impl CioRoutine {
         let device = match self {
             Self::Put | Self::PutE | Self::Print | Self::PrintE | Self::InputS => CioDevice::Current,
             Self::NumericInput(input) => input.device(),
+            Self::NumericPrint(print) => print.device(),
             _ => CioDevice::Argument(0),
         };
         let (command, buffer, scratch, conditional_aux): (_, _, &[u8], _) = match self {
@@ -244,6 +257,12 @@ impl CioRoutine {
             }
             Self::NumericInput(_) => (Fixed(0x05), CioBuffer::RecordInput {
                 destination: InputDestination::Fixed(NumericInput::BUFFER), maximum: InputMaximum::Fixed(NumericInput::MAXIMUM),
+            }, &[0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6], None),
+            Self::NumericPrint(print) => (Fixed(0x0b), CioBuffer::IntegerOutput {
+                staging: super::sys_decimal::FORMAT_STAGING,
+                integer: print.integer(),
+                negative_prefix: (print.integer() == FundType::Int).then_some(b'-'),
+                end: print.ends_line().then_some(Self::EOL),
             }, &[0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6], None),
             Self::Note => (Fixed(0x26), CioBuffer::NoTransfer, &[0xa1, 0xa2], None),
             Self::Point => (Fixed(0x25), CioBuffer::NoTransfer, &[0xa1], None),
@@ -325,6 +344,7 @@ impl CioRoutine {
             Self::InputMD => signature.kind == RoutineKind::Proc
                 && signature.return_type.is_none() && signature.params == [byte.clone(), string, byte],
             Self::NumericInput(input) => input.matches_signature(signature),
+            Self::NumericPrint(print) => print.matches_signature(signature),
             Self::Note | Self::Point => {
                 let note = self == Self::Note;
                 let sector = ValueType { base: ValueTypeBase::Fund(FundType::Card), pointer: note };
@@ -354,13 +374,19 @@ impl CioRoutine {
             Self::InputSD => 0xa493,
             Self::InputS => 0xa48c,
             Self::NumericInput(input) => input.address(),
+            Self::NumericPrint(print) => print.address(),
             Self::Note => 0xa60d,
             Self::Point => 0xa634,
         }
     }
 
-    pub(crate) fn linked_branch_predecessor(self) -> Option<&'static str> {
-        (self == Self::PutDE).then_some("PUTD1")
+    pub(crate) fn linked_backward_branch(self) -> Option<(&'static str, &'static str)> {
+        match self {
+            Self::PutDE => Some(("PUTDE", "PUTD1")),
+            Self::NumericPrint(print) if print.device() == CioDevice::Argument(0) && print.ends_line() =>
+                Self::PutDE.linked_backward_branch(),
+            _ => None,
+        }
     }
 
     pub(crate) fn matches_cart(self, address: u16) -> bool {
@@ -385,6 +411,7 @@ impl CioRoutine {
             Self::InputSD => &[0x48, 0xa9, 0xff, 0x85, 0xa3, 0x68],
             Self::InputS => &[0x86, 0xa2, 0xaa, 0xa4, 0xa2, 0xa5, 0xb7],
             Self::NumericInput(input) => return input.matches_cart(address),
+            Self::NumericPrint(print) => return print.matches_cart(address) && cart_status_matches(),
             Self::Note => &[
                 0x86, 0xa1, 0x84, 0xa2, 0x0a, 0x0a, 0x0a, 0x0a, 0xaa, 0xa9, 0x26, 0x9d, 0x42,
                 3, 0x20, 0x56, 0xe4, 0x20, 0xa5, 0xa3, 0xa0, 0, 0xbd, 0x4e, 3, 0x91, 0xa3,
@@ -402,11 +429,10 @@ impl CioRoutine {
                 Self::PutD | Self::GetD => cart_character_io_matches(),
                 Self::Put => Self::PutD.matches_cart(Self::PutD.address()),
                 Self::PutE => Self::Put.matches_cart(Self::Put.address()),
-                Self::PutDE => cart_matches(0xa4d5, &[0xa2, 0x0b, 0x4c, 0xaf, 0xa4]) && cart_character_io_matches(),
+                Self::PutDE => cart_put_character_matches(),
                 Self::Print => Self::PrintD.matches_cart(Self::PrintD.address()),
                 Self::PrintE => Self::PrintDE.matches_cart(Self::PrintDE.address()),
-                Self::PrintD => cart_matches(0xb06e, &[0x84, 0xa6, 0xa0, 0x0b, 0xd0, 0xc0])
-                    && cart_matches(0xb034, &[0x86, 0xa5, 0xa2, 0, 0x86, 0xa3]) && cart_xiostr_matches(),
+                Self::PrintD => cart_output_dispatch_matches(),
                 Self::PrintDE => cart_matches(0xb00c, &[
                     0x86, 0xa5, 0x84, 0xa6, 0xa2, 0, 0x86, 0xa3, 0xa0, 9, 0x20, 0x3a, 0xb0,
                     0xd0, 0x0a, 0xa9, 0x0b, 0x9d, 0x42, 3, 0xa9, Self::EOL, 0x4c, 0x56, 0xe4, 0x60,
@@ -426,7 +452,7 @@ impl CioRoutine {
                 Self::InputMD => Self::InputD.matches_cart(Self::InputD.address()),
                 Self::InputSD => Self::InputMD.matches_cart(Self::InputMD.address()),
                 Self::InputS => Self::InputSD.matches_cart(Self::InputSD.address()),
-                Self::NumericInput(_) => unreachable!(),
+                Self::NumericInput(_) | Self::NumericPrint(_) => unreachable!(),
                 Self::Note | Self::Point => true,
             }
             && cart_status_matches()
@@ -488,6 +514,7 @@ impl CioRoutine {
             Self::InputS => body_matches(body, "a286 aa a2a4 a5 @DEVICE")
                 && adjacent(image, "INPUTS", "INPUTSD") && Self::InputSD.matches_linked(image, unit, "INPUTSD"),
             Self::NumericInput(input) => return input.matches_linked(image),
+            Self::NumericPrint(print) => print.matches_linked(image),
             Self::Note => body_matches(body, concat!(
                 "a186 a284 a0a a0a aa 26a9 9d 342 20 e456 20 @CHKERR a0 0 ",
                 "bd 34e a391 bd 34c a191 bd 34d c8 a191 60",
@@ -513,7 +540,11 @@ fn linked_character_io_matches(image: &RuntimeImage) -> bool {
         "a486 a0a a0a aa a4a5 9d 342 a9 0 9d 348 9d 349 98 20 e456 a085 4c @CHKERR")
 }
 
-fn linked_put_character_matches(image: &RuntimeImage) -> bool {
+pub(super) fn cart_put_character_matches() -> bool {
+    cart_matches(0xa4d5, &[0xa2, 0x0b, 0x4c, 0xaf, 0xa4]) && cart_character_io_matches()
+}
+
+pub(super) fn linked_put_character_matches(image: &RuntimeImage) -> bool {
     linked_body_matches(image, "SYSIO", "PUTD1", "ba2 4c @CCIO") && linked_character_io_matches(image)
 }
 
@@ -524,7 +555,12 @@ fn linked_eol_matches(image: &RuntimeImage) -> bool {
     })
 }
 
-fn linked_output_dispatch_matches(image: &RuntimeImage) -> bool {
+pub(super) fn cart_output_dispatch_matches() -> bool {
+    cart_matches(0xb06e, &[0x84, 0xa6, 0xa0, 0x0b, 0xd0, 0xc0])
+        && cart_matches(0xb034, &[0x86, 0xa5, 0xa2, 0, 0x86, 0xa3]) && cart_xiostr_matches()
+}
+
+pub(super) fn linked_output_dispatch_matches(image: &RuntimeImage) -> bool {
     linked_body_matches(image, "SYSLIB", "OUTPUT", "a684 ba0 4d0")
         && adjacent(image, "OUTPUT", "IN") && linked_input_dispatch_matches(image)
 }

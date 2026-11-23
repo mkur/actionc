@@ -30,7 +30,7 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | SCopyS | Destination/source pointers in A/X and Y/`$A3`, inclusive byte bounds at `$A4/$A5` / void | `$A0–$A5` | Reads the source length and clamps the end to it. Writes the destination length, including for an empty slice, and copies the selected payload in reverse through `SCopy+10`. |
 | SAssign | Same ABI as `SCopyS` / void | `$A0–$A2`, `$A4–$A6` | Reads the source length, takes at most that many source bytes, and copies in reverse into the selected destination slice through `SCopy+14`. A nonempty copy can update the destination length. |
 | ValB, ValC, ValI | String pointer in A/X / BYTE at `$A0` or CARD/INT at `$A0/$A1` | `$A0–$A5` and a temporary stack byte for a proven source span outside cartridge bank controls | The shared parser reads an indexed 256-byte window. The standalone `ValB` and `ValC` labels pass A/X directly to `ValI`. |
-| StrB, StrC, StrI | BYTE value and destination in A and X/Y, or word value and destination in A/X and Y/`$A3` / void | Unknown across Atari FPP | The shared `CToStr` path calls IFP (`$D9AA`) and FASC (`$D8E6`) and stages the string at `$0550`. |
+| StrB, StrC, StrI | BYTE value and destination in A and X/Y, or word value and destination in A/X and Y/`$A3` / void | Wrapper scratch, hardware stack, FPP workspace, and up to 4, 6, or 7 bytes at a proven destination | `CToStr` calls IFP (`$D9AA`) and FASC (`$D8E6`) and stages a counted magnitude at `$0550`. The destination bound includes its length byte and the possible `StrI` sign. [FPP workspace audit](Action_2027/ATARI_FPP_ORACLE.md#sys-integer-string-formatting) |
 | Zero | Destination pointer, word count / void | `$A0–$A4` | Destination writes; falls through into SetBlock. |
 | SetBlock | Destination pointer, word count, byte value / void | `$A0–$A3` | Destination writes, dynamic extent. |
 | MoveBlock | Destination/source pointers, word count / void | `$A0–$A3`, `$A5` | Reads source and writes destination, dynamic extent; forward copy. |
@@ -44,6 +44,7 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | Put, PutE, PutDE | Put takes the character in A. Put and PutE use the current channel. PutDE takes the channel in A. | Unknown across CIO | Shared `CCIO` sends a single byte with command `$0B`. PutE and PutDE supply `$9B`. |
 | Print, PrintD | Counted string. Print uses the current channel. PrintD takes an explicit channel. | Unknown across CIO | `Output` sends the payload with command `$0B` and skips dispatch for an empty string. |
 | PrintE, PrintDE | Same arguments as Print and PrintD, respectively. | Unknown across CIO | `Prt` uses command `$09` for the counted payload. If `XIOstr` returns with Z set, including when the payload is empty, it dispatches `$0B` with `$9B` in A. |
+| PrintB, PrintC, PrintI and their E, D, DE variants | Value on the current channel, or channel in A followed by the value / void | Unknown across CIO | `CToStr` stages a counted unsigned magnitude at `$0550`. Negative INT values send `-` first on a separate character transfer. The E variants send a separate `$9B` after the digits return. The character and counted payload transfers use `$0B`. |
 | Close, Open | Channel in A / void. Open also takes a counted filename in X/Y and mode and auxiliary bytes in `$A3/$A4`. | Unknown across CIO | Commands `$0C` and `$03`. Open copies the filename through the pointer at `$9B/$9C` on cartridge and into `$0500` on standalone. Cartridge Graphics calls the internal open entry. |
 | XIO | Command in Y, AUX bytes in `$A3/$A4`, counted string pointer in `$A5/$A6` / void | Unknown across CIO | A zero AUX1 keeps the IOCB auxiliary bytes. A zero string length skips CIOV. DrawTo and Fill reach this path with commands `$11` and `$12`. |
 | InputD, InputMD, InputSD, InputS | Counted destination and channel. InputMD also takes a byte maximum. InputS reads the current channel. | Unknown across CIO | GET RECORD `$05` targets the payload at destination plus one. The maximum comes from the destination header, the `InputMD` argument, or 255 for `InputSD` and `InputS`. A zero maximum skips CIOV. `InS` saves the low returned count minus one, with zero kept as zero, before status handling. |
@@ -85,6 +86,14 @@ destination bytes must be below the loaded image and outside the stack,
 hardware and pointer scratch. Possible source reads must avoid cartridge
 bank controls.
 
+With a proven destination, the focused callers keep a live byte in ZP across
+`StrB` and `StrC`. `StrI` has a finite footprint too. Its outgoing pointer
+uses `$A3`, its signed path can write `$A0–$A2`, and the documented FPP
+workspace covers the ordinary `$E0–$EF` pool. A byte live across that call
+therefore still falls back to inline storage with the current pool.
+The standalone link manifest retains the preceding `StrC` entry for the
+positive `StrI` branch, including when the program only calls `StrI`.
+
 ## Remaining public-library coverage
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
@@ -96,7 +105,7 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | --- | --- |
 | SCopyS, SAssign with unproven operands | Numeric buffer addresses and bounds at the call site. |
 | ValB, ValC, ValI with an unproven source | An address proof that excludes cartridge bank controls from the indexed read window. |
-| StrB, StrC, StrI | Portable FASC effects and a bounded destination write through the formatter. |
+| StrB, StrC, StrI with an unproven destination | A numeric span below the loaded image and the hardware range, disjoint from the pointer, stack, staging, and FPP workspace. |
 | StrLC/StrLI, ValLC/ValLI and LONGCARD/LONGINT I/O | Public wide ABI metadata is available. String effects, conversion scratch and I/O dependencies still restrict entry certificates; ordinary bodies can use available helper facts. |
 | StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
@@ -105,7 +114,7 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | InputD, InputMD, InputSD, InputS, Note, Point | Returning CIO device and error-handler guarantees. Note's write-back also needs ordinary destination and pointer-scratch alias checks. |
 | Put, PutE, PutDE, Print, PrintE, PrintD, PrintDE | Returning CIO device and error-handler guarantees. |
 | InputB, InputC, InputI, InputBD, InputCD, InputID | Returning CIO device and error-handler guarantees. The parser runs after a returning error handler. |
-| Numeric Print routines | CIO/OS returning dependencies, device state and output buffers. |
+| PrintB, PrintC, PrintI and their E, D, DE variants | Returning CIO device and error-handler guarantees. Subsequent transfers can depend on scratch and device state left by an earlier transfer. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
 Ordinary Action wrappers use the existing acyclic analysis when all their
