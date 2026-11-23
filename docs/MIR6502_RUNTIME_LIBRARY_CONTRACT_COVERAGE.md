@@ -154,6 +154,14 @@ channel zero, current channel two and explicit channel three. The device
 and returning error-handler effects remain open for all four wrappers.
 [Cartridge wrappers](../embedded/runtime/SYSREALC.ACT#L15) · [Standalone wrappers](../embedded/runtime/SYSREAL.ACT#L49) · [CIO fixture](../fixtures/runtime/resident_numeric_output.act)
 
+When a nonempty ActionCart `PrintRE` record write returns CIO status `$82`,
+the zero flag is clear. `Prt` skips its fallback EOL before `ChkErr`
+invokes the error handler. If the handler changes `DEVICE` and returns,
+there is no subsequent write. With the same error and handler, standalone
+`PrintRE` sends one `$9B` byte to channel zero, and `PrintRDE` on both
+providers sends it to the original explicit channel.
+[REAL output error fixture](../fixtures/runtime/real_output_error.act)
+
 Both REAL input wrappers issue GET RECORD (`$05`) before calling `SysValR`.
 On ActionCart, `InputR` reads `DEVICE` through `InputS`. Its 256-byte local
 string holds the length byte and a transfer of up to 255 bytes. Standalone
@@ -187,7 +195,7 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | LONGCARD/LONGINT I/O | Both providers have coverage for input record termination and output EOL routing after a returning error. CIO device and error-handler effects remain unknown. |
 | ValR with an unproven buffer | Both the 256-byte source span and the six-byte destination span must be proven disjoint from implementation scratch. |
 | StrR with unproven operands | A normalized packed source and both ordinary RAM spans. A malformed OS-B result can leave the wrapper's copy unterminated. |
-| PrintR, PrintRE, PrintRD, PrintRDE | The wrapper paths are checked on both providers. Returning CIO device and error-handler effects stay unknown. |
+| PrintR, PrintRE, PrintRD, PrintRDE | The wrapper paths are checked on both providers, including EOL handling by PrintRE and PrintRDE after a returning error. CIO device and error-handler effects stay unknown. |
 | InputR, InputRD | The channel, record length and subsequent REAL conversion are checked on both providers. Returning CIO device and error-handler effects stay unknown. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
 | Sound with an unproven voice | Effects of a returning error handler. |

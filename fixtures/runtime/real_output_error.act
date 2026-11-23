@@ -1,0 +1,26 @@
+; The VM fails the formatted write and changes DEVICE to channel 4 in the handler.
+MODULE REAL_OUTPUT_ERROR
+USE SYS
+
+BYTE choice=$0600,deviceAfter=$0601,done=$0602
+REAL value
+
+PROC Main()
+  SYS.Open(2,"D:CURRENT.TXT",8,0)
+  SYS.Open(3,"D:EXPLICIT.TXT",8,0)
+  SYS.Open(4,"D:AFTER.TXT",8,0)
+  DEVICE=2
+  IF choice=0 THEN
+    value=1.25
+    SYS.PrintRE(@value)
+  ELSE
+    value=-2.5
+    SYS.PrintRDE(3,@value)
+  FI
+  deviceAfter=DEVICE
+  DEVICE=0
+  SYS.Close(4) SYS.Close(3) SYS.Close(2)
+  done=$A5
+  DO OD
+RETURN
+ENDMODULE

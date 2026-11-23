@@ -1195,67 +1195,109 @@ mod tests {
 
     #[test]
     fn long_integer_output_routes_eol_after_a_returning_cio_error() {
-        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
-        let files = [(2, "CURRENT.TXT"), (3, "EXPLICIT.TXT"), (4, "AFTER.TXT")];
-        let redirect = [0xa9, 4, 0x85, 0xb7, 0x60]; // LDA #4 / STA DEVICE / RTS
+        use actionc_vm::CIO_COMMAND_PUTCHR;
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [
                 CompileMode::Compatibility,
                 CompileMode::Optimized,
                 CompileMode::Mir6502,
             ] {
-                let mut fixture =
-                    load_runtime_fixture("long_integer_output_error.act", mode, runtime, true);
-                for (_, name) in files {
-                    fixture.bus_mut().add_host_output(name);
-                }
-                for (choice, digits, digit_channel, eol_channel) in [
-                    (0, b"4294967295".as_slice(), 2, 4),  // PrintLCE
-                    (1, b"-2147483648".as_slice(), 2, 4), // PrintLIE
-                    (2, b"4294967295".as_slice(), 3, 3),  // PrintLCDE
-                    (3, b"-2147483648".as_slice(), 3, 3), // PrintLIDE
-                ] {
-                    let mut vm = fixture.clone();
-                    vm.bus_mut().ram_mut().write(0x0600, choice);
-                    let outcome = run_failed_cio(
-                        vm,
-                        mode,
-                        runtime,
-                        digit_channel,
-                        FailedCioRequest::BufferedWrite(digits),
-                        &redirect,
-                        &[0x82],
-                    );
-                    let context = format!("{runtime:?}/{mode:?}, choice {choice}");
-                    assert_eq!(
-                        outcome.memory().read(0x0601),
-                        4,
-                        "{context}: DEVICE after return"
-                    );
-                    assert_eq!(
-                        outcome.memory().read(0x0602),
-                        0xa5,
-                        "{context}: fixture completion"
-                    );
+                check_formatted_output_errors(
+                    "long_integer_output_error.act",
+                    mode,
+                    runtime,
+                    &[
+                        (b"4294967295", 2, CIO_COMMAND_PUTCHR, Some(4)), // PrintLCE
+                        (b"-2147483648", 2, CIO_COMMAND_PUTCHR, Some(4)), // PrintLIE
+                        (b"4294967295", 3, CIO_COMMAND_PUTCHR, Some(3)), // PrintLCDE
+                        (b"-2147483648", 3, CIO_COMMAND_PUTCHR, Some(3)), // PrintLIDE
+                    ],
+                );
+            }
+        }
+    }
 
-                    // The digit transfer was intercepted. Only the single-byte EOL reaches CIO.
-                    let bus = outcome.vm.bus();
-                    let writes: Vec<_> = bus
-                        .cio_observations()
-                        .iter()
-                        .filter(|call| matches!(call.command, CIO_COMMAND_PUTCHR | CIO_COMMAND_PUTREC))
-                        .map(|call| (call.channel, call.command, call.length, call.bytes_written))
-                        .collect();
-                    assert_eq!(writes, [(Some(eol_channel), CIO_COMMAND_PUTCHR, 0, Some(1))], "{context}");
-                    for (channel, name) in files {
-                        let expected: &[u8] = if channel == eol_channel { &[0x9b] } else { &[] };
-                        assert_eq!(
-                            bus.host_file_bytes(name),
-                            Some(expected),
-                            "{context}: {name}"
-                        );
-                    }
+    #[test]
+    fn real_output_routes_eol_after_a_returning_cio_error() {
+        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            let default = match runtime {
+                // Cartridge Prt branches past the separate EOL on the nonzero CIO status.
+                Runtime::ActionCart => (b"1.25".as_slice(), 2, CIO_COMMAND_PUTREC, None),
+                Runtime::Standalone => (b"1.25".as_slice(), 0, CIO_COMMAND_PUTCHR, Some(0)),
+            };
+            for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
+                check_formatted_output_errors(
+                    "real_output_error.act",
+                    mode,
+                    runtime,
+                    &[default, (b"-2.5", 3, CIO_COMMAND_PUTCHR, Some(3))],
+                );
+            }
+        }
+    }
+
+    fn check_formatted_output_errors(
+        fixture_name: &str,
+        mode: CompileMode,
+        runtime: Runtime,
+        cases: &[(&'static [u8], u8, u8, Option<u8>)],
+    ) {
+        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
+        let files = [(2, "CURRENT.TXT"), (3, "EXPLICIT.TXT"), (4, "AFTER.TXT")];
+        let redirect = [0xa9, 4, 0x85, 0xb7, 0x60]; // LDA #4 / STA DEVICE / RTS
+        let mut fixture = load_runtime_fixture(fixture_name, mode, runtime, true);
+        for (_, name) in files {
+            fixture.bus_mut().add_host_output(name);
+        }
+        for (choice, &(bytes, channel, command, eol_channel)) in cases.iter().enumerate() {
+            let mut vm = fixture.clone();
+            vm.bus_mut().ram_mut().write(0x0600, choice as u8);
+            let outcome = run_failed_cio(
+                vm,
+                mode,
+                runtime,
+                channel,
+                FailedCioRequest::BufferedWrite { command, bytes },
+                &redirect,
+                &[0x82],
+            );
+            let context = format!("{fixture_name}, {runtime:?}/{mode:?}, choice {choice}");
+            assert_eq!(
+                outcome.memory().read(0x0601),
+                4,
+                "{context}: DEVICE after return"
+            );
+            assert_eq!(
+                outcome.memory().read(0x0602),
+                0xa5,
+                "{context}: fixture completion"
+            );
+
+            // The failed request was intercepted. These are all writes that reached the device.
+            let bus = outcome.vm.bus();
+            let writes: Vec<_> = bus
+                .cio_observations()
+                .iter()
+                .filter(|call| matches!(call.command, CIO_COMMAND_PUTCHR | CIO_COMMAND_PUTREC))
+                .map(|call| (call.channel, call.command, call.length, call.bytes_written))
+                .collect();
+            let expected_write = eol_channel.map(|ch| (Some(ch), CIO_COMMAND_PUTCHR, 0, Some(1)));
+            assert_eq!(writes, expected_write.as_slice(), "{context}");
+            let output = |channel| -> &[u8] {
+                if eol_channel == Some(channel) {
+                    &[0x9b]
+                } else {
+                    &[]
                 }
+            };
+            assert_eq!(bus.cio_channel0_output(), output(0), "{context}: console");
+            for (ch, name) in files {
+                assert_eq!(
+                    bus.host_file_bytes(name),
+                    Some(output(ch)),
+                    "{context}: {name}"
+                );
             }
         }
     }
@@ -1707,15 +1749,17 @@ mod tests {
             capacity: u16,
             bytes: &'static [u8],
         },
-        BufferedWrite(&'static [u8]),
+        BufferedWrite {
+            command: u8,
+            bytes: &'static [u8],
+        },
     }
 
     impl FailedCioRequest {
         fn command(&self) -> u8 {
             match self {
-                Self::Command(command) => *command,
+                Self::Command(command) | Self::BufferedWrite { command, .. } => *command,
                 Self::PartialRead { .. } => actionc_vm::CIO_COMMAND_GETREC,
-                Self::BufferedWrite(_) => actionc_vm::CIO_COMMAND_PUTCHR,
             }
         }
     }
@@ -1760,11 +1804,11 @@ mod tests {
                         ram.map(buffer, bytes).unwrap();
                         ram.write_word(length, bytes.len() as u16);
                     }
-                    FailedCioRequest::BufferedWrite(expected) => {
+                    FailedCioRequest::BufferedWrite { bytes: expected, .. } => {
                         let count = ram.read_word(length);
                         assert_eq!(usize::from(count), expected.len());
                         let bytes: Vec<_> = (0..count).map(|i| ram.read(buffer + i)).collect();
-                        assert_eq!(bytes, *expected, "payload of failed digit write");
+                        assert_eq!(bytes, *expected, "payload of failed formatted write");
                         ram.write_word(length, 0); // The device accepted no bytes.
                     }
                 }
