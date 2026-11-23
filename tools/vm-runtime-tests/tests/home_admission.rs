@@ -27,6 +27,47 @@ fn assert_zp(output: &actionc::codegen::CodegenOutput, routine: &str, name: &str
 }
 
 #[test]
+fn callers_keep_live_arguments_when_a_word_home_displaces_callee_scratch() {
+    let program = nir("BYTE mode=$730 CARD base=$732,answer=$734 BYTE seenLeft=$736,seenRight=$737
+        CARD ARRAY bias=[0 768 384],stride=[0 256 128]
+        CARD FUNC Lookup(BYTE n)
+          CARD address,offset
+          n==&7
+          IF n>=4 THEN n=0 ELSE n==+1 FI
+          address=base+bias(mode)
+          offset=n*stride(mode)
+          address=address+offset
+        RETURN(address)
+        PROC Observe(BYTE n,left,right)
+          answer=Lookup(n)
+          seenLeft=left seenRight=right
+        RETURN
+        PROC Main() Observe(3,67,201) RETURN");
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = mir6502::generate_output_with_config_and_runtime(&program, 0x3000, &config(), runtime).unwrap();
+        for (routine, name) in [("Lookup", "address"), ("Lookup", "offset"), ("Observe", "left"), ("Observe", "right")] {
+            assert_zp(&output, routine, name);
+        }
+        let entry = output.routine_addresses.iter().find(|r| r.name == "Observe").unwrap().address;
+        let (mut vm, profile) = support::vm_for(runtime);
+        vm.load_atari_object_for_execution(profile, &actionc::codegen::format_load_file(&output)).unwrap();
+        for (mode, stride) in [(1u8, 256u16), (2, 128)] {
+            for (index, base) in [(0u8, 0x12ffu16), (3, 0xff00), (4, 0x8081), (0xff, 0)] {
+                vm.bus_mut().ram_mut().write(0x730, mode);
+                vm.bus_mut().ram_mut().map(0x732, &base.to_le_bytes()).unwrap();
+                let left = index ^ 0xa5;
+                let right = index ^ 0x5a;
+                vm = machine::call(vm, &mut Observe, entry, &[index, left, right]);
+                let bank = if index & 7 < 4 { u16::from(index & 7) + 1 } else { 0 };
+                let expected = base.wrapping_add((3 + bank) * stride);
+                assert_eq!(machine::bytes(&vm, 0x734, 2), expected.to_le_bytes());
+                assert_eq!(machine::bytes(&vm, 0x736, 2), [left, right]);
+            }
+        }
+    }
+}
+
+#[test]
 fn fixed_indexed_color_store_uses_disjoint_leaf_homes_in_both_runtimes() {
     let n = nir("PROC Paint(BYTE n,hue,lum)
         BYTE ARRAY colors(4)=$02C0

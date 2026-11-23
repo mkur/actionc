@@ -13,9 +13,9 @@ impl<'a> ExpandedConflicts<'a> {
     pub fn new(
         routine: &'a MirRoutine,
         facts: &mut ResidenceCalls<'_>,
+        pool_writes: impl Fn(&MirOp, MirKnownMemoryWrites) -> Result<BTreeSet<u8>, &'static str>,
     ) -> Result<Self, &'static str> {
         let logical = logical::LogicalHomes::new(routine).ok_or("missing expanded lifetime")?;
-        let fixed = facts.fixed_storage();
         let mut sites = Vec::new();
         let mut entry = BTreeSet::new();
         for block in &routine.blocks {
@@ -27,11 +27,8 @@ impl<'a> ExpandedConflicts<'a> {
                 let mut bytes = BTreeSet::new();
                 if matches!(op, MirOp::Call { .. } | MirOp::RuntimeHelper { .. }) {
                     entry.extend(facts.inputs_at(routine, site, op)?);
-                    let writes = facts.home_writes_at(routine, site, op).map(|w| {
-                        zero_page::pool_bytes()
-                            .filter(|b| !w.preserves_private_fixed_byte(MirFixedZpSlot(*b), &fixed))
-                            .collect()
-                    });
+                    let writes = facts.home_writes_at(routine, site, op)
+                        .and_then(|writes| pool_writes(op, writes));
                     sites.push((site, writes));
                     continue;
                 }

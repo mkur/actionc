@@ -1,6 +1,6 @@
 use super::offset_mem;
 use crate::mir6502::ir::{
-    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirGlobalBacking, MirMem,
+    MirAddr, MirAddressConsumer, MirCallTarget, MirFixedZpSlot, MirFrame, MirGlobalBacking, MirMem,
     MirMemoryEffect, MirMemoryRegionKind, MirOp, MirPointerPair, MirProgram, MirRoutine, MirValue,
     MirZpAllocation,
 };
@@ -414,22 +414,9 @@ fn collect_fixed_zero_page_slot(slot: MirFixedZpSlot, slots: &mut Vec<MirFixedZp
 }
 
 pub(super) fn allocate_zero_page_slots(program: &mut MirProgram) {
-    const SCRATCH_START: u8 = 0xE0;
-    const SCRATCH_END: u8 = 0xEF;
     let source_zero_page = source_zero_page_slots(program);
-
     for routine in &mut program.routines {
-        let mut used = [false; 256];
-        for fixed in &source_zero_page {
-            used[fixed.0 as usize] = true;
-        }
-        for fixed in &routine.frame.fixed_zero_page {
-            used[fixed.0 as usize] = true;
-        }
-        for allocation in &routine.frame.zero_page_allocations {
-            mark_zp_range(&mut used, allocation.start.0, allocation.size);
-        }
-
+        let mut available = free_scratch_bytes(&routine.frame, &source_zero_page, &[]);
         for slot in &routine.frame.virtual_zero_page {
             if routine
                 .frame
@@ -439,10 +426,7 @@ pub(super) fn allocate_zero_page_slots(program: &mut MirProgram) {
             {
                 continue;
             }
-            let Some(start) = find_zp_range(&used, SCRATCH_START, SCRATCH_END, 1) else {
-                continue;
-            };
-            mark_zp_range(&mut used, start, 1);
+            let Some(start) = available.next() else { break };
             routine.frame.zero_page_allocations.push(MirZpAllocation {
                 slot: *slot,
                 start: MirFixedZpSlot(start),
@@ -450,6 +434,42 @@ pub(super) fn allocate_zero_page_slots(program: &mut MirProgram) {
             });
         }
     }
+}
+
+fn free_scratch_bytes(
+    frame: &MirFrame,
+    source: &[MirFixedZpSlot],
+    additional: &[MirFixedZpSlot],
+) -> impl Iterator<Item = u8> + use<> {
+    let mut used = [false; 256];
+    for fixed in source.iter().chain(&frame.fixed_zero_page).chain(additional) {
+        used[usize::from(fixed.0)] = true;
+    }
+    for allocation in &frame.zero_page_allocations {
+        mark_zp_range(&mut used, allocation.start.0, allocation.size);
+    }
+    (0xe0..=0xef).filter(move |&byte| !used[usize::from(byte)])
+}
+
+/// Core coloring assigns one first-free byte per virtual scratch slot. When a
+/// new source home occupies an old scratch byte, callers must allow room for
+/// the replacement as well. Only physical bytes travel up the call graph.
+pub(in crate::mir6502) fn displaced_scratch_bytes(
+    input: &MirProgram,
+    selected: &MirFrame,
+    proposed: &MirFrame,
+) -> Vec<u8> {
+    let named = &proposed.named_zp_reservations;
+    let displaced = selected.zero_page_allocations.iter().filter(|allocation| {
+        allocation.size == 1 && named.contains(&allocation.start)
+            && !selected.fixed_zero_page.contains(&allocation.start)
+    }).count();
+    if displaced == 0 {
+        return Vec::new();
+    }
+    free_scratch_bytes(selected, &source_zero_page_slots(input), named)
+        .take(displaced)
+        .collect()
 }
 
 /// Resolve virtual address-consumer pairs after zero-page allocation. Virtual

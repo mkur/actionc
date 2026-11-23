@@ -304,6 +304,7 @@ use values::{
     split_value_with_storage_widths, split_value_with_temp_widths,
 };
 use word_values::forward_unique_word_load_address_consumers;
+pub(in crate::mir6502) use zp::displaced_scratch_bytes;
 use zp::{
     allocate_zero_page_slots, find_zp_range, mark_zp_range, reserve_pointer_scratch_slots,
     reserve_used_fixed_zero_page_slots, resolve_virtual_address_consumers, source_zero_page_slots,

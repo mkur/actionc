@@ -47,6 +47,9 @@ For a native call, use typed MIR to compose the pool bytes used by argument
 setup, the callee and its descendants. A live value needs a home that
 survives the call. A value that dies before the call can release its byte
 after its last argument use. Entry requirements and result delivery still apply.
+When a proposed callee home takes a byte already used by scratch, apply the
+core allocator's first-free rule to find the replacement. Include those bytes
+in the callee's footprint before placing live values in its callers.
 Discovery and verification after expansion use the same byte conflicts and
 check explicit observations against the final layout. [Call checks](../src/mir6502/parameter_homes/calls.rs) · [Residence verification](../src/mir6502/parameter_homes/lifetimes.rs)
 

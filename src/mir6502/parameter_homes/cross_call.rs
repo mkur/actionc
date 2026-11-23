@@ -1,7 +1,7 @@
 //! One bounded proposal for homes across supported native calls. Selected callee facts
 //! filter candidates; the resumed executable must establish its own proofs.
 use super::*;
-use crate::mir6502::analysis::sites::MirSite;
+use crate::mir6502::analysis::{known_callees::MirKnownMemoryWrites, sites::MirSite};
 use std::collections::BTreeMap;
 mod chains;
 mod expanded;
@@ -129,6 +129,26 @@ pub(super) fn propose_configured(
         } else { None };
         let mut call_writes = Vec::new();
         let mut fixed_inputs = BTreeSet::new();
+        // Retained and selected call sites have separate liveness, but both
+        // must see the same bottom-up plan for a callee's physical writes.
+        let pool_writes = |call: &MirOp, writes: MirKnownMemoryWrites| {
+            let mut bytes: BTreeSet<_> = zero_page::pool_bytes()
+                .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
+                .collect();
+            if let Some(chains) = &chains
+                && matches!(call, MirOp::Call { .. })
+                && MirAtariFppService::from_canonical_call(call).is_none()
+                && super::super::runtime_contracts::library_invocation(selected, call).is_none()
+                && !super::super::runtime_contracts::library::requires_argument_proof(selected, call)
+            {
+                let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
+                    return Err("unknown planning dependency");
+                };
+                if !chains.supports(*target) { return Err("recursive or missing retained call dependency"); }
+                if let Some(subtree) = planned.get(target) { bytes.extend(subtree); }
+            }
+            Ok(bytes)
+        };
         for (call_index, (site, call)) in calls.iter().enumerate() {
             if lifetimes {
                 match facts.inputs_at(routine, *site, call) {
@@ -145,23 +165,8 @@ pub(super) fn propose_configured(
             }
             // Candidate objects are checked individually below by the existing
             // ownership-aware binding selectors. Explicit ranges remain here.
-            let writes = facts.home_writes_at(routine, *site, call).map(|writes| zero_page::pool_bytes()
-                .filter(|slot| !writes.preserves_private_fixed_byte(MirFixedZpSlot(*slot), &fixed))
-                .collect::<BTreeSet<_>>()).and_then(|mut writes| {
-                    if let Some(chains) = &chains
-                        && matches!(call, MirOp::Call { .. })
-                        && MirAtariFppService::from_canonical_call(call).is_none()
-                        && super::super::runtime_contracts::library_invocation(selected, call).is_none()
-                        && !super::super::runtime_contracts::library::requires_argument_proof(selected, call)
-                    {
-                        let MirOp::Call { target: MirCallTarget::Routine(target), .. } = call else {
-                            return Err("unknown planning dependency");
-                        };
-                        if !chains.supports(*target) { return Err("recursive or missing retained call dependency"); }
-                        if let Some(bytes) = planned.get(target) { writes.extend(bytes); }
-                    }
-                    Ok(writes)
-                });
+            let writes = facts.home_writes_at(routine, *site, call)
+                .and_then(|writes| pool_writes(call, writes));
             if acyclic && writes.is_err() {
                 trace.event("cross-call-dependency", || serde_json::json!({
                     "routine": routine.name, "site": format!("{site:?}"),
@@ -192,7 +197,7 @@ pub(super) fn propose_configured(
         }
         let retained = &input.routines[index];
         let Some(actual) = selected.routines.iter().find(|r| r.id == id) else { continue };
-        let expanded = std::cell::LazyCell::new(|| expanded::ExpandedConflicts::new(actual, &mut facts));
+        let expanded = std::cell::LazyCell::new(|| expanded::ExpandedConflicts::new(actual, &mut facts, pool_writes));
         let forbidden = |mem: &MirMem, width: u16| {
             if !addresses.compiler_controls_address(routine.id, mem) { return None; }
             let mut forbidden = observed_zp.clone();
@@ -272,8 +277,10 @@ pub(super) fn propose_configured(
             if let Some(bytes) = planned.get_mut(&id) {
                 facts.plan_writer_homes(actual, &candidate);
                 bytes.extend(candidate.frame.resident_bytes().iter().map(|(_, slot)| slot.0));
+                let displaced = super::super::materialize::displaced_scratch_bytes(input, &actual.frame, &candidate.frame);
+                bytes.extend(&displaced);
                 trace.event("cross-call-planned-subtree", || serde_json::json!({
-                    "routine": routine.name, "routine_id": id.0, "resident_bytes": bytes,
+                    "routine": routine.name, "routine_id": id.0, "resident_bytes": bytes, "replacement_scratch": displaced,
                 }));
             }
             proposal.get_or_insert_with(|| input.clone()).routines[index] = candidate;
