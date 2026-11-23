@@ -34,6 +34,7 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | StrLC, StrLI | LONGCARD or LONGINT followed by a string pointer / void | Selected native scratch and arithmetic helper writes, plus up to 11 or 12 bytes at a proven destination | Both providers use the same Action! formatter. The destination bound includes the length byte and the possible sign. |
 | ValLC, ValLI | String pointer in A/X / four result bytes at `$A0–$A3` on return | Selected native scratch, private storage and result lanes | Reads at most 256 bytes including the source length. Invalid input and overflow enter provider-specific error shims that stop even if the handler returns. |
 | ValR | Counted string pointer in A/X, REAL destination pointer in Y/`$A3` / void | Selected native scratch, hardware stack, FPP workspace and six bytes at the proven destination | Reads at most 256 bytes including the length. Both providers select `SysValR`, which copies the payload into a private NUL-terminated buffer, calls AFP at `$D800`, and copies FR0 to the destination. |
+| StrR | REAL source pointer in A/X, counted destination pointer in Y/`$A3` / void | Selected native scratch, hardware stack, FPP workspace and up to 17 destination bytes for a proven normalized REAL | Both providers select `SysStrR`. It copies six bytes to FR0, calls FASC at `$D8E6`, clears the final character's high bit and writes the length. |
 | Zero | Destination pointer, word count / void | `$A0–$A4` | Destination writes; falls through into SetBlock. |
 | SetBlock | Destination pointer, word count, byte value / void | `$A0–$A3` | Destination writes, dynamic extent. |
 | MoveBlock | Destination/source pointers, word count / void | `$A0–$A3`, `$A5` | Reads source and writes destination, dynamic extent; forward copy. |
@@ -117,6 +118,14 @@ both bytes bordering the six-byte result, and a caller byte live across the call
 [Provider source](../embedded/runtime/SYSREAL.ACT#L31) ·
 [REAL VM fixture](../fixtures/runtime/native_real_library.act)
 
+For `StrR`, MIR6502 recognizes a complete copy or negation of an immutable,
+normalized six-byte literal in the same block. Only register argument setup
+and disjoint outgoing zero-page stores may intervene. Both spans must fit
+in unbanked RAM at `$0600–$3FFF`, below the loaded image and disjoint from
+the selected implementation's scratch. A changed FASC target invalidates
+the call contract. An unknown value behind an otherwise known source
+pointer keeps the formatter's effects open. [FASC bounds and OS-B exception](Action_2027/ATARI_FPP_ORACLE.md#fasc-and-transcendental-vectors)
+
 ## Remaining public-library coverage
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
@@ -132,7 +141,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | StrLC, StrLI, ValLC, ValLI with unproven buffers | A proven ordinary RAM span disjoint from the selected implementation and its scratch. |
 | LONGCARD/LONGINT I/O | Returning CIO device and error-handler guarantees for the I/O wrappers. |
 | ValR with an unproven buffer | Both the 256-byte source span and the six-byte destination span must be proven disjoint from implementation scratch. |
-| StrR and REAL I/O | Atari floating-point service effects and pointer buffers. |
+| StrR with unproven operands | A normalized packed source and both ordinary RAM spans. A malformed OS-B result can leave the wrapper's copy unterminated. |
+| REAL I/O | Provider-specific CIO and returning error-handler effects. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
 | Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |

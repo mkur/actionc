@@ -74,6 +74,27 @@ on the final character. The oracle confirms minimal spellings including `0`,
 `1.25`, `-1.25`, `100`, `1E+20`, and `1E-20`. A library adapter must clear the
 terminator bit before constructing an Action length-prefixed string.
 
+For a normalized packed REAL, the longest scientific spelling uses a minus
+sign, ten mantissa digits, a decimal point, and four exponent characters
+(`E`, a sign and two digits). Fixed notation can add a leading zero before
+the point and omits the exponent. The maximum is **16 characters**, so
+`SYS.StrR` can write **17 bytes** including the Action length. The REAL
+output wrappers' 20-byte strings accommodate that result. Both Atari OS-B
+and the bundled AltirraOS produced `-1.234567891E+33` from
+`D0 12 34 56 78 91`. On each ROM a direct probe checked 991 canonical
+cases spanning zero, both signs, all supported exponents, full mantissas and
+trailing zeroes. [AltirraOS FASC](https://github.com/atari800/atari800/blob/bbe287d6d2c233bc8bad92ed2b2637f6a3859eb6/emuos/src/mathpack.s#L390) ·
+[FPP oracle tests](../../tools/vm-runtime-tests/src/atari_fpp_oracle.rs)
+
+OS-B has an important exception for raw storage. With the malformed encodings
+`3F 00 00 00 00 00` and `BF 00 00 00 00 00`, its trailing-zero scan can
+underflow X to `$FF`. It marks `$067F` and returns without a terminator in
+the documented output workspace. The Action wrapper can then read beyond
+that workspace and continue copying. A numeric pointer and a six-byte
+declaration alone cannot establish the 17-byte write bound.
+[Atari OS-B ROM](https://github.com/sidneycadot/Atari8bit_OSB-NTSC-ROM/blob/10272c5e558457423e37f1e126e940c3d4cc6a2f/atariosb-ntsc.rom) ·
+[SYS conversion source](../../embedded/runtime/SYSREAL.ACT#L13)
+
 The transcendental entry points consume and replace FR0. Their results retain
 the ROM package's decimal approximations; they are not host-math identities:
 

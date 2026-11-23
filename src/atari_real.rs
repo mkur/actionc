@@ -40,6 +40,17 @@ impl AtariReal {
         self.0[0] == 0
     }
 
+    /// Six bytes that the compiler's decimal encoder can produce, including canonical zero.
+    pub(crate) fn is_normalized(self) -> bool {
+        let exponent = i32::from(self.0[0] & 0x7f) - EXPONENT_BIAS;
+        self == Self::ZERO
+            || ((MIN_BASE100_EXPONENT..=MAX_BASE100_EXPONENT).contains(&exponent)
+                && self.0[1] != 0
+                && self.0[1..]
+                    .iter()
+                    .all(|byte| byte >> 4 < 10 && byte & 15 < 10))
+    }
+
     pub const fn is_negative(self) -> bool {
         !self.is_zero() && self.0[0] & 0x80 != 0
     }

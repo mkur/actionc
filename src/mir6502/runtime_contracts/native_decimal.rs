@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::callee6502::{
-    ArgumentBuffer, BufferLength, sys_real_decimal::AFP, sys_review::SysReview,
+    ArgumentBuffer, BufferLength, sys_real_decimal::RealDecimal, sys_review::SysReview,
 };
 use crate::mir6502::abi::{
     action_arg_home, canonical_call_lanes, direct_parameter_frame_matches, parameter_bytes,
@@ -30,8 +30,10 @@ pub(super) fn binding(op: &MirOp) -> Option<(SysReview, &MirLibraryBinding, Rout
     };
     let binding = abi.library.as_deref()?;
     let review = binding.sys_review?;
-    if !matches!(review, SysReview::WideDecimal(_) | SysReview::ValR)
-        || binding.implementation.as_ref()?.target != MirRuntimeHelperTarget::Routine(*target)
+    if !matches!(
+        review,
+        SysReview::WideDecimal(_) | SysReview::RealDecimal(_)
+    ) || binding.implementation.as_ref()?.target != MirRuntimeHelperTarget::Routine(*target)
         || !abi.params.iter().eq(args.iter().map(|arg| &arg.home))
         || canonical_call_lanes(&binding.interface, args).is_err()
         || validate_direct_call_result(&binding.interface, op).is_err()
@@ -41,6 +43,7 @@ pub(super) fn binding(op: &MirOp) -> Option<(SysReview, &MirLibraryBinding, Rout
     Some((review, binding, *target))
 }
 
+#[cfg(test)]
 pub(super) fn buffers_at(
     program: &MirProgram,
     routine: &MirRoutine,
@@ -50,12 +53,141 @@ pub(super) fn buffers_at(
     let Some((review, binding, _)) = binding(op) else {
         return Vec::new();
     };
-    review
-        .facts::<()>(|_| None, None)
+    let Some(facts) = facts_at(program, routine, op, review, binding, values) else {
+        return Vec::new();
+    };
+    facts
         .buffers
         .into_iter()
         .filter_map(|buffer| buffer_at(program, routine, op, values, binding, buffer))
         .collect()
+}
+
+/// An unterminated OS-B result can make the wrapper observe memory beyond the
+/// FPP workspace. A redirected output pointer can likewise escape its buffer.
+pub(in crate::mir6502) fn observations_at(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    op: &MirOp,
+    values: Option<(&MirMachineValueAvailability, MirSite)>,
+    memory: Option<&crate::mir6502::analysis::record_bases::MirPhysicalMemory>,
+) -> Vec<(u16, u16)> {
+    let Some((review, binding, _)) = binding(op) else {
+        return Vec::new();
+    };
+    let all_memory = || vec![(0, u16::MAX), (u16::MAX, 1)];
+    let Some(facts) = facts_at(program, routine, op, review, binding, values) else {
+        return all_memory();
+    };
+    let mut ranges: Vec<_> = facts
+        .reads
+        .unwrap_or_default()
+        .into_iter()
+        .map(|range| (range.start, range.end - range.start + 1))
+        .collect();
+    for buffer in facts.buffers {
+        if let Some((address, bytes, output)) =
+            buffer_at(program, routine, op, values, binding, buffer)
+        {
+            if output && (address < 0x100 || address.checked_add(bytes - 1).is_none()) {
+                return all_memory();
+            }
+            if review == SysReview::RealDecimal(RealDecimal::StrR)
+                && memory.is_some_and(|layout| {
+                    (0..bytes).any(|i| !layout.execution_disjoint(address + i))
+                })
+            {
+                return all_memory();
+            }
+            ranges.push((address, bytes));
+        }
+    }
+    ranges
+}
+
+fn facts_at(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    op: &MirOp,
+    review: SysReview,
+    binding: &MirLibraryBinding,
+    values: Option<(&MirMachineValueAvailability, MirSite)>,
+) -> Option<crate::callee6502::CallFacts<()>> {
+    if review != SysReview::RealDecimal(RealDecimal::StrR) {
+        return Some(review.facts(|_| None, None));
+    }
+    let facts = RealDecimal::StrR.facts(true);
+    // A store to ROM or banked memory cannot witness the bytes FASC reads.
+    // Output over FPP scratch could also overwrite its own terminator.
+    let ordinary = |buffer| {
+        let (address, bytes, _) = buffer_at(program, routine, op, values, binding, buffer)?;
+        (address >= 0x0600 && address.checked_add(bytes - 1)? < 0x4000).then_some(address)
+    };
+    let source = ordinary(facts.buffers[0])?;
+    ordinary(facts.buffers[1])?;
+    let (_, site) = values?;
+    normalized_real_at(program, routine, site, source).then_some(facts)
+}
+
+/// Only cross register argument setup and stores to the outgoing ZP lanes.
+/// Any other operation between the complete literal copy and the call leaves
+/// the source unproven, including alias writes, predecessor joins and calls.
+fn normalized_real_at(
+    program: &MirProgram,
+    routine: &MirRoutine,
+    site: MirSite,
+    address: u16,
+) -> bool {
+    let MirSite::Op { block, op_index } = site else {
+        return false;
+    };
+    let Some(ops) = routine
+        .blocks
+        .iter()
+        .find(|b| b.id == block)
+        .and_then(|block| block.ops.get(..op_index))
+    else {
+        return false;
+    };
+    for op in ops.iter().rev() {
+        match op {
+            MirOp::PackedRealCopy {
+                source: MirAddr::Direct(MirMem::Static { id, offset: 0 }),
+                destination: MirAddr::Direct(dest),
+                source_offset: 0,
+                destination_offset: 0,
+                ..
+            } if fixed_storage_address(program, dest) == Some(address) => {
+                let Some(data) = program.statics.iter().find(|data| data.id == *id) else {
+                    return false;
+                };
+                if data.mutable || !data.image.relocations.is_empty() {
+                    return false;
+                }
+                let Ok(bytes) = <[u8; 6]>::try_from(data.image.bytes.as_slice()) else {
+                    return false;
+                };
+                return crate::atari_real::AtariReal::from_bytes(bytes).is_normalized();
+            }
+            MirOp::Move {
+                src:
+                    MirValue::StorageAddrByte { .. }
+                    | MirValue::Def(_)
+                    | MirValue::ConstU8(_)
+                    | MirValue::ConstU16(_),
+                ..
+            }
+            | MirOp::LoadImm { .. }
+            | MirOp::LeaAddr { .. } => {}
+            MirOp::Store {
+                dst: MirAddr::Direct(MirMem::FixedZeroPage(slot)),
+                width: MirWidth::Byte,
+                src: MirValue::Def(_) | MirValue::StorageAddrByte { .. } | MirValue::ConstU8(_),
+            } if (0xa3..=0xaf).contains(&slot.0) => {}
+            _ => return false,
+        }
+    }
+    false
 }
 
 fn buffer_at(
@@ -113,7 +245,7 @@ pub(super) fn invocation_at(
     origin: u16,
 ) -> Option<invocation::InvocationSummary> {
     let (review, binding, target) = binding(op)?;
-    let facts = review.facts::<()>(|_| None, Some(origin));
+    let facts = facts_at(program, routine, op, review, binding, Some(values))?;
     let decimal_buffers = facts
         .buffers
         .into_iter()
@@ -249,16 +381,18 @@ fn record_selected_writes(
         })
         .collect();
     let mut retained_targets = BTreeSet::new();
-    let mut saw_afp = false;
-    let reviewed_afp = (review == SysReview::ValR)
-        .then(|| {
-            planned
-                .blocks
-                .iter()
-                .flat_map(|block| &block.ops)
-                .find_map(afp_call_target)
-        })
-        .flatten();
+    let fpp_entry = match review {
+        SysReview::RealDecimal(real) => Some(real.fpp_entry()),
+        _ => None,
+    };
+    let mut saw_fpp = false;
+    let reviewed_fpp = fpp_entry.and_then(|entry| {
+        planned
+            .blocks
+            .iter()
+            .flat_map(|block| &block.ops)
+            .find_map(|op| fpp_call_target(op, entry))
+    });
     for op in selected.blocks.iter().flat_map(|block| &block.ops) {
         match op {
             MirOp::Call {
@@ -279,11 +413,11 @@ fn record_selected_writes(
                 }
             }
             MirOp::Call { .. }
-                if !saw_afp && reviewed_afp.is_some() && afp_call_target(op) == reviewed_afp =>
+                if !saw_fpp
+                    && reviewed_fpp.is_some()
+                    && fpp_entry.and_then(|entry| fpp_call_target(op, entry)) == reviewed_fpp =>
             {
-                // AFP uses the reviewed workspace and the wrapper's private
-                // NUL-terminated copy. Its effects are already in the review.
-                saw_afp = true;
+                saw_fpp = true;
             }
             MirOp::Call { .. } | MirOp::MachineBlock { .. } | MirOp::Barrier { .. } => return None,
             _ => {
@@ -307,7 +441,7 @@ fn record_selected_writes(
                             },
                             ..
                         }
-                ) || review == SysReview::ValR
+                ) || review == SysReview::RealDecimal(RealDecimal::ValR)
                     && matches!(op, MirOp::PackedRealCopy {
                     source: MirAddr::Direct(mem), destination: MirAddr::FixedIndirectIndexedY { .. } | MirAddr::IndirectIndexedY { .. },
                     source_offset: 0, destination_offset: 0, negate: false,
@@ -324,13 +458,13 @@ fn record_selected_writes(
             }
         }
     }
-    if retained_targets != direct_targets || review == SysReview::ValR && !saw_afp {
+    if retained_targets != direct_targets || fpp_entry.is_some() && !saw_fpp {
         return None;
     }
     Some(())
 }
 
-fn afp_call_target(op: &MirOp) -> Option<&MirCallTarget> {
+fn fpp_call_target(op: &MirOp, entry: u16) -> Option<&MirCallTarget> {
     let MirOp::Call {
         target,
         abi,
@@ -345,12 +479,13 @@ fn afp_call_target(op: &MirOp) -> Option<&MirCallTarget> {
     (matches!(
         target,
         MirCallTarget::Runtime {
-            address: Some(AFP),
+            address: Some(address),
             ..
         } | MirCallTarget::Builtin {
-            address: Some(AFP),
+            address: Some(address),
             ..
         }
+        if *address == entry
     ) && args.is_empty()
         && abi.params.is_empty()
         && abi.result.is_none()

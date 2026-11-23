@@ -285,6 +285,23 @@ fn fasc_uses_a_high_bit_terminated_minimal_decimal_spelling() {
 }
 
 #[test]
+fn fasc_normalized_values_fit_sixteen_characters_including_sign_and_exponent() {
+    let longest = [0xd0, 0x12, 0x34, 0x56, 0x78, 0x91];
+    assert_eq!(format_ascii(longest), b"-1.234567891E+3\xb3");
+    for exponent in 0x0f..=0x71 {
+        for sign in [0, 0x80] {
+            for digits in [[1, 0, 0, 0, 0], [1, 0x23, 0x45, 0x67, 0x89],
+                [0x10, 0, 0, 0, 0], [0x12, 0x34, 0x56, 0x78, 0x91], [0x99; 5]] {
+                let mut raw = [exponent | sign; 6];
+                raw[1..].copy_from_slice(&digits);
+                let text = format_ascii(raw);
+                assert!(text.len() <= 16 && text.last().is_some_and(|b| b & 0x80 != 0), "{raw:02x?}");
+            }
+        }
+    }
+}
+
+#[test]
 fn transcendental_entry_points_use_fr0() {
     for (routine, input, expected) in [
         (EXP, "0", [0x3f, 0x99, 0x99, 0x99, 0x99, 0x98]),

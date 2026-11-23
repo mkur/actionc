@@ -448,6 +448,7 @@ mod tests {
                 text[254..].copy_from_slice(b"-7");
                 vm.bus_mut().ram_mut().map(0x0700, &text).unwrap();
                 vm.bus_mut().ram_mut().map(0x06A8, &[0xCC; 8]).unwrap();
+                vm.bus_mut().ram_mut().map(0x06C0, &[0xCC; 19]).unwrap();
                 vm.bus_mut().write(RANDOM, SAMPLES[0]);
                 vm.bus_mut().add_watchpoint(RANDOM);
                 let outcome = VmRunner::new(vm)
@@ -484,6 +485,7 @@ mod tests {
                 assert_eq!(bytes(0x0618, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
                 assert_eq!(bytes(0x061E, 6), [0x40, 0x02, 0, 0, 0, 0], "{context}");
                 assert_eq!(bytes(0x06A8, 8), [0xCC, 0xC0, 7, 0, 0, 0, 0, 0xCC], "{context}");
+                assert_eq!(bytes(0x06C0, 19), b"\xCC\x10-1.234567891E+33\xCC", "{context}");
                 assert_eq!(bytes(0x06B0, 1), [0x6D], "caller byte after ValR: {context}");
                 for (address, expected) in [
                     (0x0624, [0x40, 0x01, 0x41, 0x42, 0x13, 0x56]),

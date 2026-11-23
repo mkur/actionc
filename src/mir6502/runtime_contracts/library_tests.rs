@@ -382,7 +382,6 @@ fn valr_reviews_both_buffers_with_the_selected_afp_entry() {
         PROC Main()
           SYS.ValR(text,@number) SYS.ValR($D4FF,@number)
           SYS.ValR(text,$00D4) SYS.ValR(cursor,@number) SYS.ValR(text,cursor)
-          SYS.StrR(@number,text)
         RETURN ENDMODULE";
     for runtime in [Runtime::ActionCart, Runtime::Standalone] {
         let p = program(source, runtime);
@@ -418,6 +417,74 @@ fn valr_reviews_both_buffers_with_the_selected_afp_entry() {
         assert_eq!(*afp_address, 0xd800);
         *afp_address = 0xd8e6;
         assert!(library_invocation_at(&stale, main, site, call, Some(0x3000)).is_none());
+    }
+}
+
+#[test]
+fn strr_requires_current_fasc_and_a_normalized_source_with_proven_buffers() {
+    use super::library::{library_invocation_at, native_decimal_buffers, native_decimal_observations, reviewed_native_decimal};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    let source = "MODULE APP USE SYS
+        REAL number=$0601 BYTE ARRAY text(17)=$0700 CARD cursor=$0620
+        PROC Main()
+          number=-1.234567891E+33 SYS.StrR(@number,text)
+          SYS.StrR(@number,text)
+          number=1.25 SYS.StrR(@number,cursor)
+          number=1.25 SYS.StrR(cursor,text)
+          number=1.25 SYS.StrR(@number,$2FF0)
+          number=1.25 SYS.StrR(@number,$00D4)
+        RETURN ENDMODULE";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let main = p.routines.iter().find(|r| r.abi == MirRoutineAbi::ProgramEntry).unwrap();
+        let calls: Vec<_> = main.blocks.iter().flat_map(|block| block.ops.iter().enumerate()
+            .map(move |(op_index, op)| (MirSite::Op { block: block.id, op_index }, op)))
+            .filter(|(_, op)| reviewed_native_decimal(op)).collect();
+        assert_eq!(calls.len(), 6, "{runtime:?}");
+        let (site, op) = calls[0];
+        let values = super::buffers::argument_values(&p, main).unwrap();
+        assert_eq!(native_decimal_buffers(&p, main, op, Some((&values, site))),
+            [(0x0601, 6, false), (0x0700, 17, true)]);
+        let summary = library_invocation_at(&p, main, site, op, Some(0x3000)).expect("StrR literal");
+        let dest: Vec<_> = summary.writes.iter().filter_map(|mem| match mem {
+            MirMem::Absolute(a) if (0x600..0x800).contains(a) => Some(*a),
+            _ => None,
+        }).collect();
+        assert_eq!(dest, (0x700..=0x710).collect::<Vec<_>>());
+        assert!(summary.writes.contains(&MirMem::FixedZeroPage(MirFixedZpSlot(0xd4))));
+        assert!(summary.writes.contains(&MirMem::Absolute(0x05ff)));
+        assert!(summary.definitions.is_empty());
+        for &(site, op) in &calls[1..] {
+            assert!(library_invocation_at(&p, main, site, op, Some(0x3000)).is_none(), "{runtime:?} {site:?}");
+        }
+
+        let mut changed = p.clone();
+        let entry = changed.routines.iter_mut().find(|r| r.name.ends_with("::SysStrR")).unwrap()
+            .blocks.iter_mut().flat_map(|b| &mut b.ops).find_map(|op| match op {
+                MirOp::Call { target: MirCallTarget::Runtime { address: Some(a), .. }
+                    | MirCallTarget::Builtin { address: Some(a), .. }, .. } => Some(a),
+                _ => None,
+            }).unwrap();
+        assert_eq!(*entry, 0xd8e6);
+        *entry = 0xd800;
+        assert!(library_invocation_at(&changed, main, site, op, Some(0x3000)).is_none());
+
+        let mut overwritten = main.clone();
+        let MirSite::Op { block, op_index } = site else { unreachable!() };
+        overwritten.blocks.iter_mut().find(|b| b.id == block).unwrap().ops.insert(op_index,
+            MirOp::Store { dst: MirAddr::Direct(MirMem::Absolute(0x0602)), src: MirValue::ConstU8(0), width: MirWidth::Byte });
+        let later_site = MirSite::Op { block, op_index: op_index + 1 };
+        assert!(library_invocation_at(&p, &overwritten, later_site, op, Some(0x3000)).is_none());
+
+        // OS-B FASC can return without a terminator for this non-normalized mantissa.
+        let mut malformed = p.clone();
+        let literal = malformed.statics.iter_mut().find(|s| s.image.bytes == [0x50, 0x12, 0x34, 0x56, 0x78, 0x91]).unwrap();
+        literal.image.bytes.copy_from_slice(&[0x3f, 0, 0, 0, 0, 0]);
+        assert!(library_invocation_at(&malformed, main, site, op, Some(0x3000)).is_none());
+        assert_eq!(native_decimal_observations(&malformed, main, op, Some((&values, site)), None),
+            [(0, u16::MAX), (u16::MAX, 1)]);
     }
 }
 

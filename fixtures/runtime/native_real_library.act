@@ -32,6 +32,7 @@ BYTE rnd_in_range=$067E
 CARD rnd_bits=$067F
 REAL parsed_full=$06A9
 BYTE kept=$06B0
+BYTE ARRAY formatted(17)=$06C1
 BYTE ARRAY full_text(256)=$0700
 
 BYTE FUNC ParseFull(BYTE keep)
@@ -50,6 +51,8 @@ PROC Main()
   SYS.StrR(@log10_result,text)
   SYS.ValR(text,@parsed_result)
   kept=ParseFull($6D)
+  source=-1.234567891E+33
+  SYS.StrR(@source,formatted)
   source=2
   MATH.Sqrt(@source,@sqrt_result)
   source=0.5
