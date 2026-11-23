@@ -822,7 +822,10 @@ fn incomplete_aggregate_helper_and_uncertified_capture_contracts_stay_unknown() 
 
 #[test]
 fn an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact() {
-    let text = "CARD first=$680,second=$682,seed=$684\nPROC Sum(CARD left,right) first=left+right second=right+257 RETURN\nPROC Forward(CARD left,right) Sum(left,right) RETURN\nPROC Main() Forward(seed,seed+17) DO OD RETURN";
+    let text = "CARD first=$680,second=$682,seed=$684
+        PROC Sum(CARD left,right) first=left+right second=right+257 RETURN
+        PROC Forward(CARD left,right) Sum(left,right) RETURN
+        PROC Main() Forward(seed,seed+17) DO OD RETURN";
     let ast = crate::parser::parse(&crate::lexer::tokenize(text).unwrap()).unwrap();
     let model =
         crate::semantic::analyze_with_options(&ast, crate::semantic::SemanticOptions::modern())
@@ -862,51 +865,75 @@ fn an_extra_expanded_entry_requirement_restores_the_complete_selected_artifact()
     let planned =
         MirCalleeEntryFact::analyze(&selected.input, callee, MirCalleeEntryStage::PlannedCapture)
             .unwrap();
-    let actual = MirCalleeEntryFact::analyze(
-        &selected.executable.program,
-        callee,
-        MirCalleeEntryStage::ActualEntry,
-    )
-    .unwrap();
     assert!(!planned.inputs.flags.any());
-    // The shared flag proof does not certify the low-byte memory ADC as a
-    // definition for the high-byte carry read. Final proof remains conservative.
-    assert!(actual.inputs.flags.c);
-    let proposal = handoff::propose(&selected.input, &selected.executable.program).unwrap();
-    super::super::verify_program(&proposal, MirPhase::PreMaterialization).unwrap();
-    let expected_input = Arc::clone(&selected.input);
-    let expected = selected.executable.clone();
+    let proposal =
+        Arc::new(handoff::propose(&selected.input, &selected.executable.program).unwrap());
+    let stage = "parameter-argument-handoff";
+    let child = trace.child(stage, "batch-trial");
     let before = session.manifest()["work"]["materializations"]
         .as_u64()
         .unwrap();
-    let selected = try_proposal(
+    let mut expanded = super::super::preparation::resume_output(
         &nir,
-        selected,
         &resume,
-        proposal,
-        "parameter-argument-handoff",
+        (*proposal).clone(),
         &config,
         0x3000,
         runtime,
-        &trace,
+        &child,
+        None,
+    )
+    .unwrap()
+    .program;
+
+    // The ordinary handoff passed expanded verification. At Sum's entry,
+    // ROR seed rotates the caller's carry into bit 7 of seed's low byte.
+    let sum = expanded
+        .routines
+        .iter_mut()
+        .find(|r| r.id == callee)
+        .unwrap();
+    sum.blocks[0].ops.insert(
+        0,
+        MirOp::UpdateMem {
+            op: MirUpdateOp::Ror,
+            mem: MirMem::Absolute(0x0684),
+            width: MirWidth::Byte,
+        },
     );
+    let actual =
+        MirCalleeEntryFact::analyze(&expanded, callee, MirCalleeEntryStage::ActualEntry).unwrap();
+    assert!(actual.inputs.flags.c);
+    let trial = super::super::finalize_output(&nir, expanded, 0x3000, runtime, &child);
+    let diagnostics = trial
+        .as_ref()
+        .err()
+        .expect("handoff accepted an incoming carry");
+    assert_eq!(
+        diagnostics.as_slice(),
+        [MirDiagnostic::routine(
+            "Forward",
+            "invalid parameter handoff: extra-entry-flags-or-stack",
+        )]
+    );
+
+    let expected_input = Arc::clone(&selected.input);
+    let expected = selected.executable.clone();
+    let selected = select_trial_result(selected, proposal, trial, stage, &child);
     assert!(Arc::ptr_eq(&selected.input, &expected_input));
     assert_eq!(selected.executable.output, expected.output);
     assert_eq!(selected.executable.program, expected.program);
+    assert_eq!(selected.executable.memory, expected.memory);
     assert_eq!(selected.executable.costs, expected.costs);
     assert_eq!(selected.executable.trace_snapshot, expected.trace_snapshot);
-    assert!(
-        session.manifest()["work"]["materializations"]
-            .as_u64()
-            .unwrap()
-            <= before + 1
-    );
+    assert_eq!(session.manifest()["work"]["materializations"], before + 1);
     assert!(
         session
             .events()
             .iter()
             .any(|e| e.kind == "parameter-argument-handoff-result"
-                && e.data.to_string().contains("extra-entry-flags-or-stack"))
+                && e.data["accepted"] == false
+                && e.data["reason"] == "invalid-trial")
     );
 }
 

@@ -2,7 +2,7 @@
 //! Each placement batch resumes one core continuation and requires a smaller image.
 use super::analysis::known_callees::MirCalleeEntryStage;
 use super::analysis::storage_ownership::ObjectAddressControl;
-use super::preparation::{Resume, SelectedPlacement};
+use super::preparation::{Executable, Resume, SelectedPlacement};
 use super::{diagnostics::MirDiagnostic, ir::*};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -273,7 +273,6 @@ fn try_proposal(
         child.count("cross_call_home_trials", 1);
     }
     let input = Arc::new(proposal);
-    let baseline = &selected.executable;
     let trial = super::preparation::resume_output(
         nir,
         resume,
@@ -282,8 +281,19 @@ fn try_proposal(
         origin,
         runtime,
         &child,
-        (stage == "cross-call-homes").then_some(baseline),
+        (stage == "cross-call-homes").then_some(&selected.executable),
     );
+    select_trial_result(selected, input, trial, stage, &child)
+}
+
+fn select_trial_result(
+    selected: SelectedPlacement,
+    input: Arc<MirProgram>,
+    trial: Result<Executable, Vec<MirDiagnostic>>,
+    stage: &'static str,
+    child: &super::trace::Trace,
+) -> SelectedPlacement {
+    let baseline = &selected.executable;
     let trial = trial.and_then(|candidate| {
         physical::verify_relocation(baseline, &candidate, &selected.input, &input)?;
         Ok(candidate)
