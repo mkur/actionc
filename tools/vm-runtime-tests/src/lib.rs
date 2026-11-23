@@ -1237,68 +1237,123 @@ mod tests {
         }
     }
 
+    #[test]
+    fn signed_integer_output_continues_after_a_failed_minus_sign() {
+        for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+            for mode in [
+                CompileMode::Compatibility,
+                CompileMode::Optimized,
+                CompileMode::Mir6502,
+            ] {
+                let fixture =
+                    output_error_fixture("signed_integer_output_error.act", mode, runtime);
+                for (choice, sign_channel, eol_channel) in [(0, 2, 4), (1, 3, 3)] {
+                    // Both wrappers save the channel for the magnitude before writing the sign.
+                    check_output_after_error(
+                        fixture.clone(),
+                        mode,
+                        runtime,
+                        choice,
+                        sign_channel,
+                        FailedCioRequest::CharacterWrite(b'-'),
+                        &[(sign_channel, 5, b"32768"), (eol_channel, 0, b"\x9b")],
+                    );
+                }
+            }
+        }
+    }
+
+    const OUTPUT_FILES: [(u8, &str); 3] =
+        [(2, "CURRENT.TXT"), (3, "EXPLICIT.TXT"), (4, "AFTER.TXT")];
+
+    fn output_error_fixture(name: &str, mode: CompileMode, runtime: Runtime) -> CompilerVm {
+        let mut fixture = load_runtime_fixture(name, mode, runtime, true);
+        for (_, name) in OUTPUT_FILES {
+            fixture.bus_mut().add_host_output(name);
+        }
+        fixture
+    }
+
     fn check_formatted_output_errors(
         fixture_name: &str,
         mode: CompileMode,
         runtime: Runtime,
         cases: &[(&'static [u8], u8, u8, Option<u8>)],
     ) {
-        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
-        let files = [(2, "CURRENT.TXT"), (3, "EXPLICIT.TXT"), (4, "AFTER.TXT")];
-        let redirect = [0xa9, 4, 0x85, 0xb7, 0x60]; // LDA #4 / STA DEVICE / RTS
-        let mut fixture = load_runtime_fixture(fixture_name, mode, runtime, true);
-        for (_, name) in files {
-            fixture.bus_mut().add_host_output(name);
-        }
+        let fixture = output_error_fixture(fixture_name, mode, runtime);
         for (choice, &(bytes, channel, command, eol_channel)) in cases.iter().enumerate() {
-            let mut vm = fixture.clone();
-            vm.bus_mut().ram_mut().write(0x0600, choice as u8);
-            let outcome = run_failed_cio(
-                vm,
+            let eol = eol_channel.map(|ch| (ch, 0, b"\x9b".as_slice()));
+            check_output_after_error(
+                fixture.clone(),
                 mode,
                 runtime,
+                choice as u8,
                 channel,
                 FailedCioRequest::BufferedWrite { command, bytes },
-                &redirect,
-                &[0x82],
+                eol.as_slice(),
             );
-            let context = format!("{fixture_name}, {runtime:?}/{mode:?}, choice {choice}");
-            assert_eq!(
-                outcome.memory().read(0x0601),
-                4,
-                "{context}: DEVICE after return"
-            );
-            assert_eq!(
-                outcome.memory().read(0x0602),
-                0xa5,
-                "{context}: fixture completion"
-            );
+        }
+    }
 
-            // The failed request was intercepted. These are all writes that reached the device.
-            let bus = outcome.vm.bus();
-            let writes: Vec<_> = bus
-                .cio_observations()
+    fn check_output_after_error(
+        mut vm: CompilerVm,
+        mode: CompileMode,
+        runtime: Runtime,
+        choice: u8,
+        channel: u8,
+        request: FailedCioRequest,
+        expected_writes: &[(u8, u16, &[u8])],
+    ) {
+        use actionc_vm::{CIO_COMMAND_PUTCHR, CIO_COMMAND_PUTREC};
+        let redirect = [0xa9, 4, 0x85, 0xb7, 0x60]; // LDA #4 / STA DEVICE / RTS
+        vm.bus_mut().ram_mut().write(0x0600, choice);
+        let outcome = run_failed_cio(vm, mode, runtime, channel, request, &redirect, &[0x82]);
+        let context = format!("{runtime:?}/{mode:?}, choice {choice}, failed channel {channel}");
+        assert_eq!(
+            outcome.memory().read(0x0601),
+            4,
+            "{context}: DEVICE after return"
+        );
+        assert_eq!(
+            outcome.memory().read(0x0602),
+            0xa5,
+            "{context}: fixture completion"
+        );
+
+        // The rejected request was intercepted. Check each later write in order and its destination bytes.
+        let bus = outcome.vm.bus();
+        let writes: Vec<_> = bus
+            .cio_observations()
+            .iter()
+            .filter(|call| matches!(call.command, CIO_COMMAND_PUTCHR | CIO_COMMAND_PUTREC))
+            .map(|call| (call.channel, call.command, call.length, call.bytes_written))
+            .collect();
+        let expected: Vec<_> = expected_writes
+            .iter()
+            .map(|&(ch, length, bytes)| {
+                (
+                    Some(ch),
+                    CIO_COMMAND_PUTCHR,
+                    length,
+                    Some(bytes.len() as u16),
+                )
+            })
+            .collect();
+        assert_eq!(writes, expected, "{context}");
+        let output = |channel| -> Vec<u8> {
+            expected_writes
                 .iter()
-                .filter(|call| matches!(call.command, CIO_COMMAND_PUTCHR | CIO_COMMAND_PUTREC))
-                .map(|call| (call.channel, call.command, call.length, call.bytes_written))
-                .collect();
-            let expected_write = eol_channel.map(|ch| (Some(ch), CIO_COMMAND_PUTCHR, 0, Some(1)));
-            assert_eq!(writes, expected_write.as_slice(), "{context}");
-            let output = |channel| -> &[u8] {
-                if eol_channel == Some(channel) {
-                    &[0x9b]
-                } else {
-                    &[]
-                }
-            };
-            assert_eq!(bus.cio_channel0_output(), output(0), "{context}: console");
-            for (ch, name) in files {
-                assert_eq!(
-                    bus.host_file_bytes(name),
-                    Some(output(ch)),
-                    "{context}: {name}"
-                );
-            }
+                .filter(|(ch, _, _)| *ch == channel)
+                .flat_map(|(_, _, bytes)| bytes.iter().copied())
+                .collect()
+        };
+        assert_eq!(bus.cio_channel0_output(), output(0), "{context}: console");
+        for (ch, name) in OUTPUT_FILES {
+            assert_eq!(
+                bus.host_file_bytes(name),
+                Some(output(ch).as_slice()),
+                "{context}: {name}"
+            );
         }
     }
 
@@ -1744,6 +1799,7 @@ mod tests {
 
     enum FailedCioRequest {
         Command(u8),
+        CharacterWrite(u8),
         PartialRead {
             expected_buffer: Option<u16>,
             capacity: u16,
@@ -1760,6 +1816,7 @@ mod tests {
             match self {
                 Self::Command(command) | Self::BufferedWrite { command, .. } => *command,
                 Self::PartialRead { .. } => actionc_vm::CIO_COMMAND_GETREC,
+                Self::CharacterWrite(_) => actionc_vm::CIO_COMMAND_PUTCHR,
             }
         }
     }
@@ -1791,6 +1848,10 @@ mod tests {
                 let length = actionc_vm::IOCB_LENGTH_BASE + iocb;
                 match &self.request {
                     FailedCioRequest::Command(_) => {}
+                    FailedCioRequest::CharacterWrite(byte) => {
+                        assert_eq!(ram.read_word(length), 0, "single-character CIO write");
+                        assert_eq!(registers.a, *byte, "character rejected by CIO");
+                    }
                     FailedCioRequest::PartialRead {
                         expected_buffer,
                         capacity,

@@ -98,6 +98,14 @@ therefore still falls back to inline storage with the current pool.
 The standalone link manifest retains the preceding `StrC` entry for the
 positive `StrI` branch, including when the program only calls `StrI`.
 
+On both providers, `PrintIE` and `PrintIDE` save the selected channel before
+writing the minus sign. The VM rejects that single-character write for
+`-32768` with CIO status `$82`. The returning handler changes `DEVICE` from
+2 to 4. `PrintIE` then writes `32768` to the original channel 2 and sends
+the ATASCII EOL (`$9B`) to channel 4. `PrintIDE(3,-32768)` writes the five
+digits and the EOL to channel 3 in that order.
+[Signed integer output error fixture](../fixtures/runtime/signed_integer_output_error.act)
+
 The wide decimal reviews bind the compiler-owned source separately from the
 generated link manifest. MIR6502 uses the reviewed buffer extent at a proven
 RAM address from `$0600` to below the loaded image and the hardware range. It
@@ -203,7 +211,7 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | InputD, InputMD, InputSD, InputS, Note, Point | Returning CIO device and error-handler guarantees. Note's write-back also needs ordinary destination and pointer-scratch alias checks. |
 | Put, PutE, PutDE, Print, PrintE, PrintD, PrintDE | Returning CIO device and error-handler guarantees. |
 | InputB, InputC, InputI, InputBD, InputCD, InputID | Returning CIO device and error-handler guarantees. The parser runs after a returning error handler. |
-| PrintB, PrintC, PrintI and their E, D, DE variants | Returning CIO device and error-handler guarantees. Subsequent transfers can depend on scratch and device state left by an earlier transfer. |
+| PrintB, PrintC, PrintI and their E, D, DE variants | The PrintIE and PrintIDE paths after a failed minus-sign write are checked on both providers. Subsequent transfers can depend on scratch and device state, so returning device and error-handler effects remain unknown. |
 | Break, Error, Panic | Program-stop behavior is accepted where a supported helper includes it. No public returning preservation claim. |
 
 Ordinary Action wrappers use the existing acyclic analysis when all their
