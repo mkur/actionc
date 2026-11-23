@@ -92,7 +92,7 @@ fn check(output: &CodegenOutput, mode: CompileMode, runtime: Runtime) {
         // InS subtracts one from the returned count even without an EOL.
         // Keeping the final '8' would produce a different packed REAL.
         let record = PartialRecord {
-            buffer: buffers[i],
+            expected_buffer: Some(buffers[i]),
             capacity: capacities[i],
             bytes: b"-7.258",
         };
@@ -103,6 +103,7 @@ fn check(output: &CodegenOutput, mode: CompileMode, runtime: Runtime) {
             channels[i],
             5,
             Some(record),
+            &[0x82],
         );
         let (default, explicit) = if i == 0 {
             (PARTIAL, EXPLICIT)

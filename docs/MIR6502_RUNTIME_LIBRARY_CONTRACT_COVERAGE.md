@@ -109,6 +109,14 @@ parser callers still keep the live byte inline. The result uses `$A0–$A3`,
 and the selected parser's scratch and homes cover `$E0–$EF`. Full effects still
 include the error handler and its observations. [Provider sources](../embedded/runtime/SYSLONG.ACT) · [Cartridge error shim](../embedded/runtime/SYSLONGC.ACT#L13)
 
+`InputLC` and `InputLI` read from `DEVICE`. Their explicit-channel forms,
+`InputLCD` and `InputLID`, pass the supplied channel to `InputMD`. On both
+providers each wrapper requests a 255-byte record. After a returning CIO
+error, the wrapper checks the last byte transferred. An ATASCII EOL (`$9B`)
+lets it parse the counted digits. A partial record without EOL raises error
+104, and the caller's result stays untouched even when that handler returns.
+[Wide input error fixture](../fixtures/runtime/long_integer_input_error.act)
+
 For `ValR`, MIR6502 requires both complete buffer spans in ordinary RAM from
 `$0600` to below the loaded image and hardware. It checks the selected AFP call
 and reserves the wrapper's physical writes, the hardware stack, and the FPP
@@ -167,7 +175,7 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | ValB, ValC, ValI with an unproven source | An address proof that excludes cartridge bank controls from the indexed read window. |
 | StrB, StrC, StrI with an unproven destination | A numeric span below the loaded image and the hardware range, disjoint from the pointer, stack, staging, and FPP workspace. |
 | StrLC, StrLI, ValLC, ValLI with unproven buffers | A proven ordinary RAM span disjoint from the selected implementation and its scratch. |
-| LONGCARD/LONGINT I/O | Returning CIO device and error-handler guarantees for the I/O wrappers. |
+| LONGCARD/LONGINT I/O | Input channel selection and EOL handling after a returning error are checked on both providers. CIO device and error-handler effects remain unknown. |
 | ValR with an unproven buffer | Both the 256-byte source span and the six-byte destination span must be proven disjoint from implementation scratch. |
 | StrR with unproven operands | A normalized packed source and both ordinary RAM spans. A malformed OS-B result can leave the wrapper's copy unterminated. |
 | PrintR, PrintRE, PrintRD, PrintRDE | The wrapper paths are checked on both providers. Returning CIO device and error-handler effects stay unknown. |

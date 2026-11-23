@@ -1,0 +1,24 @@
+; The VM selects one wrapper per run and supplies its GET RECORD result.
+MODULE LONG_INPUT_ERROR
+USE SYS
+
+BYTE choice=$0600,stage=$0601
+LONGCARD unsignedValue=$0604
+LONGINT signedValue=$0608
+
+PROC Main()
+  SYS.Open(2,"Q:",4,0)
+  SYS.Open(3,"Q:",4,0)
+  DEVICE=2
+  stage=1
+  IF choice=0 THEN unsignedValue=SYS.InputLC()
+  ELSEIF choice=1 THEN signedValue=SYS.InputLI()
+  ELSEIF choice=2 THEN unsignedValue=SYS.InputLCD(3)
+  ELSE signedValue=SYS.InputLID(3)
+  FI
+  stage=2
+  DEVICE=0
+  SYS.Close(3) SYS.Close(2)
+  DO OD
+RETURN
+ENDMODULE
