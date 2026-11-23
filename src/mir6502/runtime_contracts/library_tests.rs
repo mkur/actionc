@@ -337,7 +337,7 @@ fn wide_formatting_keeps_a_live_caller_home_for_a_proven_destination() {
 
 #[test]
 fn wide_parsing_defines_four_result_bytes_with_bounded_reads_and_current_faults() {
-    use super::library::{library_invocation_at, reviewed_native_decimal, wide_decimal_buffer};
+    use super::library::{library_invocation_at, native_decimal_buffers, reviewed_native_decimal};
     use crate::mir6502::analysis::sites::MirSite;
     use crate::runtime::Runtime;
 
@@ -355,7 +355,7 @@ fn wide_parsing_defines_four_result_bytes_with_bounded_reads_and_current_faults(
             let review = library_invocation_at(&p, main, site, call, Some(0x3000))
                 .unwrap_or_else(|| panic!("missing wide parser review for {name} on {runtime:?}"));
             let values = super::buffers::argument_values(&p, main).unwrap();
-            assert_eq!(wide_decimal_buffer(&p, main, call, Some((&values, site))), Some((0x0610, 256, false)));
+            assert_eq!(native_decimal_buffers(&p, main, call, Some((&values, site))), [(0x0610, 256, false)]);
             let result: Vec<_> = (0xa0..=0xa3).map(|slot| MirMem::FixedZeroPage(MirFixedZpSlot(slot))).collect();
             assert_eq!(review.definitions, result);
             assert!(result.iter().all(|byte| review.writes.contains(byte)));
@@ -368,6 +368,77 @@ fn wide_parsing_defines_four_result_bytes_with_bounded_reads_and_current_faults(
             changed.machine_blocks.iter_mut().find(|block| block.id == *id).unwrap().items.clear();
             assert!(library_invocation_at(&changed, main, site, call, Some(0x3000)).is_none());
         }
+    }
+}
+
+#[test]
+fn valr_reviews_both_buffers_with_the_selected_afp_entry() {
+    use super::library::{library_invocation_at, native_decimal_buffers, reviewed_native_decimal};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    let source = "MODULE APP USE SYS
+        BYTE ARRAY text(256)=$0700 REAL number=$0601 CARD cursor=$0620
+        PROC Main()
+          SYS.ValR(text,@number) SYS.ValR($D4FF,@number)
+          SYS.ValR(text,$00D4) SYS.ValR(cursor,@number) SYS.ValR(text,cursor)
+          SYS.StrR(@number,text)
+        RETURN ENDMODULE";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let p = program(source, runtime);
+        let main = p.routines.iter().find(|routine| routine.abi == MirRoutineAbi::ProgramEntry).unwrap();
+        let calls: Vec<_> = main.blocks.iter().flat_map(|block| block.ops.iter().enumerate()
+            .map(move |(op_index, op)| (MirSite::Op { block: block.id, op_index }, op)))
+            .filter(|(_, op)| reviewed_native_decimal(op)).collect();
+        assert_eq!(calls.len(), 5, "{runtime:?}");
+        let (site, call) = calls[0];
+        let values = super::buffers::argument_values(&p, main).unwrap();
+        assert_eq!(native_decimal_buffers(&p, main, call, Some((&values, site))),
+            [(0x0700, 256, false), (0x0601, 6, true)]);
+        let review = library_invocation_at(&p, main, site, call, Some(0x3000))
+            .unwrap_or_else(|| panic!("missing ValR review on {runtime:?}"));
+        assert!(review.definitions.is_empty());
+        let result_writes: Vec<_> = review.writes.iter().filter_map(|mem| match mem {
+            MirMem::Absolute(address) if (0x0600..=0x07ff).contains(address) => Some(*address),
+            _ => None,
+        }).collect();
+        assert_eq!(result_writes, (0x0601..=0x0606).collect::<Vec<_>>());
+        assert!(review.writes.contains(&MirMem::FixedZeroPage(MirFixedZpSlot(0xd4))));
+        assert!(review.writes.contains(&MirMem::Absolute(0x05ff)));
+        assert!(calls[1..].iter().all(|(site, call)|
+            library_invocation_at(&p, main, *site, call, Some(0x3000)).is_none()));
+
+        let mut stale = p.clone();
+        let afp_address = stale.routines.iter_mut().find(|routine| routine.name.ends_with("::SysValR")).unwrap()
+            .blocks.iter_mut().flat_map(|block| &mut block.ops).find_map(|op| match op {
+                MirOp::Call { target: MirCallTarget::Runtime { address: Some(address), .. }
+                    | MirCallTarget::Builtin { address: Some(address), .. }, .. } => Some(address),
+                _ => None,
+            }).unwrap();
+        assert_eq!(*afp_address, 0xd800);
+        *afp_address = 0xd8e6;
+        assert!(library_invocation_at(&stale, main, site, call, Some(0x3000)).is_none());
+    }
+}
+
+#[test]
+fn valr_keeps_a_live_byte_in_zero_page_for_proven_buffers() {
+    use crate::runtime::Runtime;
+    let config = crate::mir6502::Mir6502Config::optimized();
+    let source = "MODULE APP USE SYS
+        BYTE ARRAY text(256)=$0700 REAL number=$0601 BYTE out=$0608
+        BYTE FUNC Across(BYTE keep)
+          SYS.ValR(text,@number) keep==+1 RETURN(keep)
+        PROC Main() out=Across(13) RETURN ENDMODULE";
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        let output = crate::mir6502::generate_output_with_config_and_runtime(
+            &checked_nir(source), 0x3000, &config, runtime,
+        ).unwrap();
+        let home = output.map.storage_symbols.iter().find(|symbol| {
+            let name = symbol.name.to_ascii_uppercase();
+            name == "KEEP" || name.contains("_KEEP_")
+        }).unwrap();
+        assert!(home.address < 0xd4, "{runtime:?} {home:?}");
     }
 }
 

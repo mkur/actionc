@@ -116,7 +116,7 @@ impl WideDecimal {
     }
 }
 
-fn reviewed_source(file: &str, digest: &str) -> bool {
+pub(super) fn reviewed_source(file: &str, digest: &str) -> bool {
     EmbeddedSourceProvider
         .runtime_source(file)
         .is_some_and(|source| source.sha256 == digest)

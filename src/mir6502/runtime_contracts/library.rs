@@ -72,9 +72,9 @@ pub(in crate::mir6502) fn library_invocation_at(
     program: &MirProgram, routine: &MirRoutine, site: MirSite, op: &MirOp, origin: Option<u16>,
 ) -> Option<InvocationSummary> {
     if let Some(invocation) = library_invocation(program, op) { return Some(invocation); }
-    if super::wide_decimal::binding(op).is_some() {
+    if reviewed_native_decimal(op) {
         let values = super::buffers::argument_values(program, routine)?;
-        return super::wide_decimal::invocation_at(program, routine, op, (&values, site), origin?);
+        return super::native_decimal::invocation_at(program, routine, op, (&values, site), origin?);
     }
     if !requires_argument_proof(program, op) {
         return None;
@@ -92,13 +92,21 @@ pub(in crate::mir6502) fn requires_argument_proof(program: &MirProgram, op: &Mir
 }
 
 pub(in crate::mir6502) fn reviewed_native_decimal(op: &MirOp) -> bool {
-    super::wide_decimal::binding(op).is_some()
+    super::native_decimal::binding(op).is_some()
 }
 
-pub(in crate::mir6502) fn wide_decimal_buffer(program: &MirProgram, routine: &MirRoutine, op: &MirOp,
+pub(in crate::mir6502) fn native_decimal_buffers(program: &MirProgram, routine: &MirRoutine, op: &MirOp,
     values: Option<(&MirMachineValueAvailability, MirSite)>,
-) -> Option<(u16, u16, bool)> {
-    super::wide_decimal::buffer_at(program, routine, op, values)
+) -> Vec<(u16, u16, bool)> {
+    super::native_decimal::buffers_at(program, routine, op, values)
+}
+
+pub(in crate::mir6502) fn native_decimal_workspace(op: &MirOp) -> &'static [(u16, u16)] {
+    if matches!(super::native_decimal::binding(op), Some((SysReview::ValR, ..))) {
+        &crate::callee6502::sys_decimal::FPP_ASCII_WORKSPACE
+    } else {
+        &[]
+    }
 }
 
 pub(in crate::mir6502) fn reviewed_memory_routine(
@@ -185,7 +193,7 @@ fn library_invocation_with_values(
             SysReview::Decimal(decimal) => (
                 vec![scalar(decimal.integer()), MirDirectParamAbi::Pointer], MirDirectResultAbi::Void,
             ),
-            SysReview::Cio(_) | SysReview::WideDecimal(_) => return None,
+            SysReview::Cio(_) | SysReview::WideDecimal(_) | SysReview::ValR => return None,
         };
         if interface.frame.direct_parameter_abi.as_ref() != Some(&parameters)
             || interface.direct_result_abi != Some(result)

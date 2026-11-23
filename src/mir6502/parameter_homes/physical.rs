@@ -344,7 +344,8 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                         }
                     }
                 }
-                if let Some((address, bytes, write)) = library::wide_decimal_buffer(p, r, op, site) {
+                out.extend(library::native_decimal_workspace(op).iter().map(|&(start, end)| (start, end - start + 1)));
+                for (address, bytes, write) in library::native_decimal_buffers(p, r, op, site) {
                     // A destination in ZP can change its own carriers and may
                     // escape the reviewed source span.
                     if write && (address < 0x100 || address.checked_add(bytes - 1).is_none()) {

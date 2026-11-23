@@ -5,6 +5,7 @@ use super::sys_decimal::DecimalRoutine;
 use super::sys_graphics::GraphicsRoutine;
 use super::sys_hardware::HardwareRoutine;
 use super::sys_memory::MemoryRoutine;
+use super::sys_real_decimal;
 use super::sys_strings::{StringArguments, StringRoutine};
 use super::sys_wide_decimal::WideDecimal;
 use crate::runtime_source::RuntimeImage;
@@ -19,6 +20,7 @@ pub(crate) enum SysReview {
     Strings(StringRoutine),
     Decimal(DecimalRoutine),
     WideDecimal(WideDecimal),
+    ValR,
 }
 
 impl SysReview {
@@ -31,6 +33,7 @@ impl SysReview {
             .or_else(|| StringRoutine::for_interface(name).map(Self::Strings))
             .or_else(|| DecimalRoutine::for_interface(name).map(Self::Decimal))
             .or_else(|| WideDecimal::for_interface(name).map(Self::WideDecimal))
+            .or_else(|| (crate::runtime_bindings::binding_key(name) == "SYS.VALR").then_some(Self::ValR))
     }
 
     pub(crate) fn matches_signature(self, signature: &SemRoutineSignature) -> bool {
@@ -42,6 +45,7 @@ impl SysReview {
             Self::Strings(routine) => routine.matches_signature(signature),
             Self::Decimal(routine) => routine.matches_signature(signature),
             Self::WideDecimal(routine) => routine.matches_signature(signature),
+            Self::ValR => sys_real_decimal::matches_signature(signature),
         }
     }
 
@@ -66,7 +70,7 @@ impl SysReview {
             Self::Memory(routine) => routine.matches_cart(address),
             Self::Strings(routine) => routine.matches_cart(address),
             Self::Decimal(routine) => routine.matches_cart(address),
-            Self::WideDecimal(_) => false,
+            Self::WideDecimal(_) | Self::ValR => false,
         }
     }
 
@@ -84,6 +88,7 @@ impl SysReview {
             Self::Strings(routine) => routine.matches_linked(image, unit, name),
             Self::Decimal(routine) => routine.matches_linked(image, unit, name),
             Self::WideDecimal(routine) => routine.matches_linked(image, unit, name),
+            Self::ValR => sys_real_decimal::matches_linked(image, unit, name),
         }
     }
 
@@ -101,6 +106,7 @@ impl SysReview {
             Self::Strings(routine) => routine.facts(StringArguments::from_arguments(argument), origin),
             Self::Decimal(routine) => routine.facts(argument(routine.buffer_argument()), origin),
             Self::WideDecimal(routine) => routine.facts(),
+            Self::ValR => sys_real_decimal::facts(),
         }
     }
 
@@ -127,7 +133,7 @@ impl SysReview {
     }
 
     pub(crate) fn uses_precomputed_writes(self) -> bool {
-        matches!(self, Self::Memory(_) | Self::Strings(_) | Self::Decimal(_) | Self::WideDecimal(_))
+        matches!(self, Self::Memory(_) | Self::Strings(_) | Self::Decimal(_) | Self::WideDecimal(_) | Self::ValR)
     }
 }
 

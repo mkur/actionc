@@ -9,12 +9,15 @@ use crate::semantic::ir::SemRoutineSignature;
 use crate::semantic::{ValueType, ValueTypeBase};
 
 pub(crate) const FORMAT_STAGING: u16 = 0x0550;
+/// The hardware stack and both documented math-pack RAM windows.
+pub(crate) const FPP_ASCII_WORKSPACE: [(u16, u16); 3] =
+    [(0x0100, 0x01ff), (0x057e, 0x05ff), (0x00d4, 0x00ff)];
 /// Hardware stack, counted magnitude staging, and the two documented FPP RAM windows.
 pub(crate) const FORMAT_WORKSPACE: [(u16, u16); 4] = [
-    (0x0100, 0x01ff),
+    FPP_ASCII_WORKSPACE[0],
     (FORMAT_STAGING, FORMAT_STAGING + 5),
-    (0x057e, 0x05ff),
-    (0x00d4, 0x00ff),
+    FPP_ASCII_WORKSPACE[1],
+    FPP_ASCII_WORKSPACE[2],
 ];
 
 pub(super) fn cart_formatter_matches() -> bool {

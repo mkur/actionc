@@ -33,6 +33,7 @@ merge interface signatures: `Peek` and `PeekC` remain distinct.
 | StrB, StrC, StrI | BYTE value and destination in A and X/Y, or word value and destination in A/X and Y/`$A3` / void | Wrapper scratch, hardware stack, FPP workspace, and up to 4, 6, or 7 bytes at a proven destination | `CToStr` calls IFP (`$D9AA`) and FASC (`$D8E6`) and stages a counted magnitude at `$0550`. The destination bound includes its length byte and the possible `StrI` sign. [FPP workspace audit](Action_2027/ATARI_FPP_ORACLE.md#sys-integer-string-formatting) |
 | StrLC, StrLI | LONGCARD or LONGINT followed by a string pointer / void | Selected native scratch and arithmetic helper writes, plus up to 11 or 12 bytes at a proven destination | Both providers use the same Action! formatter. The destination bound includes the length byte and the possible sign. |
 | ValLC, ValLI | String pointer in A/X / four result bytes at `$A0–$A3` on return | Selected native scratch, private storage and result lanes | Reads at most 256 bytes including the source length. Invalid input and overflow enter provider-specific error shims that stop even if the handler returns. |
+| ValR | Counted string pointer in A/X, REAL destination pointer in Y/`$A3` / void | Selected native scratch, hardware stack, FPP workspace and six bytes at the proven destination | Reads at most 256 bytes including the length. Both providers select `SysValR`, which copies the payload into a private NUL-terminated buffer, calls AFP at `$D800`, and copies FR0 to the destination. |
 | Zero | Destination pointer, word count / void | `$A0–$A4` | Destination writes; falls through into SetBlock. |
 | SetBlock | Destination pointer, word count, byte value / void | `$A0–$A3` | Destination writes, dynamic extent. |
 | MoveBlock | Destination/source pointers, word count / void | `$A0–$A3`, `$A5` | Reads source and writes destination, dynamic extent; forward copy. |
@@ -107,6 +108,15 @@ parser callers still keep the live byte inline. The result uses `$A0–$A3`,
 and the selected parser's scratch and homes cover `$E0–$EF`. Full effects still
 include the error handler and its observations. [Provider sources](../embedded/runtime/SYSLONG.ACT) · [Cartridge error shim](../embedded/runtime/SYSLONGC.ACT#L13)
 
+For `ValR`, MIR6502 requires both complete buffer spans in ordinary RAM from
+`$0600` to below the loaded image and hardware. It checks the selected AFP call
+and reserves the wrapper's physical writes, the hardware stack, and the FPP
+windows at `$00D4–$00FF` and `$057E–$05FF`. With these proofs, a live caller
+byte can stay in zero page. The VM fixture exercises a 255-character payload,
+both bytes bordering the six-byte result, and a caller byte live across the call.
+[Provider source](../embedded/runtime/SYSREAL.ACT#L31) ·
+[REAL VM fixture](../fixtures/runtime/native_real_library.act)
+
 ## Remaining public-library coverage
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
@@ -121,7 +131,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | StrB, StrC, StrI with an unproven destination | A numeric span below the loaded image and the hardware range, disjoint from the pointer, stack, staging, and FPP workspace. |
 | StrLC, StrLI, ValLC, ValLI with unproven buffers | A proven ordinary RAM span disjoint from the selected implementation and its scratch. |
 | LONGCARD/LONGINT I/O | Returning CIO device and error-handler guarantees for the I/O wrappers. |
-| StrR, ValR and REAL I/O | Atari floating-point service effects and pointer buffers. |
+| ValR with an unproven buffer | Both the 256-byte source span and the six-byte destination span must be proven disjoint from implementation scratch. |
+| StrR and REAL I/O | Atari floating-point service effects and pointer buffers. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
 | Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |

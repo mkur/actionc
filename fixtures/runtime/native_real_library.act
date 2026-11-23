@@ -30,6 +30,13 @@ BYTE ARRAY text(20)=$0648
 BYTE done=$065C
 BYTE rnd_in_range=$067E
 CARD rnd_bits=$067F
+REAL parsed_full=$06A9
+BYTE kept=$06B0
+BYTE ARRAY full_text(256)=$0700
+
+BYTE FUNC ParseFull(BYTE keep)
+  SYS.ValR(full_text,@parsed_full)
+RETURN(keep)
 
 PROC Main()
   source=0
@@ -42,6 +49,7 @@ PROC Main()
   MATH.Log10(@source,@log10_result)
   SYS.StrR(@log10_result,text)
   SYS.ValR(text,@parsed_result)
+  kept=ParseFull($6D)
   source=2
   MATH.Sqrt(@source,@sqrt_result)
   source=0.5
