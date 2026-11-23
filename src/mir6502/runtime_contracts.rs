@@ -5,6 +5,7 @@ pub(super) mod signatures;
 mod invocation;
 pub(super) mod buffers;
 pub(super) mod library;
+mod wide_decimal;
 pub(super) use library::library_invocation;
 pub(super) use invocation::{invocation, helper_invocation};
 use std::collections::BTreeSet;

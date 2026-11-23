@@ -473,34 +473,14 @@ fn retained_base(
     value: &MirValue,
     write: FormalWrite,
 ) -> Option<Base> {
-    use super::super::use_def::{MirTempLane, MirTempUseDefIndex};
+    use super::super::use_def::local_word_temp_definition;
     let mem = match value {
         MirValue::ConstU8(n) => return Some(Base::Numeric(u16::from(*n))),
         MirValue::ConstU16(n) => return Some(Base::Numeric(*n)),
         MirValue::GlobalAddr(id) => MirMem::Global { id: *id, offset: 0 },
         MirValue::StaticAddr(id) => MirMem::Static { id: *id, offset: 0 },
         MirValue::Def(MirDef::VTemp(temp)) => {
-            let defs = MirTempUseDefIndex::from_routine(routine);
-            let definition = |byte| {
-                Some(
-                    defs.unique_definition(MirTempLane { temp: *temp, byte })?
-                        .site,
-                )
-            };
-            let MirSite::Op { block, op_index } = definition(0)? else {
-                return None;
-            };
-            if definition(0) != definition(1)
-                || !matches!(site, MirSite::Op {block:b,op_index:i} if b==block && i>op_index)
-            {
-                return None;
-            }
-            let op = routine
-                .blocks
-                .iter()
-                .find(|b| b.id == block)?
-                .ops
-                .get(op_index)?;
+            let (definition_site, op) = local_word_temp_definition(routine, site, *temp)?;
             match op {
                 MirOp::LeaAddr {
                     target,
@@ -512,6 +492,7 @@ fn retained_base(
                     width: MirWidth::Word,
                     ..
                 } => {
+                    let MirSite::Op { block, op_index } = definition_site else { return None; };
                     // Retained parameter storage denotes its incoming value only
                     // before any reachable write. This bounded case starts in
                     // the entry block and stops at the first possible alias.

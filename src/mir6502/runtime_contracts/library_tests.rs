@@ -275,6 +275,103 @@ fn numeric_formatting_keeps_a_live_home_only_for_an_ordinary_destination() {
 }
 
 #[test]
+fn wide_formatting_composes_the_selected_helpers_and_bounds_the_destination() {
+    use super::library::{library_invocation_at, reviewed_native_decimal};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for (name, bytes) in [("StrLC", 11), ("StrLI", 12)] {
+            let source = format!("MODULE APP USE SYS
+                PROC Main() SYS.{name}(42,$0610) SYS.{name}(42,$00A4) RETURN ENDMODULE");
+            let p = program(&source, runtime);
+            let main = p.routines.iter().find(|r| r.abi == MirRoutineAbi::ProgramEntry).unwrap();
+            let calls: Vec<_> = main.blocks.iter().flat_map(|block| block.ops.iter().enumerate()
+                .map(move |(op_index, op)| (MirSite::Op { block: block.id, op_index }, op)))
+                .filter(|(_, op)| reviewed_native_decimal(op)).collect();
+            assert_eq!(calls.len(), 2, "{runtime:?} {name}");
+            let (site, call) = calls[0];
+            let review = library_invocation_at(&p, main, site, call, Some(0x3000))
+                .unwrap_or_else(|| panic!("missing wide formatter review for {name} on {runtime:?}"));
+            let destination: Vec<_> = review.writes.iter().filter_map(|mem| match mem {
+                MirMem::Absolute(address) if (0x0610..=0x0630).contains(address) => Some(*address),
+                _ => None,
+            }).collect();
+            assert_eq!(destination, (0x0610..0x0610 + bytes).collect::<Vec<_>>());
+            assert!(review.writes.contains(&MirMem::FixedZeroPage(MirFixedZpSlot(0xc4))));
+            assert!(review.definitions.is_empty());
+            assert!(library_invocation_at(&p, main, calls[1].0, calls[1].1, Some(0x3000)).is_none());
+
+            let mut changed = p.clone();
+            changed.runtime_helpers.iter_mut().find(|helper| helper.helper == MirRuntimeHelper::UDiv32)
+                .unwrap().binding = None;
+            assert!(library_invocation_at(&changed, main, site, call, Some(0x3000)).is_none());
+        }
+    }
+}
+
+#[test]
+fn wide_formatting_keeps_a_live_caller_home_for_a_proven_destination() {
+    use crate::runtime::Runtime;
+    let config = crate::mir6502::Mir6502Config::optimized();
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for name in ["StrLC", "StrLI"] {
+            for (destination, resident) in [("$0610", true), ("text", true), ("cursor", false)] {
+                let source = format!("MODULE APP USE SYS
+                    BYTE ARRAY text(12)=$610 CARD cursor=$620 BYTE out=$630
+                    BYTE FUNC Across(BYTE keep)
+                    SYS.{name}(42,{destination}) keep==+1 RETURN(keep)
+                    PROC Main() out=Across(13) RETURN ENDMODULE");
+                let output = crate::mir6502::generate_output_with_config_and_runtime(
+                    &checked_nir(&source), 0x3000, &config, runtime,
+                ).unwrap();
+                let home = output.map.storage_symbols.iter().find(|symbol| {
+                    let name = symbol.name.to_ascii_uppercase();
+                    name == "KEEP" || name.contains("_KEEP_")
+                }).unwrap_or_else(|| panic!("missing keep home for {runtime:?} {name}: {:?}", output.map.storage_symbols));
+                assert_eq!(home.address < 256, resident, "{runtime:?} {name} {destination} {home:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn wide_parsing_defines_four_result_bytes_with_bounded_reads_and_current_faults() {
+    use super::library::{library_invocation_at, reviewed_native_decimal, wide_decimal_buffer};
+    use crate::mir6502::analysis::sites::MirSite;
+    use crate::runtime::Runtime;
+
+    for runtime in [Runtime::ActionCart, Runtime::Standalone] {
+        for name in ["ValLC", "ValLI"] {
+            let source = format!("MODULE APP USE SYS LONGCARD result=$0600
+                PROC Main() result=SYS.{name}($0610) result=SYS.{name}($D4FF) RETURN ENDMODULE");
+            let p = program(&source, runtime);
+            let main = p.routines.iter().find(|r| r.abi == MirRoutineAbi::ProgramEntry).unwrap();
+            let calls: Vec<_> = main.blocks.iter().flat_map(|block| block.ops.iter().enumerate()
+                .map(move |(op_index, op)| (MirSite::Op { block: block.id, op_index }, op)))
+                .filter(|(_, op)| reviewed_native_decimal(op)).collect();
+            assert_eq!(calls.len(), 2, "{runtime:?} {name}");
+            let (site, call) = calls[0];
+            let review = library_invocation_at(&p, main, site, call, Some(0x3000))
+                .unwrap_or_else(|| panic!("missing wide parser review for {name} on {runtime:?}"));
+            let values = super::buffers::argument_values(&p, main).unwrap();
+            assert_eq!(wide_decimal_buffer(&p, main, call, Some((&values, site))), Some((0x0610, 256, false)));
+            let result: Vec<_> = (0xa0..=0xa3).map(|slot| MirMem::FixedZeroPage(MirFixedZpSlot(slot))).collect();
+            assert_eq!(review.definitions, result);
+            assert!(result.iter().all(|byte| review.writes.contains(byte)));
+            assert!(review.writes.iter().all(|byte| !matches!(byte, MirMem::Absolute(address) if (0x0610..=0x070f).contains(address))));
+            assert!(library_invocation_at(&p, main, calls[1].0, calls[1].1, Some(0x3000)).is_none());
+
+            let mut changed = p.clone();
+            let error = changed.routines.iter().find(|r| r.name.ends_with("LongError")).unwrap();
+            let MirOp::MachineBlock { id, .. } = &error.blocks[0].ops[0] else { unreachable!(); };
+            changed.machine_blocks.iter_mut().find(|block| block.id == *id).unwrap().items.clear();
+            assert!(library_invocation_at(&changed, main, site, call, Some(0x3000)).is_none());
+        }
+    }
+}
+
+#[test]
 fn the_second_peek_read_protects_an_observed_zero_page_byte() {
     let config = crate::mir6502::Mir6502Config::optimized();
     for runtime in [crate::runtime::Runtime::ActionCart, crate::runtime::Runtime::Standalone] {

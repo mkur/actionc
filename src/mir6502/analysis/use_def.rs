@@ -8,7 +8,7 @@ use crate::mir6502::analysis::effects::{
     MirTempAccess, MirTempUseKind, classify_op, classify_terminator,
 };
 use crate::mir6502::analysis::sites::MirSite;
-use crate::mir6502::ir::{MirBlockId, MirRoutine, MirTempId, MirWidth};
+use crate::mir6502::ir::{MirBlockId, MirOp, MirRoutine, MirTempId, MirWidth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(in crate::mir6502) struct MirTempLane {
@@ -67,6 +67,23 @@ pub(in crate::mir6502) struct MirUseSite {
 pub(in crate::mir6502) struct MirTempUseDefIndex {
     definitions: BTreeMap<MirTempLane, Vec<MirDefSite>>,
     uses: BTreeMap<MirTempId, Vec<MirUseSite>>,
+}
+
+/// A whole word produced by one preceding definition in the current block.
+pub(in crate::mir6502) fn local_word_temp_definition(
+    routine: &MirRoutine, use_site: MirSite, temp: MirTempId,
+) -> Option<(MirSite, &MirOp)> {
+    let defs = MirTempUseDefIndex::from_routine(routine);
+    let definition = |byte| Some(defs.unique_definition(MirTempLane { temp, byte })?.site);
+    let MirSite::Op { block, op_index } = definition(0)? else { return None; };
+    if definition(1) != Some(MirSite::Op { block, op_index })
+        || !matches!(use_site, MirSite::Op { block: use_block, op_index: use_index }
+            if use_block == block && use_index > op_index)
+    {
+        return None;
+    }
+    let op = routine.blocks.iter().find(|candidate| candidate.id == block)?.ops.get(op_index)?;
+    Some((MirSite::Op { block, op_index }, op))
 }
 
 impl MirTempUseDefIndex {

@@ -36,6 +36,7 @@ pub(super) fn needs_observation_proof(p: &MirProgram, r: &MirRoutine) -> bool {
                 || library::reviewed_memory_routine(p, op).is_some()
                 || library::reviewed_string_routine(p, op).is_some()
                 || library::reviewed_decimal_routine(p, op).is_some()
+                || library::reviewed_native_decimal(op)
             {
                 return true;
             }
@@ -276,7 +277,8 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
         let values = r.blocks.iter().flat_map(|b| &b.ops)
             .any(|op| library_invocation(p, op).is_some() || library::reviewed_memory_routine(p, op).is_some()
                 || library::reviewed_string_routine(p, op).is_some()
-                || library::reviewed_decimal_routine(p, op).is_some())
+                || library::reviewed_decimal_routine(p, op).is_some()
+                || library::reviewed_native_decimal(op))
             .then(|| buffers::argument_values(p, r)).flatten();
         for b in &r.blocks {
             for memory in b
@@ -340,6 +342,15 @@ pub(super) fn numeric_observations(p: &MirProgram, memory: Option<&MirPhysicalMe
                         } else {
                             out.push((address, decimal.buffer_bytes()));
                         }
+                    }
+                }
+                if let Some((address, bytes, write)) = library::wide_decimal_buffer(p, r, op, site) {
+                    // A destination in ZP can change its own carriers and may
+                    // escape the reviewed source span.
+                    if write && (address < 0x100 || address.checked_add(bytes - 1).is_none()) {
+                        out.extend([(0, u16::MAX), (u16::MAX, 1)]);
+                    } else {
+                        out.push((address, bytes));
                     }
                 }
                 if let MirOp::Load {

@@ -978,7 +978,7 @@ fn summarize_op_writes(
     record_physical_writes(routine, effects, writes);
 }
 
-fn record_physical_writes(
+pub(in crate::mir6502) fn record_physical_writes(
     routine: &MirRoutine,
     effects: super::effects::MirOpEffectSummary,
     writes: &mut MirKnownMemoryWrites,
