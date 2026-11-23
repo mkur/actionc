@@ -1,10 +1,10 @@
-; Exercise every public decimal output wrapper on CIO channel zero. Separators
-; make calls without an end-of-line distinguishable in the captured byte stream.
+; Exercise decimal output on the console, the current output channel, and an explicit channel.
 MODULE RESIDENT_NUMERIC_OUTPUT_TEST
 
 USE SYS
 
 REAL positiveReal,negativeReal
+BYTE currentOutput=$B7
 
 PROC Main()
   INT minimum,minusOne,minusValue
@@ -40,12 +40,18 @@ PROC Main()
 
   positiveReal=1.25
   negativeReal=-2.5
+  Open(2,"D:CURRENT.TXT",8,0)
+  Open(3,"D:EXPLICIT.TXT",8,0)
+  currentOutput=2
   SYS.PrintR(@positiveReal)
   Put('|)
   SYS.PrintRE(@positiveReal)
-  SYS.PrintRD(0,@negativeReal)
-  Put('|)
-  SYS.PrintRDE(0,@negativeReal)
+  SYS.PrintRD(3,@negativeReal)
+  PutD(3,'|)
+  SYS.PrintRDE(3,@negativeReal)
+  currentOutput=0
+  Close(3)
+  Close(2)
 
   DO
   OD

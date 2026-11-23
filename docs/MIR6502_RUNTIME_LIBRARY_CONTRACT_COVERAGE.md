@@ -126,6 +126,17 @@ the selected implementation's scratch. A changed FASC target invalidates
 the call contract. An unknown value behind an otherwise known source
 pointer keeps the formatter's effects open. [FASC bounds and OS-B exception](Action_2027/ATARI_FPP_ORACLE.md#fasc-and-transcendental-vectors)
 
+The four REAL output wrappers format into a local `STRING text(20)`.
+On ActionCart, `PrintR` and `PrintRE` use the current channel through
+`Print` and `PrintE`. The latter sends PUT RECORD (`$09`), with the
+reviewed conditional EOL continuation. Standalone sends the digits on
+channel zero through `PrintD` (`$0B`) and `PrintRE` then sends a separate
+`$9B` via `PutDE`. On both providers `PrintRD` uses the explicit channel
+and `PrintRDE` follows that transfer with `PutDE`. The VM case distinguishes
+channel zero, current channel two and explicit channel three. The device
+and returning error-handler effects remain open for all four wrappers.
+[Cartridge wrappers](../embedded/runtime/SYSREALC.ACT#L15) · [Standalone wrappers](../embedded/runtime/SYSREAL.ACT#L49) · [CIO fixture](../fixtures/runtime/resident_numeric_output.act)
+
 ## Remaining public-library coverage
 
 The [implementation plan](6502_STANDARD_LIBRARY_CONTRACTS_IMPLEMENTATION_PLAN.md)
@@ -142,7 +153,8 @@ shared `PutD`, `GetD`, `Close`, `Open` and `XIO` dependencies.
 | LONGCARD/LONGINT I/O | Returning CIO device and error-handler guarantees for the I/O wrappers. |
 | ValR with an unproven buffer | Both the 256-byte source span and the six-byte destination span must be proven disjoint from implementation scratch. |
 | StrR with unproven operands | A normalized packed source and both ordinary RAM spans. A malformed OS-B result can leave the wrapper's copy unterminated. |
-| REAL I/O | Provider-specific CIO and returning error-handler effects. |
+| PrintR, PrintRE, PrintRD, PrintRDE | The wrapper paths are checked on both providers. Returning CIO device and error-handler effects stay unknown. |
+| InputR, InputRD | Provider-specific CIO input and the following REAL conversion. |
 | Peek, PeekC, Poke, PokeC with computed addresses | A numeric address proof at the call site. |
 | Sound with an unproven voice | Effects of a returning error handler. |
 | Plot, Locate, DrawTo, Fill, Graphics, PutD, GetD, Open, Close, XIO | Transitive device and returning error-handler effects. The reviews bind the provider's wrapper through the CIO setup and status path. |

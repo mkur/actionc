@@ -1269,25 +1269,27 @@ mod tests {
     #[test]
     fn resident_numeric_output_matches_under_both_runtimes_and_backends() {
         let max_steps = 150_000;
-        let expected = [
+        let integer_output = [
             &b"0|255\x9B"[..],
             &b"42|7\x9B"[..],
             &b"0|65535\x9B"[..],
             &b"1234|42\x9B"[..],
             &b"-1|32767\x9B"[..],
             &b"-1234|-32768\x9B"[..],
-            &b"1.25|1.25\x9B"[..],
-            &b"-2.5|-2.5\x9B"[..],
         ]
         .concat();
         for runtime in [Runtime::ActionCart, Runtime::Standalone] {
             for mode in [CompileMode::Optimized, CompileMode::Mir6502] {
-                let outcome = run_runtime_fixture(
+                let outcome = run_runtime_fixture_with_setup(
                     "resident_numeric_output.act",
                     mode,
                     runtime,
                     true,
                     max_steps,
+                    |vm| {
+                        vm.bus_mut().add_host_output("CURRENT.TXT");
+                        vm.bus_mut().add_host_output("EXPLICIT.TXT");
+                    },
                 );
                 assert_eq!(
                     outcome.stop_reason(),
@@ -1295,9 +1297,16 @@ mod tests {
                     "unexpected VM stop for {runtime:?}/{mode:?}: {:?}",
                     outcome.report
                 );
+                let (real_console, real_current): (&[u8], &[u8]) = match runtime {
+                    Runtime::ActionCart => (b"", b"1.25|1.25\x9B"),
+                    Runtime::Standalone => (b"1.251.25\x9B", b"|"),
+                };
+                let bus = outcome.vm.bus();
+                assert_eq!(bus.host_file_bytes("CURRENT.TXT"), Some(real_current), "{runtime:?}/{mode:?}");
+                assert_eq!(bus.host_file_bytes("EXPLICIT.TXT"), Some(&b"-2.5|-2.5\x9B"[..]), "{runtime:?}/{mode:?}");
                 assert_eq!(
-                    outcome.vm.bus().cio_channel0_output(),
-                    expected.as_slice(),
+                    bus.cio_channel0_output(),
+                    [integer_output.as_slice(), real_console].concat(),
                     "numeric CIO output with {runtime:?}/{mode:?}"
                 );
                 let integer_lengths = [
@@ -1316,6 +1325,17 @@ mod tests {
                         assert_eq!(call.buffer, 0x0551);
                     }
                 }
+                let real_calls: Vec<_> = calls.iter().skip(integer_lengths.len())
+                    .filter(|call| matches!(call.command, 0x09 | 0x0b))
+                    .map(|call| (call.channel.unwrap(), call.command, call.length))
+                    .collect();
+                let mut expected_real = match runtime {
+                    // The host file handler completes PUT RECORD with its own EOL.
+                    Runtime::ActionCart => vec![(2, 0x0b, 4), (2, 0x0b, 0), (2, 0x09, 4)],
+                    Runtime::Standalone => vec![(0, 0x0b, 4), (2, 0x0b, 0), (0, 0x0b, 4), (0, 0x0b, 0)],
+                };
+                expected_real.extend([(3, 0x0b, 4), (3, 0x0b, 0), (3, 0x0b, 4), (3, 0x0b, 0)]);
+                assert_eq!(real_calls, expected_real, "{runtime:?}/{mode:?}");
             }
         }
     }
